@@ -164,7 +164,7 @@ export class CaptchaElement extends HTMLElement {
             <div class="pc-spacer"></div>
             <div class="pc-info">
                 ${privateCaptchaSVG}
-                <a href="https://privatecaptcha.com" class="pc-link" rel="noopener" target="_blank">Private<br />Captcha</a>
+                <a href="https://privatecaptcha.com" class="pc-link" rel="noopener nofollow" target="_blank">Private<br />Captcha</a>
             </div>
         </div>`;
 
