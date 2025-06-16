@@ -369,7 +369,7 @@ func (am *AuthMiddleware) APIKey(next http.Handler) http.Handler {
 		if err != nil {
 			switch err {
 			case db.ErrNegativeCacheHit, db.ErrRecordNotFound, db.ErrSoftDeleted:
-				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			case db.ErrInvalidInput:
 				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			default:
@@ -381,7 +381,7 @@ func (am *AuthMiddleware) APIKey(next http.Handler) http.Handler {
 		now := time.Now().UTC()
 		if !am.isAPIKeyValid(ctx, apiKey, now) {
 			// am.Cache.SetMissing(ctx, secret, negativeCacheDuration)
-			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 			return
 		} else {
 			// rate limiter key will be the {secret} itself _only_ when we are cached
