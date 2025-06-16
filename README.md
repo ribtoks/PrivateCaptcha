@@ -1,5 +1,6 @@
 <a name="top"></a>
 <img src="/web/static/img/pc-logo-dark.svg" height="50" />
+---
 
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/PrivateCaptcha/PrivateCaptcha)
 
@@ -15,16 +16,17 @@ Instead of asking users to solve complex puzzles or track their behavior, Privat
 
 - adaptive challenge difficulty (including various configuration options)
 - optimized backend API endpoints (low resource requirements)
-- lightweight widget ~17KB (including "invisible" version)
+- lightweight, customizable widget (including "invisible" version)
 - usage statistics (backend)
 - privacy-focused, no behavior tracking or PII processing
 
 ### Built with
 
-- _Go_ for backend
+- _Go_ for backend (API and Portal)
 - _Javascript_ (inevitably) for client widget, including WASM workers (where possible)
 - _Postgres_ for "business" data (accounts, properties etc.)
 - _ClickHouse_ for "operational" data (difficulty scaling, statistics etc.)
+- TailwindCSS for Portal (backend)
 
 ## Documentation
 
