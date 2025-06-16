@@ -12,7 +12,7 @@ info:
   contact:
     email: hello@privatecaptcha.com
   license:
-    name:  PolyForm Noncommercial License 1.0.0
+    name: PolyForm Noncommercial License 1.0.0
     url: https://polyformproject.org/licenses/noncommercial/1.0.0
   version: 1.0.0
 externalDocs:
@@ -43,15 +43,15 @@ paths:
           required: true
           schema:
             type: string
-          example: 'aaaaaaaabbbbccccddddeeeeeeeeeeee'
+          example: "aaaaaaaabbbbccccddddeeeeeeeeeeee"
       responses:
-        '200':
+        "200":
           description: Puzzle created
           content:
             text/plain:
               schema:
                 type: string
-              example: 'Aaqqqqq7u8zM3d3u7u7u7u4AAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAA=.AQCiRYnFLBXoqfEYUz7Up+ktTXhxXgw='
+              example: "Aaqqqqq7u8zM3d3u7u7u7u4AAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAA=.AQCiRYnFLBXoqfEYUz7Up+ktTXhxXgw="
           headers:
             X-Rate-Limit:
               description: calls per second allowed to the user
@@ -73,13 +73,13 @@ paths:
               schema:
                 type: integer
                 format: int32
-        '400':
+        "400":
           description: Invalid sitekey value or Origin header is missing
-        '403':
+        "403":
           description: Sitekey does not exist, Origin does not correspond to property
-        '429':
+        "429":
           description: Rate limited
-        '500':
+        "500":
           description: Unexpected internal error
   /siteverify:
     post:
@@ -91,7 +91,7 @@ paths:
       parameters:
         - name: X-API-Key
           in: header
-          description: ''
+          description: ""
           required: true
           schema:
             type: string
@@ -103,12 +103,12 @@ paths:
               type: string
         required: true
       responses:
-        '200':
+        "200":
           description: Successful operation
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/VerifyResponse'
+                $ref: "#/components/schemas/VerifyResponse"
           headers:
             X-Rate-Limit:
               description: calls per second allowed to the API key
@@ -130,11 +130,11 @@ paths:
               schema:
                 type: integer
                 format: int32
-        '400':
+        "400":
           description: Invalid API key format
-        '403':
+        "403":
           description: API key not found
-        '429':
+        "429":
           description: API key rate limited
       security:
         - ApiKeyAuth: []
@@ -154,7 +154,7 @@ components:
         error-codes:
           type: array
           items:
-            $ref: '#/components/schemas/VerifyErrorCode'
+            $ref: "#/components/schemas/VerifyErrorCode"
         hostname:
           type: string
           example: example.com
