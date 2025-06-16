@@ -280,7 +280,7 @@ func TestVerifyCachePriority(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.StatusCode != http.StatusUnauthorized {
+	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
 	}
 }
@@ -297,7 +297,7 @@ func TestVerifyInvalidKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.StatusCode != http.StatusUnauthorized {
+	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
 	}
 }
@@ -331,7 +331,7 @@ func TestVerifyExpiredKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.StatusCode != http.StatusUnauthorized {
+	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
 	}
 }
