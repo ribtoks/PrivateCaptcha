@@ -36,6 +36,10 @@ Please refer to the [official documentation](https://docs.privatecaptcha.com).
 
 To spin up a local version of Private Captcha, clone this repository and run in the root `make run-docker` (it requires to have Docker installed). You can check [Makefile](./Makefile) for details of what it does exactly.
 
+### OpenAPI / Swagger
+
+OpenAPI spec is [available](./docs/openapi.yaml).
+
 ### Project structure
 
 ```
