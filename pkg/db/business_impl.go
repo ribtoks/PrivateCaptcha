@@ -1329,6 +1329,8 @@ func (impl *BusinessStoreImpl) ReleaseLock(ctx context.Context, name string) err
 		slog.ErrorContext(ctx, "Failed to release a lock", "name", name, common.ErrAttr(err))
 	}
 
+	slog.DebugContext(ctx, "Released a lock", "name", name)
+
 	return err
 }
 

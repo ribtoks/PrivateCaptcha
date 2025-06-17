@@ -27,6 +27,8 @@ func TestUniqueJob(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
+	t.Parallel()
+
 	job := &TestJob{}
 
 	uniqueJob := &maintenance.UniquePeriodicJob{
@@ -36,9 +38,9 @@ func TestUniqueJob(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	go common.RunPeriodicJob(ctx, uniqueJob)
-
-	time.Sleep(3 * time.Second)
+	if err := common.RunPeriodicJobOnce(ctx, uniqueJob); err != nil {
+		t.Fatal(err)
+	}
 	cancel()
 
 	if job.count == 0 || job.count > 3 {

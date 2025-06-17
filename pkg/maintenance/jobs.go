@@ -76,7 +76,9 @@ func (j *jobs) handlePeriodicJob(w http.ResponseWriter, r *http.Request) {
 
 	for _, job := range j.periodicJobs {
 		if job.Name() == jobName {
-			go common.RunOncePeriodicJob(common.CopyTraceID(ctx, context.Background()), job)
+			go func() {
+				_ = common.RunPeriodicJobOnce(common.CopyTraceID(ctx, context.Background()), job)
+			}()
 			found = true
 			break
 		}

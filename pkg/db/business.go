@@ -110,8 +110,10 @@ func (s *BusinessStore) WithTx(ctx context.Context, fn func(*BusinessStoreImpl) 
 		return err
 	}
 	defer func() {
-		if err := tx.Rollback(ctx); err != nil {
-			slog.ErrorContext(ctx, "Failed to rollback transaction", common.ErrAttr(err))
+		if err != nil {
+			if rerr := tx.Rollback(ctx); rerr != nil {
+				slog.ErrorContext(ctx, "Failed to rollback transaction", common.ErrAttr(rerr))
+			}
 		}
 	}()
 
