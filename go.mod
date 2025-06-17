@@ -1,6 +1,6 @@
 module github.com/PrivateCaptcha/PrivateCaptcha
 
-go 1.23.4
+go 1.24
 
 toolchain go1.24.4
 
@@ -14,7 +14,7 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/jpillora/backoff v1.0.0
 	github.com/justinas/alice v1.2.0
-	github.com/maypok86/otter v1.2.1
+	github.com/maypok86/otter/v2 v2.0.0-20250616223213-73ec080fc790
 	github.com/prometheus/client_golang v1.20.5
 	github.com/realclientip/realclientip-go v1.0.0
 	github.com/rs/cors v1.11.0
@@ -32,8 +32,6 @@ require (
 	github.com/andybalholm/cascadia v1.3.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/dolthub/maphash v0.1.0 // indirect
-	github.com/gammazero/deque v0.2.1 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect

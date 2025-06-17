@@ -33,12 +33,6 @@ github.com/beorn7/perks/quantile
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
-# github.com/dolthub/maphash v0.1.0
-## explicit; go 1.18
-github.com/dolthub/maphash
-# github.com/gammazero/deque v0.2.1
-## explicit; go 1.18
-github.com/gammazero/deque
 # github.com/go-faster/city v1.0.1
 ## explicit; go 1.17
 github.com/go-faster/city
@@ -126,20 +120,21 @@ github.com/mailru/easyjson
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
-# github.com/maypok86/otter v1.2.1
-## explicit; go 1.19
-github.com/maypok86/otter
-github.com/maypok86/otter/internal/core
-github.com/maypok86/otter/internal/expiry
-github.com/maypok86/otter/internal/generated/node
-github.com/maypok86/otter/internal/hashtable
-github.com/maypok86/otter/internal/lossy
-github.com/maypok86/otter/internal/queue
-github.com/maypok86/otter/internal/s3fifo
-github.com/maypok86/otter/internal/stats
-github.com/maypok86/otter/internal/unixtime
-github.com/maypok86/otter/internal/xmath
-github.com/maypok86/otter/internal/xruntime
+# github.com/maypok86/otter/v2 v2.0.0-20250616223213-73ec080fc790
+## explicit; go 1.24
+github.com/maypok86/otter/v2
+github.com/maypok86/otter/v2/internal/clock
+github.com/maypok86/otter/v2/internal/deque
+github.com/maypok86/otter/v2/internal/deque/queue
+github.com/maypok86/otter/v2/internal/eviction/tinylfu
+github.com/maypok86/otter/v2/internal/expiration
+github.com/maypok86/otter/v2/internal/generated/node
+github.com/maypok86/otter/v2/internal/hashmap
+github.com/maypok86/otter/v2/internal/lossy
+github.com/maypok86/otter/v2/internal/xmath
+github.com/maypok86/otter/v2/internal/xruntime
+github.com/maypok86/otter/v2/internal/xsync
+github.com/maypok86/otter/v2/stats
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg

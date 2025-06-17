@@ -38,7 +38,7 @@ func (c *StaticCache[TKey, TValue]) Get(ctx context.Context, key TKey) (TValue, 
 	}
 }
 
-func (c *StaticCache[TKey, TValue]) SetMissing(ctx context.Context, key TKey, ttl time.Duration) error {
+func (c *StaticCache[TKey, TValue]) SetMissing(ctx context.Context, key TKey) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -56,7 +56,7 @@ func (c *StaticCache[TKey, TValue]) compressUnsafe() {
 	}
 }
 
-func (c *StaticCache[TKey, TValue]) Set(ctx context.Context, key TKey, t TValue, ttl time.Duration) error {
+func (c *StaticCache[TKey, TValue]) Set(ctx context.Context, key TKey, t TValue) error {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
@@ -66,6 +66,11 @@ func (c *StaticCache[TKey, TValue]) Set(ctx context.Context, key TKey, t TValue,
 
 	c.cache[key] = t
 	return nil
+}
+
+func (c *StaticCache[TKey, TValue]) SetTTL(ctx context.Context, key TKey, t TValue, _ time.Duration) error {
+	// ttl is not supported here
+	return c.Set(ctx, key, t)
 }
 
 func (c *StaticCache[TKey, TValue]) Delete(ctx context.Context, key TKey) error {

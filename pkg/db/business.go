@@ -34,6 +34,7 @@ const (
 	PortalLoginPropertyID    = "1ca8041a-5761-40a4-addf-f715a991bfea"
 	PortalRegisterPropertyID = "8981be7a-3a71-414d-bb74-e7b4456603fd"
 	TestPropertyID           = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	defaultCacheTTL          = 5 * time.Minute
 )
 
 type BusinessStore struct {
@@ -60,7 +61,7 @@ func NewBusiness(pool *pgxpool.Pool) *BusinessStore {
 	const maxCacheSize = 1_000_000
 	var cache common.Cache[CacheKey, any]
 	var err error
-	cache, err = NewMemoryCache[CacheKey, any](maxCacheSize, nil /*missing value*/)
+	cache, err = NewMemoryCache[CacheKey, any](maxCacheSize, nil /*missing value*/, defaultCacheTTL)
 	if err != nil {
 		slog.Error("Failed to create memory cache", common.ErrAttr(err))
 		cache = NewStaticCache[CacheKey, any](maxCacheSize, nil /*missing value*/)
@@ -73,7 +74,7 @@ func NewBusinessEx(pool *pgxpool.Pool, cache common.Cache[CacheKey, any]) *Busin
 	const maxPuzzleCacheSize = 100_000
 	var puzzleCache common.Cache[uint64, bool]
 	var err error
-	puzzleCache, err = NewMemoryCache[uint64, bool](maxPuzzleCacheSize, false /*missing value*/)
+	puzzleCache, err = NewMemoryCache[uint64, bool](maxPuzzleCacheSize, false /*missing value*/, defaultCacheTTL)
 	if err != nil {
 		slog.Error("Failed to create puzzle memory cache", common.ErrAttr(err))
 		puzzleCache = NewStaticCache[uint64, bool](maxPuzzleCacheSize, false /*missing value*/)
@@ -81,8 +82,8 @@ func NewBusinessEx(pool *pgxpool.Pool, cache common.Cache[CacheKey, any]) *Busin
 
 	return &BusinessStore{
 		Pool:          pool,
-		defaultImpl:   &BusinessStoreImpl{cache: cache, querier: dbgen.New(pool), ttl: DefaultCacheTTL},
-		cacheOnlyImpl: &BusinessStoreImpl{cache: cache, ttl: DefaultCacheTTL},
+		defaultImpl:   &BusinessStoreImpl{cache: cache, querier: dbgen.New(pool)},
+		cacheOnlyImpl: &BusinessStoreImpl{cache: cache},
 		Cache:         cache,
 		puzzleCache:   puzzleCache,
 	}
@@ -119,7 +120,7 @@ func (s *BusinessStore) WithTx(ctx context.Context, fn func(*BusinessStoreImpl) 
 
 	db := dbgen.New(s.Pool)
 	tmpCache := NewTxCache()
-	impl := &BusinessStoreImpl{cache: tmpCache, querier: db.WithTx(tx), ttl: DefaultCacheTTL}
+	impl := &BusinessStoreImpl{cache: tmpCache, querier: db.WithTx(tx)}
 
 	err = fn(impl)
 
@@ -163,5 +164,5 @@ func (s *BusinessStore) CachePuzzle(ctx context.Context, p *puzzle.Puzzle, tnow 
 		return nil
 	}
 
-	return s.puzzleCache.Set(ctx, p.PuzzleID, true, p.Expiration.Sub(tnow))
+	return s.puzzleCache.SetTTL(ctx, p.PuzzleID, true, p.Expiration.Sub(tnow))
 }

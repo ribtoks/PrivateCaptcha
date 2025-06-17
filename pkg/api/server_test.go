@@ -65,7 +65,7 @@ func TestMain(m *testing.M) {
 	timeSeries = db.NewTimeSeries(clickhouse)
 
 	var err error
-	cache, err = db.NewMemoryCache[db.CacheKey, any](100, nil)
+	cache, err = db.NewMemoryCache[db.CacheKey, any](100, nil, 1*time.Minute)
 	if err != nil {
 		panic(err)
 	}

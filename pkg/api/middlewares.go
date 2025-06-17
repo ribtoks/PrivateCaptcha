@@ -18,6 +18,7 @@ const (
 	// for puzzles the logic is that if something becomes popular, there will be a spike, but normal usage should be low
 	puzzleLeakyBucketCap = 20
 	puzzleLeakInterval   = 1 * time.Second
+	userLimitTTL         = 1 * time.Hour
 )
 
 type UserLimiter interface {
@@ -104,13 +105,13 @@ func (ul *baseUserLimiter) CheckProperties(ctx context.Context, properties []*db
 	if users, err := ul.store.Impl().RetrieveUsersWithoutSubscription(ctx, owners); err == nil {
 		violatorsMap := make(map[int32]struct{})
 		for _, u := range users {
-			_ = ul.userLimits.Set(ctx, u.ID, struct{}{}, db.UserLimitTTL)
+			_ = ul.userLimits.Set(ctx, u.ID, struct{}{})
 			violatorsMap[u.ID] = struct{}{}
 		}
 
 		for _, u := range owners {
 			if _, found := violatorsMap[u]; !found {
-				_ = ul.userLimits.SetMissing(ctx, u, db.UserLimitTTL)
+				_ = ul.userLimits.SetMissing(ctx, u)
 			}
 		}
 	} else {
@@ -128,7 +129,7 @@ func NewUserLimiter(store db.Implementor) *baseUserLimiter {
 	const maxLimitedUsers = 10_000
 	var userLimits common.Cache[int32, any]
 	var err error
-	userLimits, err = db.NewMemoryCache[int32, any](maxLimitedUsers, nil /*missing value*/)
+	userLimits, err = db.NewMemoryCache[int32, any](maxLimitedUsers, nil /*missing value*/, userLimitTTL)
 	if err != nil {
 		slog.Error("Failed to create memory cache for user limits", common.ErrAttr(err))
 		userLimits = db.NewStaticCache[int32, any](maxLimitedUsers, nil /*missing data*/)
