@@ -11,4 +11,6 @@ const (
 	KeyPersistent
 	KeyNotificationID
 	KeyReturnURL
+	// Add new fields _above_
+	SESSION_KEYS_COUNT
 )
