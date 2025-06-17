@@ -3,7 +3,7 @@ package portal
 import (
 	"context"
 	"log/slog"
-	"math/rand"
+	randv2 "math/rand/v2"
 	"net/http"
 	"strings"
 
@@ -19,7 +19,7 @@ const (
 
 // NOTE: this will eventually be replaced by proper OTP
 func twoFactorCode() int {
-	return rand.Intn(900000) + 100000
+	return randv2.IntN(900000) + 100000
 }
 
 // RouteGenerator's point is to passthrough the path correctly to the std.Handler() of slok/go-http-metrics

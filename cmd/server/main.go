@@ -148,9 +148,10 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		TimeSeries: timeSeriesDB,
 		XSRF:       &common.XSRFMiddleware{Key: "pckey", Timeout: 1 * time.Hour},
 		Sessions: &session.Manager{
-			CookieName:  "pcsid",
-			Store:       sessionStore,
-			MaxLifetime: sessionStore.MaxLifetime(),
+			CookieName:   "pcsid",
+			Store:        sessionStore,
+			MaxLifetime:  sessionStore.MaxLifetime(),
+			SecureCookie: (*certFileFlag != "") && (*keyFileFlag != ""),
 		},
 		PlanService:  planService,
 		APIURL:       apiURLConfig.URL(),

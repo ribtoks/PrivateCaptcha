@@ -12,10 +12,11 @@ import (
 )
 
 type Manager struct {
-	CookieName  string
-	Store       common.SessionStore
-	MaxLifetime time.Duration
-	Path        string
+	CookieName   string
+	Store        common.SessionStore
+	MaxLifetime  time.Duration
+	Path         string
+	SecureCookie bool
 }
 
 func (m *Manager) sessionID() string {
@@ -37,6 +38,7 @@ func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session 
 			Value:    url.QueryEscape(sid),
 			Path:     m.Path,
 			HttpOnly: true,
+			Secure:   m.SecureCookie || (r.TLS != nil) || (r.Header.Get("X-Forwarded-Proto") == "https"),
 			MaxAge:   int(m.MaxLifetime.Seconds()),
 		}
 		http.SetCookie(w, &cookie)
@@ -75,6 +77,7 @@ func (m *Manager) SessionDestroy(w http.ResponseWriter, r *http.Request) {
 			Path:     m.Path,
 			HttpOnly: true,
 			Expires:  expiration,
+			Secure:   m.SecureCookie || (r.TLS != nil) || (r.Header.Get("X-Forwarded-Proto") == "https"),
 			MaxAge:   -1,
 		}
 		http.SetCookie(w, &cookie)

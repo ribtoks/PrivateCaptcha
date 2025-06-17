@@ -1,9 +1,9 @@
 package common
 
-import "math/rand"
+import randv2 "math/rand/v2"
 
 type TFingerprint = uint64
 
 func RandomFingerprint() TFingerprint {
-	return uint64(rand.Int63())
+	return randv2.Uint64()
 }
