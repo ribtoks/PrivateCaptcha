@@ -54,7 +54,7 @@ OpenAPI spec is [available](./docs/openapi.yaml).
 
 ## Alternatives
 
-Private Captcha is an private and open alternative to:
+Private Captcha is a private and open alternative to:
 
 - [Google reCAPTCHA](https://www.google.com/recaptcha/about/)
 - [hCaptcha](https://www.hcaptcha.com/)
