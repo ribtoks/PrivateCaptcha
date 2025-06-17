@@ -251,7 +251,7 @@ func (s *Server) puzzleHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		slog.ErrorContext(ctx, "Failed to create puzzle", common.ErrAttr(err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
 

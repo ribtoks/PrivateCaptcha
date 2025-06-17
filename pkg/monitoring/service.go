@@ -52,7 +52,7 @@ func traceID() string {
 func Logged(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t := time.Now()
-		ctx := common.TraceContextFunc(r.Context(), traceID)
+		ctx, _ := common.TraceContextFunc(r.Context(), traceID)
 
 		// NOTE: these data (path, method, time) are now available as prometheus metrics
 		slog.Log(ctx, common.LevelTrace, "Started request", "path", r.URL.Path, "method", r.Method)
@@ -67,7 +67,9 @@ func Logged(h http.Handler) http.Handler {
 
 func Traced(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := common.TraceContextFunc(r.Context(), traceID)
+		ctx, tid := common.TraceContextFunc(r.Context(), traceID)
+		headers := w.Header()
+		headers[common.HeaderRequestID] = []string{tid}
 		h.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

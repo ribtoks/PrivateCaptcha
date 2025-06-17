@@ -42,12 +42,13 @@ func (h *contextHandler) WithGroup(name string) slog.Handler {
 	return &contextHandler{h.Handler.WithGroup(name)}
 }
 
-func TraceContextFunc(ctx context.Context, traceID func() string) context.Context {
-	if tid, ok := ctx.Value(TraceIDContextKey).(string); !ok || (len(tid) == 0) {
-		ctx = context.WithValue(ctx, TraceIDContextKey, traceID())
+func TraceContextFunc(ctx context.Context, traceID func() string) (context.Context, string) {
+	tid, ok := ctx.Value(TraceIDContextKey).(string)
+	if !ok || (len(tid) == 0) {
+		tid = traceID()
 	}
 
-	return ctx
+	return context.WithValue(ctx, TraceIDContextKey, tid), tid
 }
 
 func TraceContext(ctx context.Context, traceID string) context.Context {

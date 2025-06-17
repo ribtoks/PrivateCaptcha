@@ -13,6 +13,10 @@ import (
 	"github.com/jpillora/backoff"
 )
 
+var (
+	HeaderValueContentTypeJSON = []string{ContentTypeJSON}
+)
+
 func RelURL(prefix, url string) string {
 	url = strings.TrimPrefix(url, "/")
 	p := strings.Trim(prefix, "/")
@@ -61,7 +65,7 @@ func MaskEmail(email string, mask rune) string {
 	return prefix + xxx + suffix + "@" + parts[1]
 }
 
-func SendJSONResponse(ctx context.Context, w http.ResponseWriter, data interface{}, headers map[string][]string) {
+func SendJSONResponse(ctx context.Context, w http.ResponseWriter, data interface{}, headers ...map[string][]string) {
 	response, err := json.Marshal(data)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to serialise response", ErrAttr(err))
@@ -70,9 +74,11 @@ func SendJSONResponse(ctx context.Context, w http.ResponseWriter, data interface
 	}
 
 	wHeader := w.Header()
-	wHeader.Set(HeaderContentType, ContentTypeJSON)
-	for key, value := range headers {
-		wHeader[key] = value
+	wHeader[HeaderContentType] = HeaderValueContentTypeJSON
+	for _, hh := range headers {
+		for key, value := range hh {
+			wHeader[key] = value
+		}
 	}
 
 	n, err := w.Write(response)
