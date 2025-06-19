@@ -1,6 +1,9 @@
 -- name: GetPropertiesByExternalID :many
 SELECT * from backend.properties WHERE external_id = ANY($1::UUID[]);
 
+-- name: GetPropertyByExternalID :one
+SELECT * from backend.properties WHERE external_id = $1;
+
 -- name: CreateProperty :one
 INSERT INTO backend.properties (name, org_id, creator_id, org_owner_id, domain, level, growth)
 VALUES ($1, $2, $3, $4, $5, $6, $7)

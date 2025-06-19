@@ -265,7 +265,8 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		TimeSeries: timeSeriesDB,
 	})
 	jobs.AddOneOff(&maintenance.WarmupPortalAuth{
-		Store: businessDB,
+		Store:               businessDB,
+		RegistrationAllowed: config.AsBool(cfg.Get(common.RegistrationAllowedKey)),
 	})
 	jobs.Run()
 

@@ -8,10 +8,13 @@ import (
 
 type Cache[TKey comparable, TValue any] interface {
 	Get(ctx context.Context, key TKey) (TValue, error)
+	GetEx(ctx context.Context, key TKey, loader func(context.Context, TKey) (TValue, error)) (TValue, error)
 	SetMissing(ctx context.Context, key TKey) error
 	Set(ctx context.Context, key TKey, t TValue) error
-	SetTTL(ctx context.Context, key TKey, t TValue, ttl time.Duration) error
+	SetWithTTL(ctx context.Context, key TKey, t TValue, ttl time.Duration) error
 	Delete(ctx context.Context, key TKey) error
+	Missing() TValue
+	HitRatio() float64
 }
 
 type SessionStore interface {
@@ -46,6 +49,7 @@ type TimeSeriesStore interface {
 
 type PlatformMetrics interface {
 	ObserveHealth(postgres, clickhouse bool)
+	ObserveCacheHitRatio(ratio float64)
 }
 
 type APIMetrics interface {

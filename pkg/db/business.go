@@ -34,7 +34,9 @@ const (
 	PortalLoginPropertyID    = "1ca8041a-5761-40a4-addf-f715a991bfea"
 	PortalRegisterPropertyID = "8981be7a-3a71-414d-bb74-e7b4456603fd"
 	TestPropertyID           = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-	defaultCacheTTL          = 5 * time.Minute
+	defaultCacheTTL          = 10 * time.Minute
+	defaultCacheRefresh      = 29 * time.Minute
+	negativeCacheTTL         = 5 * time.Minute
 )
 
 type BusinessStore struct {
@@ -53,6 +55,7 @@ type Implementor interface {
 	Ping(ctx context.Context) error
 	CheckPuzzleCached(ctx context.Context, p *puzzle.Puzzle) bool
 	CachePuzzle(ctx context.Context, p *puzzle.Puzzle, tnow time.Time) error
+	CacheHitRatio() float64
 }
 
 var _ Implementor = (*BusinessStore)(nil)
@@ -61,10 +64,10 @@ func NewBusiness(pool *pgxpool.Pool) *BusinessStore {
 	const maxCacheSize = 1_000_000
 	var cache common.Cache[CacheKey, any]
 	var err error
-	cache, err = NewMemoryCache[CacheKey, any](maxCacheSize, nil /*missing value*/, defaultCacheTTL)
+	cache, err = NewMemoryCache[CacheKey, any](maxCacheSize, &struct{}{}, defaultCacheTTL, defaultCacheRefresh, negativeCacheTTL)
 	if err != nil {
 		slog.Error("Failed to create memory cache", common.ErrAttr(err))
-		cache = NewStaticCache[CacheKey, any](maxCacheSize, nil /*missing value*/)
+		cache = NewStaticCache[CacheKey, any](maxCacheSize, &struct{}{})
 	}
 
 	return NewBusinessEx(pool, cache)
@@ -74,7 +77,7 @@ func NewBusinessEx(pool *pgxpool.Pool, cache common.Cache[CacheKey, any]) *Busin
 	const maxPuzzleCacheSize = 100_000
 	var puzzleCache common.Cache[uint64, bool]
 	var err error
-	puzzleCache, err = NewMemoryCache[uint64, bool](maxPuzzleCacheSize, false /*missing value*/, defaultCacheTTL)
+	puzzleCache, err = NewMemoryCache[uint64, bool](maxPuzzleCacheSize, false /*missing value*/, defaultCacheTTL, defaultCacheRefresh, negativeCacheTTL)
 	if err != nil {
 		slog.Error("Failed to create puzzle memory cache", common.ErrAttr(err))
 		puzzleCache = NewStaticCache[uint64, bool](maxPuzzleCacheSize, false /*missing value*/)
@@ -143,6 +146,10 @@ func (s *BusinessStore) Ping(ctx context.Context) error {
 	return s.defaultImpl.ping(ctx)
 }
 
+func (s *BusinessStore) CacheHitRatio() float64 {
+	return s.Cache.HitRatio()
+}
+
 func (s *BusinessStore) CheckPuzzleCached(ctx context.Context, p *puzzle.Puzzle) bool {
 	if p.PuzzleID == 0 {
 		return false
@@ -164,5 +171,5 @@ func (s *BusinessStore) CachePuzzle(ctx context.Context, p *puzzle.Puzzle, tnow 
 		return nil
 	}
 
-	return s.puzzleCache.SetTTL(ctx, p.PuzzleID, true, p.Expiration.Sub(tnow))
+	return s.puzzleCache.SetWithTTL(ctx, p.PuzzleID, true, p.Expiration.Sub(tnow))
 }

@@ -19,6 +19,7 @@ const (
 	puzzleLeakyBucketCap = 20
 	puzzleLeakInterval   = 1 * time.Second
 	userLimitTTL         = 1 * time.Hour
+	userLimitRefresh     = 3 * time.Hour
 )
 
 type UserLimiter interface {
@@ -35,6 +36,8 @@ type AuthMiddleware struct {
 	BatchSize         int
 	BackfillCancel    context.CancelFunc
 	Limiter           UserLimiter
+	// this is a simple way to control negative cache spam, disabled by default
+	NegativeSitekeyThreshold uint
 }
 
 func newAPIKeyBuckets() *ratelimit.StringBuckets {
@@ -66,7 +69,7 @@ func newPuzzleIPAddrBuckets(cfg common.ConfigStore) *ratelimit.IPAddrBuckets {
 
 type baseUserLimiter struct {
 	store      db.Implementor
-	userLimits common.Cache[int32, any]
+	userLimits common.Cache[int32, bool]
 }
 
 func (ul *baseUserLimiter) unknownPropertiesOwners(ctx context.Context, properties []*dbgen.Property) []int32 {
@@ -105,7 +108,7 @@ func (ul *baseUserLimiter) CheckProperties(ctx context.Context, properties []*db
 	if users, err := ul.store.Impl().RetrieveUsersWithoutSubscription(ctx, owners); err == nil {
 		violatorsMap := make(map[int32]struct{})
 		for _, u := range users {
-			_ = ul.userLimits.Set(ctx, u.ID, struct{}{})
+			_ = ul.userLimits.Set(ctx, u.ID, true)
 			violatorsMap[u.ID] = struct{}{}
 		}
 
@@ -127,12 +130,13 @@ func (ul *baseUserLimiter) Evaluate(ctx context.Context, userID int32) (bool, er
 
 func NewUserLimiter(store db.Implementor) *baseUserLimiter {
 	const maxLimitedUsers = 10_000
-	var userLimits common.Cache[int32, any]
+	var userLimits common.Cache[int32, bool]
 	var err error
-	userLimits, err = db.NewMemoryCache[int32, any](maxLimitedUsers, nil /*missing value*/, userLimitTTL)
+	// missing TTL should be equal to "usual" TTL here because it has the same meaning (we mark user has no violation)
+	userLimits, err = db.NewMemoryCache[int32, bool](maxLimitedUsers, false /*missing value*/, userLimitTTL, userLimitRefresh, userLimitTTL)
 	if err != nil {
 		slog.Error("Failed to create memory cache for user limits", common.ErrAttr(err))
-		userLimits = db.NewStaticCache[int32, any](maxLimitedUsers, nil /*missing data*/)
+		userLimits = db.NewStaticCache[int32, bool](maxLimitedUsers, false /*missing data*/)
 	}
 
 	return &baseUserLimiter{
@@ -203,8 +207,8 @@ func isSiteKeyValid(sitekey string) bool {
 }
 
 // the only purpose of this routine is to cache properties and block users without a subscription
-func (am *AuthMiddleware) backfillImpl(ctx context.Context, batch map[string]struct{}) error {
-	if properties, err := am.Store.Impl().RetrievePropertiesBySitekey(ctx, batch); err == nil {
+func (am *AuthMiddleware) backfillImpl(ctx context.Context, batch map[string]uint) error {
+	if properties, err := am.Store.Impl().RetrievePropertiesBySitekey(ctx, batch, am.NegativeSitekeyThreshold); err == nil {
 		am.Limiter.CheckProperties(ctx, properties)
 	} else {
 		slog.ErrorContext(ctx, "Failed to retrieve properties by sitekey", common.ErrAttr(err))

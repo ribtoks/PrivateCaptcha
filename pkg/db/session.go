@@ -105,7 +105,7 @@ func (ss *SessionStore) GC(ctx context.Context, d time.Duration) {
 	ss.fallback.GC(ctx, d)
 }
 
-func (ss *SessionStore) persistSessions(ctx context.Context, batch map[string]struct{}) error {
+func (ss *SessionStore) persistSessions(ctx context.Context, batch map[string]uint) error {
 	slog.DebugContext(ctx, "Persisting sessions to DB", "count", len(batch))
 
 	keys := make([]string, 0, len(batch))

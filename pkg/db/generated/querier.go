@@ -39,6 +39,7 @@ type Querier interface {
 	GetOrganizationWithAccess(ctx context.Context, arg *GetOrganizationWithAccessParams) (*GetOrganizationWithAccessRow, error)
 	GetProperties(ctx context.Context, limit int32) ([]*Property, error)
 	GetPropertiesByExternalID(ctx context.Context, dollar_1 []pgtype.UUID) ([]*Property, error)
+	GetPropertyByExternalID(ctx context.Context, externalID pgtype.UUID) (*Property, error)
 	GetPropertyByID(ctx context.Context, id int32) (*Property, error)
 	GetSoftDeletedOrganizations(ctx context.Context, arg *GetSoftDeletedOrganizationsParams) ([]*GetSoftDeletedOrganizationsRow, error)
 	GetSoftDeletedProperties(ctx context.Context, arg *GetSoftDeletedPropertiesParams) ([]*GetSoftDeletedPropertiesRow, error)

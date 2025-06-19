@@ -28,3 +28,4 @@ func (sm *stubMetrics) ObservePuzzleCreated(userID int32) {}
 func (sm *stubMetrics) ObservePuzzleVerified(userID int32, result string, isStub bool) {}
 
 func (sm *stubMetrics) ObserveHealth(postgres, clickhouse bool) {}
+func (sm *stubMetrics) ObserveCacheHitRatio(ratio float64)      {}

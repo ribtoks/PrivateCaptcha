@@ -48,14 +48,15 @@ func ProcessBatchArray[T any](ctx context.Context, channel <-chan T, delay time.
 }
 
 // as they say, a little copy-paste is better than a little dependency
-func ProcessBatchMap[T comparable](ctx context.Context, channel <-chan T, delay time.Duration, triggerSize, maxBatchSize int, processor func(context.Context, map[T]struct{}) error) {
-	batch := make(map[T]struct{})
+// it is assumed to be called with such parameters that make uint enough for counting
+func ProcessBatchMap[T comparable](ctx context.Context, channel <-chan T, delay time.Duration, triggerSize, maxBatchSize int, processor func(context.Context, map[T]uint) error) {
+	batch := make(map[T]uint)
 	slog.DebugContext(ctx, "Processing batch", "interval", delay.String())
 
 	for running := true; running; {
 		if len(batch) > maxBatchSize {
 			slog.ErrorContext(ctx, "Dropping pending batch due to errors", "count", len(batch))
-			batch = make(map[T]struct{})
+			batch = make(map[T]uint)
 		}
 
 		select {
@@ -68,19 +69,19 @@ func ProcessBatchMap[T comparable](ctx context.Context, channel <-chan T, delay 
 				break
 			}
 
-			batch[item] = struct{}{}
+			batch[item]++
 
 			if len(batch) >= triggerSize {
 				slog.Log(ctx, LevelTrace, "Processing batch", "count", len(batch), "reason", "batch")
 				if err := processor(ctx, batch); err == nil {
-					batch = make(map[T]struct{})
+					batch = make(map[T]uint)
 				}
 			}
 		case <-time.After(delay):
 			if len(batch) > 0 {
 				slog.Log(ctx, LevelTrace, "Processing batch", "count", len(batch), "reason", "timeout")
 				if err := processor(ctx, batch); err == nil {
-					batch = make(map[T]struct{})
+					batch = make(map[T]uint)
 				}
 			}
 		}

@@ -35,8 +35,9 @@ type Service struct {
 	finePortalMiddleware   middleware.Middleware
 	coarseServerMiddleware middleware.Middleware
 	coarseCDNMiddleware    middleware.Middleware
-	puzzleCount            *prometheus.CounterVec
-	verifyCount            *prometheus.CounterVec
+	puzzleCounter          *prometheus.CounterVec
+	verifyCounter          *prometheus.CounterVec
+	hitRatioGauge          *prometheus.GaugeVec
 	clickhouseHealthGauge  *prometheus.GaugeVec
 	postgresHealthGauge    *prometheus.GaugeVec
 }
@@ -81,7 +82,7 @@ func NewService() *Service {
 		collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
 	)
 
-	puzzleCount := prometheus.NewCounterVec(
+	puzzleCounter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: MetricsNamespaceAPI,
 			Subsystem: puzzleMetricsSubsystem,
@@ -90,9 +91,9 @@ func NewService() *Service {
 		},
 		[]string{userIDLabel},
 	)
-	reg.MustRegister(puzzleCount)
+	reg.MustRegister(puzzleCounter)
 
-	verifyCount := prometheus.NewCounterVec(
+	verifyCounter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: MetricsNamespaceAPI,
 			Subsystem: puzzleMetricsSubsystem,
@@ -101,7 +102,7 @@ func NewService() *Service {
 		},
 		[]string{stubLabel, userIDLabel, resultLabel},
 	)
-	reg.MustRegister(verifyCount)
+	reg.MustRegister(verifyCounter)
 
 	clickhouseHealthGauge := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -124,6 +125,17 @@ func NewService() *Service {
 		[]string{},
 	)
 	reg.MustRegister(postgresHealthGauge)
+
+	hitRatioGauge := prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Namespace: MetricsNamespaceServer,
+			Subsystem: platformMetricsSubsystem,
+			Name:      "cache_hit_ratio",
+			Help:      "In-memory cache hit ratio",
+		},
+		[]string{},
+	)
+	reg.MustRegister(hitRatioGauge)
 
 	fineRecorder := prometheus_metrics.NewRecorder(prometheus_metrics.Config{
 		Prefix:          "fine",
@@ -167,8 +179,9 @@ func NewService() *Service {
 			DisableMeasureInflight: true,
 			Recorder:               coarseRecorder,
 		}),
-		puzzleCount:           puzzleCount,
-		verifyCount:           verifyCount,
+		puzzleCounter:         puzzleCounter,
+		verifyCounter:         verifyCounter,
+		hitRatioGauge:         hitRatioGauge,
 		clickhouseHealthGauge: clickhouseHealthGauge,
 		postgresHealthGauge:   postgresHealthGauge,
 	}
@@ -197,13 +210,17 @@ func (s *Service) HandlerIDFunc(handlerIDFunc func() string) func(http.Handler) 
 }
 
 func (s *Service) ObservePuzzleCreated(userID int32) {
-	s.puzzleCount.With(prometheus.Labels{
+	s.puzzleCounter.With(prometheus.Labels{
 		userIDLabel: strconv.Itoa(int(userID)),
 	}).Inc()
 }
 
+func (s *Service) ObserveCacheHitRatio(ratio float64) {
+	s.hitRatioGauge.With(prometheus.Labels{}).Set(ratio)
+}
+
 func (s *Service) ObservePuzzleVerified(userID int32, result string, isStub bool) {
-	s.verifyCount.With(prometheus.Labels{
+	s.verifyCounter.With(prometheus.Labels{
 		stubLabel:   strconv.FormatBool(isStub),
 		resultLabel: result,
 		userIDLabel: strconv.Itoa(int(userID)),

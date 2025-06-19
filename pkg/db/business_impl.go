@@ -32,32 +32,6 @@ var (
 	nullAccessLevelMember = dbgen.NullAccessLevel{Valid: true, AccessLevel: dbgen.AccessLevelMember}
 )
 
-func fetchCachedOne[T any](ctx context.Context, cache common.Cache[CacheKey, any], key CacheKey) (*T, error) {
-	data, err := cache.Get(ctx, key)
-	if err != nil {
-		return nil, err
-	}
-
-	if t, ok := data.(*T); ok {
-		return t, nil
-	}
-
-	return nil, errInvalidCacheType
-}
-
-func fetchCachedMany[T any](ctx context.Context, cache common.Cache[CacheKey, any], key CacheKey) ([]*T, error) {
-	data, err := cache.Get(ctx, key)
-	if err != nil {
-		return nil, err
-	}
-
-	if t, ok := data.([]*T); ok {
-		return t, nil
-	}
-
-	return nil, errInvalidCacheType
-}
-
 type txCacheArg struct {
 	item any
 	ttl  time.Duration
@@ -77,7 +51,12 @@ func NewTxCache() *TxCache {
 	}
 }
 
+func (c *TxCache) HitRatio() float64                                  { return 0.0 }
+func (c *TxCache) Missing() any                                       { return nil }
 func (c *TxCache) Get(ctx context.Context, key CacheKey) (any, error) { return nil, errUnsupported }
+func (c *TxCache) GetEx(ctx context.Context, key CacheKey, loader func(context.Context, CacheKey) (any, error)) (any, error) {
+	return nil, errUnsupported
+}
 func (c *TxCache) SetMissing(ctx context.Context, key CacheKey) error {
 	c.missing[key] = struct{}{}
 	return nil
@@ -86,7 +65,7 @@ func (c *TxCache) Set(ctx context.Context, key CacheKey, t any) error {
 	c.set[key] = &txCacheArg{item: t}
 	return nil
 }
-func (c *TxCache) SetTTL(ctx context.Context, key CacheKey, t any, ttl time.Duration) error {
+func (c *TxCache) SetWithTTL(ctx context.Context, key CacheKey, t any, ttl time.Duration) error {
 	c.set[key] = &txCacheArg{item: t, ttl: ttl}
 	return nil
 }
@@ -111,7 +90,7 @@ func (c *TxCache) Commit(ctx context.Context, cache common.Cache[CacheKey, any])
 	for key, value := range c.set {
 		var err error
 		if value.ttl > 0 {
-			err = cache.SetTTL(ctx, key, value.item, value.ttl)
+			err = cache.SetWithTTL(ctx, key, value.item, value.ttl)
 		} else {
 			err = cache.Set(ctx, key, value.item)
 		}
@@ -287,7 +266,7 @@ func (impl *BusinessStoreImpl) SoftDeleteUser(ctx context.Context, userID int32)
 
 	// invalidate user caches
 	userOrgsCacheKey := userOrgsCacheKey(userID)
-	if orgs, err := fetchCachedMany[dbgen.GetUserOrganizationsRow](ctx, impl.cache, userOrgsCacheKey); err == nil {
+	if orgs, err := fetchCachedArray[dbgen.GetUserOrganizationsRow](ctx, impl.cache, userOrgsCacheKey); err == nil {
 		for _, org := range orgs {
 			_ = impl.cache.Delete(ctx, orgCacheKey(org.Organization.ID))
 			_ = impl.cache.Delete(ctx, orgPropertiesCacheKey(org.Organization.ID))
@@ -309,6 +288,7 @@ func (impl *BusinessStoreImpl) getCachedPropertyBySitekey(ctx context.Context, s
 	cacheKey := PropertyBySitekeyCacheKey(sitekey)
 
 	if property, err := fetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
+		// we should NOT check for soft-deleted state because soft-deleted properties are deleted from cache in the first place
 		return property, nil
 	} else if err == ErrNegativeCacheHit {
 		return nil, ErrNegativeCacheHit
@@ -317,9 +297,24 @@ func (impl *BusinessStoreImpl) getCachedPropertyBySitekey(ctx context.Context, s
 	}
 }
 
-func (impl *BusinessStoreImpl) RetrievePropertiesBySitekey(ctx context.Context, sitekeys map[string]struct{}) ([]*dbgen.Property, error) {
+func (impl *BusinessStoreImpl) RetrievePropertyBySitekey(ctx context.Context, sitekey string) (*dbgen.Property, error) {
+	reader := &storeOneReader[pgtype.UUID, dbgen.Property]{
+		cacheKey: PropertyBySitekeyCacheKey(sitekey),
+		cache:    impl.cache,
+	}
+
+	if impl.querier != nil {
+		reader.queryFunc = impl.querier.GetPropertyByExternalID
+		reader.queryKeyFunc = queryKeySitekeyUUID
+	}
+
+	return reader.Read(ctx)
+}
+
+// TODO: Refactor this to use otter.Cache BulkGet() API
+func (impl *BusinessStoreImpl) RetrievePropertiesBySitekey(ctx context.Context, sitekeys map[string]uint, minMissingCount uint) ([]*dbgen.Property, error) {
 	keys := make([]pgtype.UUID, 0, len(sitekeys))
-	keysMap := make(map[string]bool)
+	keysMap := make(map[string]struct{})
 	result := make([]*dbgen.Property, 0, len(sitekeys))
 
 	for sitekey := range sitekeys {
@@ -337,7 +332,7 @@ func (impl *BusinessStoreImpl) RetrievePropertiesBySitekey(ctx context.Context, 
 		}
 
 		keys = append(keys, eid)
-		keysMap[sitekey] = true
+		keysMap[sitekey] = struct{}{}
 	}
 
 	if len(keys) == 0 {
@@ -365,12 +360,15 @@ func (impl *BusinessStoreImpl) RetrievePropertiesBySitekey(ctx context.Context, 
 	for _, p := range properties {
 		sitekey := UUIDToSiteKey(p.ExternalID)
 		cacheKey := PropertyBySitekeyCacheKey(sitekey)
-		_ = impl.cache.SetTTL(ctx, cacheKey, p, propertyTTL)
+		_ = impl.cache.SetWithTTL(ctx, cacheKey, p, propertyTTL)
 		delete(keysMap, sitekey)
 	}
 
 	for missingKey := range keysMap {
-		_ = impl.cache.SetMissing(ctx, PropertyBySitekeyCacheKey(missingKey))
+		// TODO: Switch to a probabilistic logic via an interface for negative caching
+		if count, ok := sitekeys[missingKey]; ok && (count >= minMissingCount) {
+			_ = impl.cache.SetMissing(ctx, PropertyBySitekeyCacheKey(missingKey))
+		}
 	}
 
 	result = append(result, properties...)
@@ -390,73 +388,33 @@ func (impl *BusinessStoreImpl) GetCachedAPIKey(ctx context.Context, secret strin
 	}
 }
 
-// Fetches API keyfrom DB, backed by cache
+// Fetches API key from DB, backed by cache
 func (impl *BusinessStoreImpl) RetrieveAPIKey(ctx context.Context, secret string) (*dbgen.APIKey, error) {
-	cacheKey := APIKeyCacheKey(secret)
-
-	if apiKey, err := fetchCachedOne[dbgen.APIKey](ctx, impl.cache, cacheKey); err == nil {
-		return apiKey, nil
-	} else if err == ErrNegativeCacheHit {
-		return nil, ErrNegativeCacheHit
+	reader := &storeOneReader[pgtype.UUID, dbgen.APIKey]{
+		cacheKey: APIKeyCacheKey(secret),
+		cache:    impl.cache,
 	}
 
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	if impl.querier != nil {
+		reader.queryFunc = impl.querier.GetAPIKeyByExternalID
+		reader.queryKeyFunc = queryKeySecretUUID
 	}
 
-	eid := UUIDFromSecret(secret)
-	if !eid.Valid {
-		return nil, ErrInvalidInput
-	}
-
-	apiKey, err := impl.querier.GetAPIKeyByExternalID(ctx, eid)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			_ = impl.cache.SetMissing(ctx, cacheKey)
-			return nil, ErrRecordNotFound
-		}
-
-		slog.ErrorContext(ctx, "Failed to retrieve API Key by external ID", "secret", secret, common.ErrAttr(err))
-
-		return nil, err
-	}
-
-	if apiKey != nil {
-		_ = impl.cache.SetTTL(ctx, cacheKey, apiKey, apiKeyTTL)
-	}
-
-	return apiKey, nil
+	return reader.Read(ctx)
 }
 
 func (impl *BusinessStoreImpl) retrieveUser(ctx context.Context, userID int32) (*dbgen.User, error) {
-	cacheKey := userCacheKey(userID)
-	if user, err := fetchCachedOne[dbgen.User](ctx, impl.cache, cacheKey); err == nil {
-		return user, nil
-	} else if err == ErrNegativeCacheHit {
-		return nil, ErrNegativeCacheHit
+	reader := &storeOneReader[int32, dbgen.User]{
+		cacheKey: userCacheKey(userID),
+		cache:    impl.cache,
 	}
 
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	if impl.querier != nil {
+		reader.queryKeyFunc = queryKeyInt
+		reader.queryFunc = impl.querier.GetUserByID
 	}
 
-	user, err := impl.querier.GetUserByID(ctx, userID)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			_ = impl.cache.SetMissing(ctx, cacheKey)
-			return nil, ErrRecordNotFound
-		}
-
-		slog.ErrorContext(ctx, "Failed to retrieve user by ID", "id", userID, common.ErrAttr(err))
-
-		return nil, err
-	}
-
-	if user != nil {
-		_ = impl.cache.Set(ctx, cacheKey, user)
-	}
-
-	return user, nil
+	return reader.Read(ctx)
 }
 
 func (impl *BusinessStoreImpl) FindUserByEmail(ctx context.Context, email string) (*dbgen.User, error) {
@@ -512,25 +470,18 @@ func (impl *BusinessStoreImpl) FindUserBySubscriptionID(ctx context.Context, sub
 }
 
 func (impl *BusinessStoreImpl) RetrieveUserOrganizations(ctx context.Context, userID int32) ([]*dbgen.GetUserOrganizationsRow, error) {
-	cacheKey := userOrgsCacheKey(userID)
-
-	if orgs, err := fetchCachedMany[dbgen.GetUserOrganizationsRow](ctx, impl.cache, cacheKey); err == nil {
-		return orgs, nil
+	reader := &storeArrayReader[pgtype.Int4, dbgen.GetUserOrganizationsRow]{
+		key:   userOrgsCacheKey(userID),
+		cache: impl.cache,
 	}
 
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	if impl.querier != nil {
+		reader.queryKeyFunc = queryKeyPgInt
+		reader.queryFunc = impl.querier.GetUserOrganizations
 	}
 
-	orgs, err := impl.querier.GetUserOrganizations(ctx, Int(userID))
+	orgs, err := reader.Read(ctx)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			_ = impl.cache.Set(ctx, cacheKey, emptyUserOrgs)
-			return emptyUserOrgs, nil
-		}
-
-		slog.ErrorContext(ctx, "Failed to retrieve orgs by user ID", "userID", userID, common.ErrAttr(err))
-
 		return nil, err
 	}
 
@@ -538,10 +489,6 @@ func (impl *BusinessStoreImpl) RetrieveUserOrganizations(ctx context.Context, us
 	sort.Slice(orgs, func(i, j int) bool {
 		return orgs[i].Organization.CreatedAt.Time.Before(orgs[j].Organization.CreatedAt.Time)
 	})
-
-	if len(orgs) > 0 {
-		_ = impl.cache.Set(ctx, cacheKey, orgs)
-	}
 
 	slog.DebugContext(ctx, "Retrieved user organizations", "count", len(orgs))
 
@@ -559,7 +506,7 @@ func (impl *BusinessStoreImpl) retrieveOrganizationWithAccess(ctx context.Contex
 		// NOTE: for security reasons, we want to verify that this user has rights to get this org
 
 		// this value should be in cache if user opens "Members" tab in the org
-		if users, err := fetchCachedMany[dbgen.GetOrganizationUsersRow](ctx, impl.cache, orgUsersCacheKey(orgID)); err == nil {
+		if users, err := fetchCachedArray[dbgen.GetOrganizationUsersRow](ctx, impl.cache, orgUsersCacheKey(orgID)); err == nil {
 			if hasUser := slices.ContainsFunc(users, func(u *dbgen.GetOrganizationUsersRow) bool { return u.User.ID == userID }); hasUser {
 				slog.Log(ctx, common.LevelTrace, "Found cached org from organization users", "orgID", orgID, "userID", userID)
 				return org, nullAccessLevelMember, nil
@@ -570,7 +517,7 @@ func (impl *BusinessStoreImpl) retrieveOrganizationWithAccess(ctx context.Contex
 	}
 
 	// this value should be in cache for "normal" use-cases (e.g. user logs in to the portal)
-	if orgs, err := fetchCachedMany[dbgen.GetUserOrganizationsRow](ctx, impl.cache, userOrgsCacheKey(userID)); err == nil {
+	if orgs, err := fetchCachedArray[dbgen.GetUserOrganizationsRow](ctx, impl.cache, userOrgsCacheKey(userID)); err == nil {
 		if index := slices.IndexFunc(orgs, func(o *dbgen.GetUserOrganizationsRow) bool { return o.Organization.ID == orgID }); index != -1 {
 			slog.Log(ctx, common.LevelTrace, "Found cached org from user organizations", "orgID", orgID, "userID", userID)
 			org := &dbgen.Organization{}
@@ -623,7 +570,7 @@ func (impl *BusinessStoreImpl) cacheProperty(ctx context.Context, property *dbge
 	key := propertyByIDCacheKey(property.ID)
 	_ = impl.cache.Set(ctx, key, property)
 	sitekey := UUIDToSiteKey(property.ExternalID)
-	_ = impl.cache.SetTTL(ctx, PropertyBySitekeyCacheKey(sitekey), property, propertyTTL)
+	_ = impl.cache.SetWithTTL(ctx, PropertyBySitekeyCacheKey(sitekey), property, propertyTTL)
 }
 
 func (impl *BusinessStoreImpl) retrieveOrgProperty(ctx context.Context, orgID, propID int32) (*dbgen.Property, error) {
@@ -635,7 +582,7 @@ func (impl *BusinessStoreImpl) retrieveOrgProperty(ctx context.Context, orgID, p
 		return nil, ErrNegativeCacheHit
 	}
 
-	if properties, err := fetchCachedMany[dbgen.Property](ctx, impl.cache, orgPropertiesCacheKey(orgID)); err == nil {
+	if properties, err := fetchCachedArray[dbgen.Property](ctx, impl.cache, orgPropertiesCacheKey(orgID)); err == nil {
 		if index := slices.IndexFunc(properties, func(p *dbgen.Property) bool { return p.ID == propID }); index != -1 {
 			property := properties[index]
 			impl.cacheProperty(ctx, property)
@@ -665,34 +612,17 @@ func (impl *BusinessStoreImpl) retrieveOrgProperty(ctx context.Context, orgID, p
 }
 
 func (impl *BusinessStoreImpl) RetrieveSubscription(ctx context.Context, sID int32) (*dbgen.Subscription, error) {
-	cacheKey := subscriptionCacheKey(sID)
-	if subscription, err := fetchCachedOne[dbgen.Subscription](ctx, impl.cache, cacheKey); err == nil {
-		return subscription, nil
-	} else if err == ErrNegativeCacheHit {
-		return nil, ErrNegativeCacheHit
+	reader := &storeOneReader[int32, dbgen.Subscription]{
+		cacheKey: subscriptionCacheKey(sID),
+		cache:    impl.cache,
 	}
 
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	if impl.querier != nil {
+		reader.queryKeyFunc = queryKeyInt
+		reader.queryFunc = impl.querier.GetSubscriptionByID
 	}
 
-	subscription, err := impl.querier.GetSubscriptionByID(ctx, sID)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			_ = impl.cache.SetMissing(ctx, cacheKey)
-			return nil, ErrRecordNotFound
-		}
-
-		slog.ErrorContext(ctx, "Failed to fetch subscription from DB", "id", sID, common.ErrAttr(err))
-
-		return nil, err
-	}
-
-	if subscription != nil {
-		_ = impl.cache.Set(ctx, cacheKey, subscription)
-	}
-
-	return subscription, nil
+	return reader.Read(ctx)
 }
 
 func (impl *BusinessStoreImpl) UpdateSubscription(ctx context.Context, params *dbgen.UpdateSubscriptionParams) (*dbgen.Subscription, error) {
@@ -781,10 +711,7 @@ func (impl *BusinessStoreImpl) CreateNewProperty(ctx context.Context, params *db
 
 	slog.DebugContext(ctx, "Created new property", "id", property.ID, "name", params.Name, "org", params.OrgID)
 
-	cacheKey := propertyByIDCacheKey(property.ID)
-	_ = impl.cache.Set(ctx, cacheKey, property)
-	sitekey := UUIDToSiteKey(property.ExternalID)
-	_ = impl.cache.SetTTL(ctx, PropertyBySitekeyCacheKey(sitekey), property, propertyTTL)
+	impl.cacheProperty(ctx, property)
 	// invalidate org properties in cache as we just created a new property
 	_ = impl.cache.Delete(ctx, orgPropertiesCacheKey(params.OrgID.Int32))
 
@@ -804,12 +731,7 @@ func (impl *BusinessStoreImpl) UpdateProperty(ctx context.Context, params *dbgen
 
 	slog.DebugContext(ctx, "Updated property", "name", params.Name, "propID", params.ID)
 
-	sitekey := UUIDToSiteKey(property.ExternalID)
-	cacheBySitekeyKey := PropertyBySitekeyCacheKey(sitekey)
-	_ = impl.cache.SetTTL(ctx, cacheBySitekeyKey, property, propertyTTL)
-
-	cacheByIDKey := propertyByIDCacheKey(property.ID)
-	_ = impl.cache.Set(ctx, cacheByIDKey, property)
+	impl.cacheProperty(ctx, property)
 	// invalidate org properties in cache as we just created a new property
 	_ = impl.cache.Delete(ctx, orgPropertiesCacheKey(property.OrgID.Int32))
 
@@ -841,33 +763,17 @@ func (impl *BusinessStoreImpl) SoftDeleteProperty(ctx context.Context, propID in
 }
 
 func (impl *BusinessStoreImpl) RetrieveOrgProperties(ctx context.Context, orgID int32) ([]*dbgen.Property, error) {
-	cacheKey := orgPropertiesCacheKey(orgID)
-
-	if properties, err := fetchCachedMany[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
-		return properties, nil
+	reader := &storeArrayReader[pgtype.Int4, dbgen.Property]{
+		key:   orgPropertiesCacheKey(orgID),
+		cache: impl.cache,
 	}
 
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	if impl.querier != nil {
+		reader.queryKeyFunc = queryKeyPgInt
+		reader.queryFunc = impl.querier.GetOrgProperties
 	}
 
-	properties, err := impl.querier.GetOrgProperties(ctx, Int(orgID))
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			_ = impl.cache.Set(ctx, cacheKey, emptyProperties)
-			return emptyProperties, nil
-		}
-
-		slog.ErrorContext(ctx, "Failed to retrieve org properties", "org", orgID, common.ErrAttr(err))
-		return nil, err
-	}
-
-	slog.Log(ctx, common.LevelTrace, "Retrieved properties", "count", len(properties))
-	if len(properties) > 0 {
-		_ = impl.cache.Set(ctx, cacheKey, properties)
-	}
-
-	return properties, err
+	return reader.Read(ctx)
 }
 
 func (impl *BusinessStoreImpl) UpdateOrganization(ctx context.Context, orgID int32, name string) (*dbgen.Organization, error) {
@@ -920,33 +826,17 @@ func (impl *BusinessStoreImpl) SoftDeleteOrganization(ctx context.Context, orgID
 
 // NOTE: by definition this does not include the owner as this relationship is set directly in the 'organizations' table
 func (impl *BusinessStoreImpl) RetrieveOrganizationUsers(ctx context.Context, orgID int32) ([]*dbgen.GetOrganizationUsersRow, error) {
-	cacheKey := orgUsersCacheKey(orgID)
-
-	if users, err := fetchCachedMany[dbgen.GetOrganizationUsersRow](ctx, impl.cache, cacheKey); err == nil {
-		return users, nil
+	reader := &storeArrayReader[int32, dbgen.GetOrganizationUsersRow]{
+		key:   orgUsersCacheKey(orgID),
+		cache: impl.cache,
 	}
 
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	if impl.querier != nil {
+		reader.queryKeyFunc = queryKeyInt
+		reader.queryFunc = impl.querier.GetOrganizationUsers
 	}
 
-	users, err := impl.querier.GetOrganizationUsers(ctx, orgID)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			_ = impl.cache.Set(ctx, cacheKey, emptyOrgUsers)
-			return emptyOrgUsers, nil
-		}
-		slog.ErrorContext(ctx, "Failed to fetch organization users", "orgID", orgID, common.ErrAttr(err))
-		return nil, err
-	}
-
-	slog.DebugContext(ctx, "Fetched organization users", "orgID", orgID, "count", len(users))
-
-	if len(users) > 0 {
-		_ = impl.cache.Set(ctx, cacheKey, users)
-	}
-
-	return users, nil
+	return reader.Read(ctx)
 }
 
 func (impl *BusinessStoreImpl) InviteUserToOrg(ctx context.Context, orgID int32, userID int32) error {
@@ -1098,35 +988,17 @@ func (impl *BusinessStoreImpl) UpdateUser(ctx context.Context, userID int32, nam
 }
 
 func (impl *BusinessStoreImpl) RetrieveUserAPIKeys(ctx context.Context, userID int32) ([]*dbgen.APIKey, error) {
-	cacheKey := userAPIKeysCacheKey(userID)
-
-	if keys, err := fetchCachedMany[dbgen.APIKey](ctx, impl.cache, cacheKey); err == nil {
-		return keys, nil
-	} else if err == ErrNegativeCacheHit {
-		return nil, ErrNegativeCacheHit
+	reader := &storeArrayReader[pgtype.Int4, dbgen.APIKey]{
+		key:   userAPIKeysCacheKey(userID),
+		cache: impl.cache,
 	}
 
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	if impl.querier != nil {
+		reader.queryKeyFunc = queryKeyPgInt
+		reader.queryFunc = impl.querier.GetUserAPIKeys
 	}
 
-	keys, err := impl.querier.GetUserAPIKeys(ctx, Int(userID))
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			_ = impl.cache.Set(ctx, cacheKey, emptyAPIKeys)
-			return emptyAPIKeys, nil
-		}
-		slog.ErrorContext(ctx, "Failed to retrieve user API keys", "userID", userID, common.ErrAttr(err))
-		return nil, err
-	}
-
-	slog.DebugContext(ctx, "Retrieved API keys", "count", len(keys))
-
-	if len(keys) > 0 {
-		_ = impl.cache.Set(ctx, cacheKey, keys)
-	}
-
-	return keys, err
+	return reader.Read(ctx)
 }
 
 func (impl *BusinessStoreImpl) UpdateAPIKey(ctx context.Context, externalID pgtype.UUID, expiration time.Time, enabled bool) error {
@@ -1150,7 +1022,7 @@ func (impl *BusinessStoreImpl) UpdateAPIKey(ctx context.Context, externalID pgty
 	if key != nil {
 		secret := UUIDToSecret(key.ExternalID)
 		cacheKey := APIKeyCacheKey(secret)
-		_ = impl.cache.SetTTL(ctx, cacheKey, key, apiKeyTTL)
+		_ = impl.cache.SetWithTTL(ctx, cacheKey, key, apiKeyTTL)
 
 		// invalidate keys cache
 		_ = impl.cache.Delete(ctx, userAPIKeysCacheKey(key.UserID.Int32))
@@ -1187,7 +1059,7 @@ func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, userID int32, n
 	if key != nil {
 		secret := UUIDToSecret(key.ExternalID)
 		cacheKey := APIKeyCacheKey(secret)
-		_ = impl.cache.SetTTL(ctx, cacheKey, key, apiKeyTTL)
+		_ = impl.cache.SetWithTTL(ctx, cacheKey, key, apiKeyTTL)
 
 		// invalidate keys cache
 		_ = impl.cache.Delete(ctx, userAPIKeysCacheKey(userID))
@@ -1474,35 +1346,17 @@ func (impl *BusinessStoreImpl) DeleteUsers(ctx context.Context, ids []int32) err
 }
 
 func (impl *BusinessStoreImpl) RetrieveNotification(ctx context.Context, id int32) (*dbgen.SystemNotification, error) {
-	cacheKey := notificationCacheKey(id)
-
-	if notif, err := fetchCachedOne[dbgen.SystemNotification](ctx, impl.cache, cacheKey); err == nil {
-		return notif, nil
-	} else if err == ErrNegativeCacheHit {
-		return nil, ErrNegativeCacheHit
+	reader := &storeOneReader[int32, dbgen.SystemNotification]{
+		cacheKey: notificationCacheKey(id),
+		cache:    impl.cache,
 	}
 
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	if impl.querier != nil {
+		reader.queryKeyFunc = queryKeyInt
+		reader.queryFunc = impl.querier.GetNotificationById
 	}
 
-	notification, err := impl.querier.GetNotificationById(ctx, id)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			_ = impl.cache.SetMissing(ctx, cacheKey)
-			return nil, ErrRecordNotFound
-		}
-
-		slog.ErrorContext(ctx, "Failed to retrieve notification by ID", "notifID", id, common.ErrAttr(err))
-
-		return nil, err
-	}
-
-	if notification != nil {
-		_ = impl.cache.Set(ctx, cacheKey, notification)
-	}
-
-	return notification, nil
+	return reader.Read(ctx)
 }
 
 func (impl *BusinessStoreImpl) RetrieveUserNotification(ctx context.Context, tnow time.Time, userID int32) (*dbgen.SystemNotification, error) {

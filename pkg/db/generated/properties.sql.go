@@ -230,6 +230,35 @@ func (q *Queries) GetPropertiesByExternalID(ctx context.Context, dollar_1 []pgty
 	return items, nil
 }
 
+const getPropertyByExternalID = `-- name: GetPropertyByExternalID :one
+SELECT id, name, external_id, org_id, creator_id, org_owner_id, domain, level, salt, growth, created_at, updated_at, deleted_at, validity_interval, allow_subdomains, allow_localhost, allow_replay from backend.properties WHERE external_id = $1
+`
+
+func (q *Queries) GetPropertyByExternalID(ctx context.Context, externalID pgtype.UUID) (*Property, error) {
+	row := q.db.QueryRow(ctx, getPropertyByExternalID, externalID)
+	var i Property
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ExternalID,
+		&i.OrgID,
+		&i.CreatorID,
+		&i.OrgOwnerID,
+		&i.Domain,
+		&i.Level,
+		&i.Salt,
+		&i.Growth,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.ValidityInterval,
+		&i.AllowSubdomains,
+		&i.AllowLocalhost,
+		&i.AllowReplay,
+	)
+	return &i, err
+}
+
 const getPropertyByID = `-- name: GetPropertyByID :one
 SELECT id, name, external_id, org_id, creator_id, org_owner_id, domain, level, salt, growth, created_at, updated_at, deleted_at, validity_interval, allow_subdomains, allow_localhost, allow_replay from backend.properties WHERE id = $1
 `

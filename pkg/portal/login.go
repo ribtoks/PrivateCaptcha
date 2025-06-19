@@ -40,13 +40,13 @@ type portalPropertyOwnerSource struct {
 }
 
 func (s *portalPropertyOwnerSource) OwnerID(ctx context.Context) (int32, error) {
-	properties, err := s.Store.Impl().RetrievePropertiesBySitekey(ctx, map[string]struct{}{s.Sitekey: {}})
-	if (err != nil) || (len(properties) != 1) {
+	property, err := s.Store.Impl().RetrievePropertyBySitekey(ctx, s.Sitekey)
+	if err != nil {
 		slog.ErrorContext(ctx, "Failed to fetch login property", common.ErrAttr(err))
 		return -1, errPortalPropertyNotFound
 	}
 
-	return properties[0].OrgOwnerID.Int32, nil
+	return property.OrgOwnerID.Int32, nil
 }
 
 func (s *Server) getLogin(w http.ResponseWriter, r *http.Request) (Model, string, error) {

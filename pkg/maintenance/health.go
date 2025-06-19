@@ -54,6 +54,7 @@ func (hc *HealthCheckJob) RunOnce(ctx context.Context) error {
 	hc.clickhouseFlag.Store(chStatus)
 
 	hc.Metrics.ObserveHealth((pgStatus == FlagTrue), (chStatus == FlagTrue))
+	hc.Metrics.ObserveCacheHitRatio(hc.BusinessDB.CacheHitRatio())
 
 	return nil
 }

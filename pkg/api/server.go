@@ -415,8 +415,8 @@ func (s *Server) verifyPuzzleValid(ctx context.Context, payload *puzzle.VerifyPa
 	}
 
 	sitekey := db.UUIDToSiteKey(pgtype.UUID{Valid: true, Bytes: p.PropertyID})
-	properties, err := s.BusinessDB.Impl().RetrievePropertiesBySitekey(ctx, map[string]struct{}{sitekey: {}})
-	if (err != nil) || (len(properties) != 1) {
+	property, err := s.BusinessDB.Impl().RetrievePropertyBySitekey(ctx, sitekey)
+	if err != nil {
 		switch err {
 		case db.ErrNegativeCacheHit, db.ErrRecordNotFound, db.ErrSoftDeleted:
 			return p, nil, puzzle.InvalidPropertyError
@@ -428,7 +428,6 @@ func (s *Server) verifyPuzzleValid(ctx context.Context, payload *puzzle.VerifyPa
 		}
 	}
 
-	property := properties[0]
 	if payload.NeedsExtraSalt() {
 		if serr := payload.VerifySignature(ctx, s.Salt.Value(), property.Salt); serr != nil {
 			return p, nil, puzzle.IntegrityError

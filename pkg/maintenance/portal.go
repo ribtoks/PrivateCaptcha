@@ -36,7 +36,8 @@ func (j *SessionsCleanupJob) RunOnce(ctx context.Context) error {
 }
 
 type WarmupPortalAuth struct {
-	Store db.Implementor
+	Store               db.Implementor
+	RegistrationAllowed bool
 }
 
 var _ common.OneOffJob = (*WarmupPortalAuth)(nil)
@@ -50,27 +51,28 @@ func (j *WarmupPortalAuth) InitialPause() time.Duration {
 }
 
 func (j *WarmupPortalAuth) RunOnce(ctx context.Context) error {
-	sitekeys := make(map[string]struct{})
-
 	loginUUID := pgtype.UUID{}
-	if err := loginUUID.Scan(db.PortalLoginPropertyID); err == nil {
+	var err error
+	if err = loginUUID.Scan(db.PortalLoginPropertyID); err == nil {
 		loginSitekey := db.UUIDToSiteKey(loginUUID)
-		sitekeys[loginSitekey] = struct{}{}
-	} else {
+		if _, err = j.Store.Impl().RetrievePropertyBySitekey(ctx, loginSitekey); err != nil {
+			slog.ErrorContext(ctx, "Failed to retrieve login property by sitekey", common.ErrAttr(err))
+		}
+	}
+
+	if err != nil {
 		return err
 	}
 
-	registerUUID := pgtype.UUID{}
-	if err := registerUUID.Scan(db.PortalRegisterPropertyID); err == nil {
-		registerSitekey := db.UUIDToSiteKey(registerUUID)
-		sitekeys[registerSitekey] = struct{}{}
-	} else {
-		return err
+	if j.RegistrationAllowed {
+		registerUUID := pgtype.UUID{}
+		if err = registerUUID.Scan(db.PortalRegisterPropertyID); err == nil {
+			registerSitekey := db.UUIDToSiteKey(registerUUID)
+			if _, err = j.Store.Impl().RetrievePropertyBySitekey(ctx, registerSitekey); err != nil {
+				slog.ErrorContext(ctx, "Failed to retrieve register property by sitekey", common.ErrAttr(err))
+			}
+		}
 	}
 
-	if _, err := j.Store.Impl().RetrievePropertiesBySitekey(ctx, sitekeys); err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve properties by sitekey", common.ErrAttr(err))
-	}
-
-	return nil
+	return err
 }
