@@ -18,10 +18,8 @@ func (srl *StubRateLimiter) Shutdown() {
 func (srl *StubRateLimiter) RateLimit(next http.Handler) http.Handler {
 	return next
 }
-func (srl *StubRateLimiter) Updater(r *http.Request) leakybucket.LimitUpdaterFunc {
-	return func(capacity leakybucket.TLevel, leakInterval time.Duration) {
-		// BUMP
-	}
+func (srl *StubRateLimiter) UpdateRequestLimits(r *http.Request, capacity leakybucket.TLevel, leakInterval time.Duration) {
+	// BUMP
 }
 func (srl *StubRateLimiter) UpdateLimits(capacity leakybucket.TLevel, leakInterval time.Duration) {
 	// BUMP

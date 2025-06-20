@@ -16,6 +16,10 @@ const (
 	twofactorTemplate     = "twofactor/twofactor.html"
 )
 
+var (
+	renderContextNothing = struct{}{}
+)
+
 type twoFactorRenderContext struct {
 	CsrfRenderContext
 	Email string
@@ -156,10 +160,10 @@ func (s *Server) resend2fa(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.Mailer.SendTwoFactor(ctx, email, code); err != nil {
 		slog.ErrorContext(ctx, "Failed to send email message", common.ErrAttr(err))
-		s.render(w, r, "twofactor/resend-error.html", struct{}{})
+		s.render(w, r, "twofactor/resend-error.html", renderContextNothing)
 		return
 	}
 
 	_ = sess.Set(session.KeyTwoFactorCode, code)
-	s.render(w, r, "twofactor/resend.html", struct{}{})
+	s.render(w, r, "twofactor/resend.html", renderContextNothing)
 }

@@ -30,7 +30,7 @@ func gcDataTestSuite(ctx context.Context, property *dbgen.Property, deleter func
 	}
 	from := tnow
 
-	stats, err := timeSeries.ReadPropertyStats(ctx, request, from)
+	stats, err := timeSeries.RetrievePropertyStatsSince(ctx, request, from)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func gcDataTestSuite(ctx context.Context, property *dbgen.Property, deleter func
 		t.Fatal(err)
 	}
 
-	stats, err = timeSeries.ReadPropertyStats(ctx, request, from)
+	stats, err = timeSeries.RetrievePropertyStatsSince(ctx, request, from)
 	if err != nil {
 		t.Fatal(err)
 	}

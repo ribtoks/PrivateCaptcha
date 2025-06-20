@@ -44,7 +44,7 @@ func (f *fakePuzzleEngine) Write(ctx context.Context, p *puzzle.Puzzle, extraSal
 	return nil
 }
 
-func (f *fakePuzzleEngine) Verify(ctx context.Context, payload string, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.Puzzle, puzzle.VerifyError, error) {
+func (f *fakePuzzleEngine) Verify(ctx context.Context, payload []byte, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.Puzzle, puzzle.VerifyError, error) {
 	return nil, f.result, nil
 }
 

@@ -39,7 +39,9 @@ type portalPropertyOwnerSource struct {
 	Sitekey string
 }
 
-func (s *portalPropertyOwnerSource) OwnerID(ctx context.Context) (int32, error) {
+var _ puzzle.OwnerIDSource = (*portalPropertyOwnerSource)(nil)
+
+func (s *portalPropertyOwnerSource) OwnerID(ctx context.Context, tnow time.Time) (int32, error) {
 	property, err := s.Store.Impl().RetrievePropertyBySitekey(ctx, s.Sitekey)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to fetch login property", common.ErrAttr(err))
@@ -80,7 +82,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	ownerSource := &portalPropertyOwnerSource{Store: s.Store, Sitekey: data.CaptchaSitekey}
 
 	captchaSolution := r.FormValue(captchaSolutionField)
-	_, verr, err := s.PuzzleEngine.Verify(ctx, captchaSolution, ownerSource, time.Now().UTC())
+	_, verr, err := s.PuzzleEngine.Verify(ctx, []byte(captchaSolution), ownerSource, time.Now().UTC())
 	if err != nil || verr != puzzle.VerifyNoError {
 		slog.ErrorContext(ctx, "Failed to verify captcha", "code", verr, common.ErrAttr(err))
 		data.CaptchaError = "Captcha verification failed"

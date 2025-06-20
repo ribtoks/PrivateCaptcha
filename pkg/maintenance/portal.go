@@ -35,22 +35,22 @@ func (j *SessionsCleanupJob) RunOnce(ctx context.Context) error {
 	return nil
 }
 
-type WarmupPortalAuth struct {
+type WarmupPortalAuthJob struct {
 	Store               db.Implementor
 	RegistrationAllowed bool
 }
 
-var _ common.OneOffJob = (*WarmupPortalAuth)(nil)
+var _ common.OneOffJob = (*WarmupPortalAuthJob)(nil)
 
-func (j *WarmupPortalAuth) Name() string {
-	return "warmup_portal_auth"
+func (j *WarmupPortalAuthJob) Name() string {
+	return "warmup_portal_auth_job"
 }
 
-func (j *WarmupPortalAuth) InitialPause() time.Duration {
+func (j *WarmupPortalAuthJob) InitialPause() time.Duration {
 	return 5 * time.Second
 }
 
-func (j *WarmupPortalAuth) RunOnce(ctx context.Context) error {
+func (j *WarmupPortalAuthJob) RunOnce(ctx context.Context) error {
 	loginUUID := pgtype.UUID{}
 	var err error
 	if err = loginUUID.Scan(db.PortalLoginPropertyID); err == nil {

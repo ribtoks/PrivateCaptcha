@@ -355,7 +355,7 @@ func (s *Server) private(next http.Handler) http.Handler {
 		if step, ok := sess.Get(session.KeyLoginStep).(int); ok {
 			if step == loginStepCompleted {
 				// update limits each time as rate limiting gets cleaned up frequently (impact shouldn't be much in portal)
-				s.Auth.UpdateLimits(r)
+				s.Auth.UpdatePortalLimits(r)
 
 				ctx = context.WithValue(ctx, common.LoggedInContextKey, true)
 				ctx = context.WithValue(ctx, common.SessionContextKey, sess)

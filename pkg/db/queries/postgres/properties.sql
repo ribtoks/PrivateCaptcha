@@ -1,6 +1,9 @@
 -- name: GetPropertiesByExternalID :many
 SELECT * from backend.properties WHERE external_id = ANY($1::UUID[]);
 
+-- name: GetPropertiesByID :many
+SELECT * from backend.properties WHERE id = ANY($1::INT[]);
+
 -- name: GetPropertyByExternalID :one
 SELECT * from backend.properties WHERE external_id = $1;
 

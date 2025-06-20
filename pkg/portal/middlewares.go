@@ -69,6 +69,6 @@ func (am *AuthMiddleware) Shutdown() {
 	am.rateLimiter.Shutdown()
 }
 
-func (am *AuthMiddleware) UpdateLimits(r *http.Request) {
-	am.rateLimiter.Updater(r)(authenticatedBucketCap, authenticatedLeakInterval)
+func (am *AuthMiddleware) UpdatePortalLimits(r *http.Request) {
+	am.rateLimiter.UpdateRequestLimits(r, authenticatedBucketCap, authenticatedLeakInterval)
 }

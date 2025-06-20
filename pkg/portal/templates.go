@@ -146,9 +146,10 @@ func (b *TemplatesBuilder) Build(ctx context.Context) (*Templates, error) {
 	}
 
 	allBundleNames := make(map[string]struct{})
+	t := struct{}{}
 	for _, layer := range b.layers {
 		for name := range layer.Bundles {
-			allBundleNames[name] = struct{}{}
+			allBundleNames[name] = t
 		}
 	}
 

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 )
@@ -38,6 +39,8 @@ const (
 	MaintenanceModeError    VerifyError = 9
 	TestPropertyError       VerifyError = 10
 	IntegrityError          VerifyError = 11
+	// Add new fields _above_
+	VERIFY_ERRORS_COUNT
 )
 
 func (verr VerifyError) String() string {
@@ -86,7 +89,7 @@ func ErrorCodesToStrings(verr []VerifyError) []string {
 }
 
 type OwnerIDSource interface {
-	OwnerID(ctx context.Context) (int32, error)
+	OwnerID(ctx context.Context, tnow time.Time) (int32, error)
 }
 
 type VerifyPayload struct {
@@ -161,6 +164,7 @@ func (vp *VerifyPayload) NeedsExtraSalt() bool {
 
 func (vp *VerifyPayload) VerifySignature(ctx context.Context, salt *Salt, extraSalt []byte) error {
 	if vp.signature.Fingerprint != salt.Fingerprint() {
+		slog.WarnContext(ctx, "Signature fingerprint does not match salt fingerprint")
 		return ErrSignKeyMismatch
 	}
 

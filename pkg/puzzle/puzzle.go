@@ -8,6 +8,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/binary"
+	"hash/fnv"
 	"io"
 	"log/slog"
 	randv2 "math/rand/v2"
@@ -59,6 +60,24 @@ func (p *Puzzle) Init(validityPeriod time.Duration) error {
 	p.Expiration = time.Now().UTC().Add(validityPeriod)
 
 	return nil
+}
+
+func (p *Puzzle) HashKey() uint32 {
+	hasher := fnv.New32a()
+
+	hasher.Write(p.PropertyID[:])
+
+	var pidBytes [8]byte
+	binary.LittleEndian.PutUint64(pidBytes[:], p.PuzzleID)
+	hasher.Write(pidBytes[:])
+
+	return hasher.Sum32()
+}
+
+func (p *Puzzle) HashValue() uint32 {
+	hasher := fnv.New32a()
+	hasher.Write(p.UserData[:])
+	return hasher.Sum32()
 }
 
 func RandomPuzzleID() uint64 {
@@ -239,4 +258,31 @@ func (pp *PuzzlePayload) Write(w io.Writer) error {
 	}
 
 	return nil
+}
+
+func (pp *PuzzlePayload) Size() int {
+	return len(pp.signatureBase64) + len(pp.puzzleBase64) + len(dotBytes)
+}
+
+func (pp *PuzzlePayload) IsPrefixFor(data []byte) bool {
+	dlen := len(data)
+	plen := len(pp.puzzleBase64)
+	slen := len(pp.signatureBase64)
+	if dlen < (plen + 1 + slen) {
+		return false
+	}
+
+	if !bytes.Equal(pp.puzzleBase64, data[:plen]) {
+		return false
+	}
+
+	if data[plen] != dotBytes[0] {
+		return false
+	}
+
+	if !bytes.Equal(pp.signatureBase64, data[(plen+1):(plen+1+slen)]) {
+		return false
+	}
+
+	return true
 }

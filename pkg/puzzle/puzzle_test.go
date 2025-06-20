@@ -2,6 +2,7 @@ package puzzle
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"math/rand"
 	"testing"
@@ -118,4 +119,64 @@ func TestZeroPuzzleMarshalling(t *testing.T) {
 	}
 
 	checkPuzzles(puzzle, &newPuzzle, t)
+}
+
+func TestPuzzlePayloadPrefix(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.TODO()
+
+	solution := make([]byte, SolutionLength)
+	for i := 0; i < SolutionLength; i++ {
+		solution[i] = byte(i)
+	}
+
+	propertyID := [16]byte{}
+	randInit(propertyID[:])
+	p := NewPuzzle(0 /*puzzle ID*/, propertyID, 0 /*difficulty*/)
+
+	solver := &Solver{}
+	solutions, err := solver.Solve(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	salt := NewSalt([]byte("salt"))
+	puzzleData, err := p.Serialize(ctx, salt, nil /*property salt*/)
+
+	var buf bytes.Buffer
+	puzzleData.Write(&buf)
+	buf.Write(dotBytes)
+	buf.WriteString(solutions.String())
+
+	data := buf.Bytes()
+	if puzzleData.IsPrefixFor(data[:puzzleData.Size()-1]) {
+		t.Error("Is prefix for shorter bytes")
+	}
+
+	if !puzzleData.IsPrefixFor(data[:puzzleData.Size()]) {
+		t.Error("Not prefix for just enough bytes")
+	}
+
+	if !puzzleData.IsPrefixFor(data) {
+		t.Error("Not prefix for full bytes")
+	}
+
+	data[len(puzzleData.puzzleBase64)-1]++
+	if puzzleData.IsPrefixFor(data) {
+		t.Error("Is prefix for modified puzzle")
+	}
+	data[len(puzzleData.puzzleBase64)-1]--
+	// ---------------------------------------------
+	data[len(puzzleData.puzzleBase64)]++
+	if puzzleData.IsPrefixFor(data) {
+		t.Error("Is prefix without dot")
+	}
+	data[len(puzzleData.puzzleBase64)]--
+	// ---------------------------------------------
+	data[len(puzzleData.puzzleBase64)+1]++
+	if puzzleData.IsPrefixFor(data) {
+		t.Error("Is prefix for modified signature")
+	}
+	data[len(puzzleData.puzzleBase64)+1]--
 }

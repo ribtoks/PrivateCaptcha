@@ -230,6 +230,48 @@ func (q *Queries) GetPropertiesByExternalID(ctx context.Context, dollar_1 []pgty
 	return items, nil
 }
 
+const getPropertiesByID = `-- name: GetPropertiesByID :many
+SELECT id, name, external_id, org_id, creator_id, org_owner_id, domain, level, salt, growth, created_at, updated_at, deleted_at, validity_interval, allow_subdomains, allow_localhost, allow_replay from backend.properties WHERE id = ANY($1::INT[])
+`
+
+func (q *Queries) GetPropertiesByID(ctx context.Context, dollar_1 []int32) ([]*Property, error) {
+	rows, err := q.db.Query(ctx, getPropertiesByID, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Property
+	for rows.Next() {
+		var i Property
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.ExternalID,
+			&i.OrgID,
+			&i.CreatorID,
+			&i.OrgOwnerID,
+			&i.Domain,
+			&i.Level,
+			&i.Salt,
+			&i.Growth,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+			&i.ValidityInterval,
+			&i.AllowSubdomains,
+			&i.AllowLocalhost,
+			&i.AllowReplay,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPropertyByExternalID = `-- name: GetPropertyByExternalID :one
 SELECT id, name, external_id, org_id, creator_id, org_owner_id, domain, level, salt, growth, created_at, updated_at, deleted_at, validity_interval, allow_subdomains, allow_localhost, allow_replay from backend.properties WHERE external_id = $1
 `

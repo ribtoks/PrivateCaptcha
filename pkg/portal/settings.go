@@ -499,7 +499,7 @@ func (s *Server) getAccountStats(w http.ResponseWriter, r *http.Request) {
 	data := []*point{}
 
 	timeFrom := time.Now().UTC().AddDate(-1 /*years*/, 0 /*months*/, 0 /*days*/)
-	if stats, err := s.TimeSeries.ReadAccountStats(ctx, user.ID, timeFrom); err == nil {
+	if stats, err := s.TimeSeries.RetrieveAccountStats(ctx, user.ID, timeFrom); err == nil {
 		anyNonZero := false
 		for _, st := range stats {
 			if st.Count > 0 {

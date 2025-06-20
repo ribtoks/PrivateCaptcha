@@ -16,8 +16,8 @@ import (
 
 const (
 	// NOTE: this is the time during which changes to difficulty will propagate when we have multiple API nodes
-	propertyTTL = 10 * time.Minute
-	apiKeyTTL   = 10 * time.Minute
+	propertyTTL = 1 * time.Hour
+	apiKeyTTL   = 12 * time.Hour
 )
 
 var (
@@ -50,6 +50,8 @@ func NewTxCache() *TxCache {
 		missing: make(map[CacheKey]struct{}),
 	}
 }
+
+var _ common.Cache[CacheKey, any] = (*TxCache)(nil)
 
 func (c *TxCache) HitRatio() float64                                  { return 0.0 }
 func (c *TxCache) Missing() any                                       { return nil }
@@ -312,10 +314,16 @@ func (impl *BusinessStoreImpl) RetrievePropertyBySitekey(ctx context.Context, si
 }
 
 // TODO: Refactor this to use otter.Cache BulkGet() API
+// and also it's clone RetrievePropertiesByID()
 func (impl *BusinessStoreImpl) RetrievePropertiesBySitekey(ctx context.Context, sitekeys map[string]uint, minMissingCount uint) ([]*dbgen.Property, error) {
+	if len(sitekeys) == 0 {
+		return []*dbgen.Property{}, nil
+	}
+
 	keys := make([]pgtype.UUID, 0, len(sitekeys))
 	keysMap := make(map[string]struct{})
 	result := make([]*dbgen.Property, 0, len(sitekeys))
+	t := struct{}{}
 
 	for sitekey := range sitekeys {
 		eid := UUIDFromSiteKey(sitekey)
@@ -332,7 +340,7 @@ func (impl *BusinessStoreImpl) RetrievePropertiesBySitekey(ctx context.Context, 
 		}
 
 		keys = append(keys, eid)
-		keysMap[sitekey] = struct{}{}
+		keysMap[sitekey] = t
 	}
 
 	if len(keys) == 0 {
@@ -369,6 +377,64 @@ func (impl *BusinessStoreImpl) RetrievePropertiesBySitekey(ctx context.Context, 
 		if count, ok := sitekeys[missingKey]; ok && (count >= minMissingCount) {
 			_ = impl.cache.SetMissing(ctx, PropertyBySitekeyCacheKey(missingKey))
 		}
+	}
+
+	result = append(result, properties...)
+
+	return result, nil
+}
+
+// this is pretty much a copy paste of RetrievePropertiesBySitekey
+func (impl *BusinessStoreImpl) RetrievePropertiesByID(ctx context.Context, batch map[int32]uint) ([]*dbgen.Property, error) {
+	if len(batch) == 0 {
+		return []*dbgen.Property{}, nil
+	}
+
+	keys := make([]int32, 0, len(batch))
+	keysMap := make(map[int32]struct{})
+	result := make([]*dbgen.Property, 0, len(batch))
+	t := struct{}{}
+
+	for pID := range batch {
+		cacheKey := propertyByIDCacheKey(pID)
+		if property, err := fetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
+			result = append(result, property)
+			continue
+		} else if err == ErrNegativeCacheHit {
+			continue
+		}
+
+		keys = append(keys, pID)
+		keysMap[pID] = t
+	}
+
+	if len(keys) == 0 {
+		if len(result) > 0 {
+			slog.DebugContext(ctx, "All properties are cached", "count", len(result))
+			return result, nil
+		}
+
+		slog.WarnContext(ctx, "No valid properties to fetch from DB")
+		return nil, ErrInvalidInput
+	}
+
+	if impl.querier == nil {
+		return result, ErrMaintenance
+	}
+
+	properties, err := impl.querier.GetPropertiesByID(ctx, keys)
+	if err != nil && err != pgx.ErrNoRows {
+		slog.ErrorContext(ctx, "Failed to retrieve properties by sitekeys", common.ErrAttr(err))
+		return nil, err
+	}
+
+	slog.DebugContext(ctx, "Fetched properties from DB by sitekeys", "count", len(properties))
+
+	for _, p := range properties {
+		sitekey := UUIDToSiteKey(p.ExternalID)
+		cacheKey := PropertyBySitekeyCacheKey(sitekey)
+		_ = impl.cache.SetWithTTL(ctx, cacheKey, p, propertyTTL)
+		delete(keysMap, p.ID)
 	}
 
 	result = append(result, properties...)
@@ -998,7 +1064,17 @@ func (impl *BusinessStoreImpl) RetrieveUserAPIKeys(ctx context.Context, userID i
 		reader.queryFunc = impl.querier.GetUserAPIKeys
 	}
 
-	return reader.Read(ctx)
+	keys, err := reader.Read(ctx)
+	if err == nil {
+		// recache individual keys
+		for _, key := range keys {
+			secret := UUIDToSecret(key.ExternalID)
+			cacheKey := APIKeyCacheKey(secret)
+			_ = impl.cache.SetWithTTL(ctx, cacheKey, key, apiKeyTTL)
+		}
+	}
+
+	return keys, err
 }
 
 func (impl *BusinessStoreImpl) UpdateAPIKey(ctx context.Context, externalID pgtype.UUID, expiration time.Time, enabled bool) error {
@@ -1132,6 +1208,10 @@ func (impl *BusinessStoreImpl) UpdateUserAPIKeysRateLimits(ctx context.Context, 
 }
 
 func (impl *BusinessStoreImpl) RetrieveUsersWithoutSubscription(ctx context.Context, userIDs []int32) ([]*dbgen.User, error) {
+	if len(userIDs) == 0 {
+		return []*dbgen.User{}, nil
+	}
+
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}

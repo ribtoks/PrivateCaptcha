@@ -34,8 +34,8 @@ const (
 	PortalLoginPropertyID    = "1ca8041a-5761-40a4-addf-f715a991bfea"
 	PortalRegisterPropertyID = "8981be7a-3a71-414d-bb74-e7b4456603fd"
 	TestPropertyID           = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-	defaultCacheTTL          = 10 * time.Minute
-	defaultCacheRefresh      = 29 * time.Minute
+	defaultCacheTTL          = 15 * time.Minute
+	defaultCacheRefresh      = 30 * time.Minute
 	negativeCacheTTL         = 5 * time.Minute
 )
 
@@ -45,7 +45,7 @@ type BusinessStore struct {
 	cacheOnlyImpl *BusinessStoreImpl
 	Cache         common.Cache[CacheKey, any]
 	// this could have been a bloom/cuckoo filter with expiration, if they existed
-	puzzleCache     common.Cache[uint64, bool]
+	puzzleCache     common.Cache[uint32, uint32]
 	MaintenanceMode atomic.Bool
 }
 
@@ -75,12 +75,12 @@ func NewBusiness(pool *pgxpool.Pool) *BusinessStore {
 
 func NewBusinessEx(pool *pgxpool.Pool, cache common.Cache[CacheKey, any]) *BusinessStore {
 	const maxPuzzleCacheSize = 100_000
-	var puzzleCache common.Cache[uint64, bool]
+	var puzzleCache common.Cache[uint32, uint32]
 	var err error
-	puzzleCache, err = NewMemoryCache[uint64, bool](maxPuzzleCacheSize, false /*missing value*/, defaultCacheTTL, defaultCacheRefresh, negativeCacheTTL)
+	puzzleCache, err = NewMemoryCache[uint32, uint32](maxPuzzleCacheSize, 0 /*missing value*/, defaultCacheTTL, defaultCacheRefresh, negativeCacheTTL)
 	if err != nil {
 		slog.Error("Failed to create puzzle memory cache", common.ErrAttr(err))
-		puzzleCache = NewStaticCache[uint64, bool](maxPuzzleCacheSize, false /*missing value*/)
+		puzzleCache = NewStaticCache[uint32, uint32](maxPuzzleCacheSize, 0 /*missing value*/)
 	}
 
 	return &BusinessStore{
@@ -155,8 +155,10 @@ func (s *BusinessStore) CheckPuzzleCached(ctx context.Context, p *puzzle.Puzzle)
 		return false
 	}
 
-	ok, err := s.puzzleCache.Get(ctx, p.PuzzleID)
-	return (err == nil) && ok
+	// purely theoretically there's still a chance of cache collision, but it's so negligible that it's allowed
+	// (HashKey() and HashValue() have to match during puzzle.DefaultValidityPeriod on the same server
+	value, err := s.puzzleCache.Get(ctx, p.HashKey())
+	return (err == nil) && (p.HashValue() == value)
 }
 
 func (s *BusinessStore) CachePuzzle(ctx context.Context, p *puzzle.Puzzle, tnow time.Time) error {
@@ -171,5 +173,5 @@ func (s *BusinessStore) CachePuzzle(ctx context.Context, p *puzzle.Puzzle, tnow 
 		return nil
 	}
 
-	return s.puzzleCache.SetWithTTL(ctx, p.PuzzleID, true, p.Expiration.Sub(tnow))
+	return s.puzzleCache.SetWithTTL(ctx, p.HashKey(), p.HashValue(), p.Expiration.Sub(tnow))
 }

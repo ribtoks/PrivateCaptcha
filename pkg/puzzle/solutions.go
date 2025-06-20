@@ -200,6 +200,8 @@ func (s *Solutions) Verify(ctx context.Context, puzzleBytes []byte, difficulty u
 	validSolutions := 0
 	threshold := thresholdFromDifficulty((difficulty))
 
+	// TODO: Shuffle solutions before checking
+	// (to decrease resource exhaustion attack surface)
 	for start := 0; start < len(s.Buffer); start += SolutionLength {
 		solution := s.Buffer[start:(start + SolutionLength)]
 		sIndex := solution[0]

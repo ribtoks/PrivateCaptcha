@@ -70,7 +70,6 @@ func (c *StaticCache[TKey, TValue]) GetEx(ctx context.Context, key TKey, loader 
 	}
 
 	return item, nil
-
 }
 
 func (c *StaticCache[TKey, TValue]) SetMissing(ctx context.Context, key TKey) error {

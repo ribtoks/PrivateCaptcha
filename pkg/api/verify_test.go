@@ -292,7 +292,12 @@ func TestVerifyInvalidKey(t *testing.T) {
 
 	t.Parallel()
 
-	resp, err := verifySuite("a.b.c", db.UUIDToSecret(*randomUUID()))
+	payload, _, _, err := setupVerifySuite(t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := verifySuite(payload, db.UUIDToSecret(*randomUUID()))
 	if err != nil {
 		t.Fatal(err)
 	}

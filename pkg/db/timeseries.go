@@ -192,7 +192,7 @@ func (ts *TimeSeriesDB) WriteVerifyLogBatch(ctx context.Context, records []*comm
 	return err
 }
 
-func (ts *TimeSeriesDB) ReadPropertyStats(ctx context.Context, r *common.BackfillRequest, from time.Time) ([]*common.TimeCount, error) {
+func (ts *TimeSeriesDB) RetrievePropertyStatsSince(ctx context.Context, r *common.BackfillRequest, from time.Time) ([]*common.TimeCount, error) {
 	if !ts.IsAvailable() {
 		return nil, ErrMaintenance
 	}
@@ -230,7 +230,7 @@ ORDER BY timestamp`
 	return results, nil
 }
 
-func (ts *TimeSeriesDB) ReadAccountStats(ctx context.Context, userID int32, from time.Time) ([]*common.TimeCount, error) {
+func (ts *TimeSeriesDB) RetrieveAccountStats(ctx context.Context, userID int32, from time.Time) ([]*common.TimeCount, error) {
 	if !ts.IsAvailable() {
 		return nil, ErrMaintenance
 	}
@@ -264,7 +264,7 @@ ORDER BY timestamp`
 	return results, nil
 }
 
-func (ts *TimeSeriesDB) RetrievePropertyStats(ctx context.Context, orgID, propertyID int32, period common.TimePeriod) ([]*common.TimePeriodStat, error) {
+func (ts *TimeSeriesDB) RetrievePropertyStatsByPeriod(ctx context.Context, orgID, propertyID int32, period common.TimePeriod) ([]*common.TimePeriodStat, error) {
 	if !ts.IsAvailable() {
 		return nil, ErrMaintenance
 	}
@@ -354,6 +354,41 @@ func (ts *TimeSeriesDB) RetrievePropertyStats(ctx context.Context, orgID, proper
 		"from", timeFrom, "period", period)
 
 	return results, nil
+}
+
+func (ts *TimeSeriesDB) RetrieveRecentTopUsers(ctx context.Context, limit int) (map[int32]uint, map[int32]uint, error) {
+	if !ts.IsAvailable() {
+		return nil, nil, ErrMaintenance
+	}
+
+	query := `SELECT user_id, property_id
+FROM %s FINAL
+WHERE timestamp >= now() - INTERVAL 1 DAY
+GROUP BY user_id, property_id
+LIMIT %d`
+	rows, err := ts.Clickhouse.Query(fmt.Sprintf(query, VerifyLogTable1d, limit))
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to execute top usage query", common.ErrAttr(err))
+		return nil, nil, err
+	}
+
+	defer rows.Close()
+
+	users := make(map[int32]uint)
+	properties := make(map[int32]uint)
+
+	for rows.Next() {
+		var userID int32
+		var propertyID int32
+		if err := rows.Scan(&userID, &propertyID); err != nil {
+			slog.ErrorContext(ctx, "Failed to read row from top usage query", common.ErrAttr(err))
+			return nil, nil, err
+		}
+		users[userID]++
+		properties[propertyID]++
+	}
+
+	return users, properties, nil
 }
 
 func (ts *TimeSeriesDB) lightDelete(ctx context.Context, tables []string, column string, ids string) error {

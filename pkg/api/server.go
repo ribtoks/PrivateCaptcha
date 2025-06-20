@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -31,8 +32,13 @@ const (
 	maxVerifyBatchSize    = 100_000
 )
 
+const (
+	unauthorizedError puzzle.VerifyError = puzzle.VERIFY_ERRORS_COUNT + iota
+)
+
 var (
 	errAPIKeyNotSet  = errors.New("API key is not set in context")
+	errInvalidAPIKey = errors.New("API key is not valid")
 	headersAnyOrigin = map[string][]string{
 		http.CanonicalHeaderKey(common.HeaderAccessControlOrigin): []string{"*"},
 		http.CanonicalHeaderKey(common.HeaderAccessControlAge):    []string{"86400"},
@@ -55,17 +61,39 @@ type Server struct {
 	Cors               *cors.Cors
 	Metrics            common.APIMetrics
 	Mailer             common.Mailer
+	TestPuzzle         *puzzle.Puzzle
 	TestPuzzleData     *puzzle.PuzzlePayload
 }
 
 var _ puzzle.Engine = (*Server)(nil)
 
-type apiKeyOwnerSource struct{}
+type apiKeyOwnerSource struct {
+	Store db.Implementor
+}
 
-func (a *apiKeyOwnerSource) OwnerID(ctx context.Context) (int32, error) {
-	apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey)
-	if !ok {
-		return -1, errAPIKeyNotSet
+var _ puzzle.OwnerIDSource = (*apiKeyOwnerSource)(nil)
+
+func (a *apiKeyOwnerSource) apiKey(ctx context.Context) (*dbgen.APIKey, error) {
+	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok {
+		return apiKey, nil
+	}
+
+	if secret, ok := ctx.Value(common.SecretContextKey).(string); ok {
+		// this is the "postponed" DB access mentioned in APIKey() middleware
+		return a.Store.Impl().RetrieveAPIKey(ctx, secret)
+	}
+
+	return nil, errAPIKeyNotSet
+}
+
+func (a *apiKeyOwnerSource) OwnerID(ctx context.Context, tnow time.Time) (int32, error) {
+	apiKey, err := a.apiKey(ctx)
+	if err != nil {
+		return -1, err
+	}
+
+	if !isAPIKeyValid(ctx, apiKey, tnow) {
+		return -1, errInvalidAPIKey
 	}
 
 	return apiKey.UserID.Int32, nil
@@ -99,16 +127,16 @@ func (s *Server) Init(ctx context.Context, verifyFlushInterval, authBackfillDela
 		return err
 	}
 
-	testPuzzle := puzzle.NewPuzzle(0 /*puzzle ID*/, db.TestPropertyUUID.Bytes, 0 /*difficulty*/)
+	s.TestPuzzle = puzzle.NewPuzzle(0 /*puzzle ID*/, db.TestPropertyUUID.Bytes, 0 /*difficulty*/)
 	var err error
-	s.TestPuzzleData, err = testPuzzle.Serialize(ctx, s.Salt.Value(), nil /*property salt*/)
+	s.TestPuzzleData, err = s.TestPuzzle.Serialize(ctx, s.Salt.Value(), nil /*property salt*/)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to serialize test puzzle", common.ErrAttr(err))
 		return err
 	}
 
 	s.Levels.Init(2*time.Second /*access log interval*/, PropertyBucketSize /*backfill interval*/)
-	s.Auth.BackfillProperties(authBackfillDelay)
+	s.Auth.StartBackfill(authBackfillDelay)
 
 	var cancelVerifyCtx context.Context
 	cancelVerifyCtx, s.VerifyLogCancel = context.WithCancel(
@@ -281,8 +309,20 @@ func (s *Server) Write(ctx context.Context, p *puzzle.Puzzle, extraSalt []byte, 
 	return payload.Write(w)
 }
 
-func (s *Server) Verify(ctx context.Context, payload string, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.Puzzle, puzzle.VerifyError, error) {
-	verifyPayload, err := puzzle.ParseVerifyPayload(ctx, payload)
+func (s *Server) Verify(ctx context.Context, data []byte, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.Puzzle, puzzle.VerifyError, error) {
+	// this is faster than doing base64 decoding and parsing of zero puzzle
+	if s.TestPuzzleData.IsPrefixFor(data) {
+		// lazy roughly check solutions
+		solutionsBase64Size := len(data) - s.TestPuzzleData.Size()
+		slog.Log(ctx, common.LevelTrace, "Detected test puzzle prefix in verify payload", "remaining", solutionsBase64Size)
+		solutionsMaxSize := base64.StdEncoding.DecodedLen(solutionsBase64Size)
+		if solutionsMaxSize < int(s.TestPuzzle.SolutionsCount)*puzzle.SolutionLength {
+			return s.TestPuzzle, puzzle.ParseResponseError, nil
+		}
+		return s.TestPuzzle, puzzle.TestPropertyError, nil
+	}
+
+	verifyPayload, err := puzzle.ParseVerifyPayload(ctx, string(data))
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to parse verify payload", common.ErrAttr(err))
 		return nil, puzzle.ParseResponseError, nil
@@ -324,9 +364,16 @@ func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p, verr, err := s.Verify(ctx, string(data), &apiKeyOwnerSource{}, time.Now().UTC())
+	p, verr, err := s.Verify(ctx, data, &apiKeyOwnerSource{Store: s.BusinessDB}, time.Now().UTC())
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+
+	// "late" auth check (we postpone API key check in case it's not cached in Auth)
+	// in this case we also automatically set "API key" (or whatever is passed) as missing in cache
+	if verr == unauthorizedError {
+		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 		return
 	}
 
@@ -355,8 +402,7 @@ func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	var result interface{}
 
-	recaptchaCompatVersion := r.Header.Get(common.HeaderCaptchaCompat)
-	if recaptchaCompatVersion == "rcV3" {
+	if recaptchaCompatVersion := r.Header.Get(common.HeaderCaptchaCompat); recaptchaCompatVersion == "rcV3" {
 		result = &VerifyResponseRecaptchaV3{
 			VerifyResponseRecaptchaV2: *vr2,
 			Action:                    "",
@@ -403,6 +449,7 @@ func (s *Server) verifyPuzzleValid(ctx context.Context, payload *puzzle.VerifyPa
 		return p, nil, puzzle.PuzzleExpiredError
 	}
 
+	// "else" branch is handled below _after_ we fetch the property from DB
 	if !payload.NeedsExtraSalt() {
 		if serr := payload.VerifySignature(ctx, s.Salt.Value(), nil /*extra salt*/); serr != nil {
 			return p, nil, puzzle.IntegrityError
@@ -412,6 +459,12 @@ func (s *Server) verifyPuzzleValid(ctx context.Context, payload *puzzle.VerifyPa
 	if s.BusinessDB.CheckPuzzleCached(ctx, p) {
 		plog.WarnContext(ctx, "Puzzle is already cached")
 		return p, nil, puzzle.VerifiedBeforeError
+	}
+
+	expectedOwnerID, err := expectedOwner.OwnerID(ctx, tnow)
+	if err != nil {
+		plog.ErrorContext(ctx, "Failed to fetch owner ID", common.ErrAttr(err))
+		return p, nil, unauthorizedError
 	}
 
 	sitekey := db.UUIDToSiteKey(pgtype.UUID{Valid: true, Bytes: p.PropertyID})
@@ -434,14 +487,10 @@ func (s *Server) verifyPuzzleValid(ctx context.Context, payload *puzzle.VerifyPa
 		}
 	}
 
-	if ownerID, err := expectedOwner.OwnerID(ctx); err == nil {
-		if property.OrgOwnerID.Int32 != ownerID {
-			plog.WarnContext(ctx, "Org owner does not match expected owner", "expectedOwner", ownerID,
-				"orgOwner", property.OrgOwnerID.Int32)
-			return p, property, puzzle.WrongOwnerError
-		}
-	} else {
-		plog.ErrorContext(ctx, "Failed to fetch owner ID", common.ErrAttr(err))
+	if (property.OrgOwnerID.Int32 != expectedOwnerID) && (property.CreatorID.Int32 != expectedOwnerID) {
+		plog.WarnContext(ctx, "Property owner does not match expected owner", "expectedOwner", expectedOwnerID,
+			"orgOwner", property.OrgOwnerID.Int32, "propertyCreator", property.CreatorID.Int32)
+		return p, property, puzzle.WrongOwnerError
 	}
 
 	return p, property, puzzle.VerifyNoError

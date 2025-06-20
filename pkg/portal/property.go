@@ -553,7 +553,7 @@ func (s *Server) getPropertyStats(w http.ResponseWriter, r *http.Request) {
 	requested := []*point{}
 	verified := []*point{}
 
-	if stats, err := s.TimeSeries.RetrievePropertyStats(ctx, org.ID, property.ID, period); err == nil {
+	if stats, err := s.TimeSeries.RetrievePropertyStatsByPeriod(ctx, org.ID, property.ID, period); err == nil {
 		anyNonZero := false
 		for _, st := range stats {
 			if (st.RequestsCount > 0) || (st.VerifiesCount > 0) {

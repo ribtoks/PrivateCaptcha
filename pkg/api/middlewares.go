@@ -23,19 +23,21 @@ const (
 )
 
 type UserLimiter interface {
-	CheckProperties(ctx context.Context, properties []*dbgen.Property)
+	CheckUsers(ctx context.Context, users map[int32]uint) error
 	Evaluate(ctx context.Context, userID int32) (bool, error)
 }
 
 type AuthMiddleware struct {
-	Store             db.Implementor
-	PlanService       billing.PlanService
-	PuzzleRateLimiter ratelimit.HTTPRateLimiter
-	ApiKeyRateLimiter ratelimit.HTTPRateLimiter
-	SitekeyChan       chan string
-	BatchSize         int
-	BackfillCancel    context.CancelFunc
-	Limiter           UserLimiter
+	Store                 db.Implementor
+	PlanService           billing.PlanService
+	PuzzleRateLimiter     ratelimit.HTTPRateLimiter
+	ApiKeyRateLimiter     ratelimit.HTTPRateLimiter
+	SitekeyChan           chan string
+	UsersChan             chan int32
+	BatchSize             int
+	SitekeyBackfillCancel context.CancelFunc
+	UsersBackfillCancel   context.CancelFunc
+	Limiter               UserLimiter
 	// this is a simple way to control negative cache spam, disabled by default
 	NegativeSitekeyThreshold uint
 }
@@ -45,9 +47,9 @@ func newAPIKeyBuckets() *ratelimit.StringBuckets {
 		maxBuckets = 1_000
 		// NOTE: these defaults will be adjusted per API key quota almost immediately after verifying API key
 		// requests burst
-		leakyBucketCap = 20
-		// effective 1 request/second
-		leakInterval = 1 * time.Second
+		leakyBucketCap = 10
+		// effective 0.5 rps
+		leakInterval = 2 * time.Second
 	)
 
 	return ratelimit.NewAPIKeyBuckets(maxBuckets, leakyBucketCap, leakInterval)
@@ -72,54 +74,51 @@ type baseUserLimiter struct {
 	userLimits common.Cache[int32, bool]
 }
 
-func (ul *baseUserLimiter) unknownPropertiesOwners(ctx context.Context, properties []*dbgen.Property) []int32 {
-	usersMap := make(map[int32]struct{})
-	for _, p := range properties {
-		userID := p.OrgOwnerID.Int32
+var _ UserLimiter = (*baseUserLimiter)(nil)
 
-		if _, ok := usersMap[userID]; ok {
-			continue
-		}
+func (ul *baseUserLimiter) unknownUsers(ctx context.Context, users map[int32]uint) []int32 {
+	result := make([]int32, 0, len(users))
 
+	for userID := range users {
 		if _, err := ul.userLimits.Get(ctx, userID); err == db.ErrCacheMiss {
-			usersMap[userID] = struct{}{}
+			result = append(result, userID)
 		}
-	}
-
-	result := make([]int32, 0, len(usersMap))
-	for key := range usersMap {
-		result = append(result, key)
 	}
 
 	return result
 }
 
-func (ul *baseUserLimiter) CheckProperties(ctx context.Context, properties []*dbgen.Property) {
-	if len(properties) == 0 {
-		return
+func (ul *baseUserLimiter) CheckUsers(ctx context.Context, batch map[int32]uint) error {
+	if len(batch) == 0 {
+		slog.DebugContext(ctx, "No users to check")
+		return nil
 	}
 
-	owners := ul.unknownPropertiesOwners(ctx, properties)
-	if len(owners) == 0 {
-		slog.DebugContext(ctx, "No new users to check", "properties", len(properties))
-		return
+	unknownUsers := ul.unknownUsers(ctx, batch)
+	if len(unknownUsers) == 0 {
+		slog.DebugContext(ctx, "All user limits were recently checked", "count", len(batch))
+		return nil
 	}
 
-	if users, err := ul.store.Impl().RetrieveUsersWithoutSubscription(ctx, owners); err == nil {
+	t := struct{}{}
+	users, err := ul.store.Impl().RetrieveUsersWithoutSubscription(ctx, unknownUsers)
+	if err == nil {
 		violatorsMap := make(map[int32]struct{})
 		for _, u := range users {
 			_ = ul.userLimits.Set(ctx, u.ID, true)
-			violatorsMap[u.ID] = struct{}{}
+			violatorsMap[u.ID] = t
 		}
 
-		for _, u := range owners {
+		for _, u := range unknownUsers {
 			if _, found := violatorsMap[u]; !found {
 				_ = ul.userLimits.SetMissing(ctx, u)
 			}
 		}
 	} else {
-		slog.ErrorContext(ctx, "Failed to check users without subscriptions", common.ErrAttr(err))
+		slog.ErrorContext(ctx, "Failed to check users without subscriptions", "count", len(unknownUsers), common.ErrAttr(err))
 	}
+
+	return err
 }
 
 func (ul *baseUserLimiter) Evaluate(ctx context.Context, userID int32) (bool, error) {
@@ -153,13 +152,15 @@ func NewAuthMiddleware(cfg common.ConfigStore,
 	rateLimitHeader := cfg.Get(common.RateLimitHeaderKey).Value()
 
 	am := &AuthMiddleware{
-		PuzzleRateLimiter: ratelimit.NewIPAddrRateLimiter("puzzle", rateLimitHeader, newPuzzleIPAddrBuckets(cfg)),
-		Store:             store,
-		Limiter:           limiter,
-		PlanService:       planService,
-		SitekeyChan:       make(chan string, 10*batchSize),
-		BatchSize:         batchSize,
-		BackfillCancel:    func() {},
+		PuzzleRateLimiter:     ratelimit.NewIPAddrRateLimiter("puzzle", rateLimitHeader, newPuzzleIPAddrBuckets(cfg)),
+		Store:                 store,
+		Limiter:               limiter,
+		PlanService:           planService,
+		SitekeyChan:           make(chan string, 100*batchSize),
+		UsersChan:             make(chan int32, 10*batchSize),
+		BatchSize:             batchSize,
+		SitekeyBackfillCancel: func() {},
+		UsersBackfillCancel:   func() {},
 	}
 
 	am.ApiKeyRateLimiter = ratelimit.NewAPIKeyRateLimiter(
@@ -168,11 +169,17 @@ func NewAuthMiddleware(cfg common.ConfigStore,
 	return am
 }
 
-func (am *AuthMiddleware) BackfillProperties(backfillDelay time.Duration) {
-	var backfillCtx context.Context
-	backfillCtx, am.BackfillCancel = context.WithCancel(
-		context.WithValue(context.Background(), common.TraceIDContextKey, "auth_backfill"))
-	go common.ProcessBatchMap(backfillCtx, am.SitekeyChan, backfillDelay, am.BatchSize, am.BatchSize*100, am.backfillImpl)
+func (am *AuthMiddleware) StartBackfill(backfillDelay time.Duration) {
+	var sitekeyBackfillCtx context.Context
+	sitekeyBackfillCtx, am.SitekeyBackfillCancel = context.WithCancel(
+		context.WithValue(context.Background(), common.TraceIDContextKey, "sitekey_backfill"))
+	go common.ProcessBatchMap(sitekeyBackfillCtx, am.SitekeyChan, backfillDelay, am.BatchSize, am.BatchSize*100, am.backfillSitekeyImpl)
+
+	var usersBackfillCtx context.Context
+	usersBackfillCtx, am.UsersBackfillCancel = context.WithCancel(
+		context.WithValue(context.Background(), common.TraceIDContextKey, "users_backfill"))
+	// NOTE: we use the same backfill delay because users processing is slower and sitekey channel will block on it
+	go common.ProcessBatchMap(usersBackfillCtx, am.UsersChan, backfillDelay, am.BatchSize, am.BatchSize*10, am.backfillUsersImpl)
 }
 
 func (am *AuthMiddleware) UpdateConfig(cfg common.ConfigStore) {
@@ -187,8 +194,10 @@ func (am *AuthMiddleware) Shutdown() {
 	slog.Debug("Shutting down auth middleware")
 	am.ApiKeyRateLimiter.Shutdown()
 	am.PuzzleRateLimiter.Shutdown()
-	am.BackfillCancel()
+	am.SitekeyBackfillCancel()
+	am.UsersBackfillCancel()
 	close(am.SitekeyChan)
+	close(am.UsersChan)
 }
 
 func isSiteKeyValid(sitekey string) bool {
@@ -206,15 +215,44 @@ func isSiteKeyValid(sitekey string) bool {
 	return true
 }
 
-// the only purpose of this routine is to cache properties and block users without a subscription
-func (am *AuthMiddleware) backfillImpl(ctx context.Context, batch map[string]uint) error {
-	if properties, err := am.Store.Impl().RetrievePropertiesBySitekey(ctx, batch, am.NegativeSitekeyThreshold); err == nil {
-		am.Limiter.CheckProperties(ctx, properties)
+// we cache properties and send owners down the background pipeline
+func (am *AuthMiddleware) backfillSitekeyImpl(ctx context.Context, batch map[string]uint) error {
+	properties, err := am.Store.Impl().RetrievePropertiesBySitekey(ctx, batch, am.NegativeSitekeyThreshold)
+	if err == nil {
+		for _, p := range properties {
+			if p.OrgOwnerID.Valid {
+				am.UsersChan <- p.OrgOwnerID.Int32
+			}
+			if p.CreatorID.Valid && (!p.OrgOwnerID.Valid || (p.CreatorID.Int32 != p.OrgOwnerID.Int32)) {
+				am.UsersChan <- p.CreatorID.Int32
+			}
+		}
 	} else {
-		slog.ErrorContext(ctx, "Failed to retrieve properties by sitekey", common.ErrAttr(err))
-		return err
+		slog.ErrorContext(ctx, "Failed to retrieve properties by sitekey", "count", len(batch), common.ErrAttr(err))
 	}
 
+	return err
+}
+
+// we block users without a subscription and (re)cache users API keys to ensure smooth auth in /verify codepath
+func (am *AuthMiddleware) backfillUsersImpl(ctx context.Context, batch map[int32]uint) error {
+	if err := am.Limiter.CheckUsers(ctx, batch); err != nil {
+		slog.ErrorContext(ctx, "Failed to check user limits", common.ErrAttr(err))
+		// NOTE: we ignore this error because it is not critical for retry
+	}
+
+	// TODO: Refactor linear fetching of API keys to use batch mode
+	// we do it linearly instead of in a batch with the asumption that most of these will be cached
+	// (to be verified in metrics)
+	// but we can use another SQL query and also BulkGet API of otter (postponed as benefit is not obvious _atm_)
+	// also the same is in WarmupAPICacheJob (maintenance)
+	for userID := range batch {
+		if _, err := am.Store.Impl().RetrieveUserAPIKeys(ctx, userID); err != nil {
+			slog.ErrorContext(ctx, "Failed to retrieve users API keys", "userID", userID, common.ErrAttr(err))
+		}
+	}
+
+	// we ignore errors as both of the above are not critical to retry the batch
 	return nil
 }
 
@@ -325,18 +363,18 @@ func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
 	}))
 }
 
-func (am *AuthMiddleware) isAPIKeyValid(ctx context.Context, key *dbgen.APIKey, tnow time.Time) bool {
+func isAPIKeyValid(ctx context.Context, key *dbgen.APIKey, tnow time.Time) bool {
 	if key == nil {
 		return false
 	}
 
 	if !key.Enabled.Valid || !key.Enabled.Bool {
-		slog.WarnContext(ctx, "API key is disabled")
+		slog.WarnContext(ctx, "API key is disabled", "keyID", key.ID)
 		return false
 	}
 
 	if !key.ExpiresAt.Valid || key.ExpiresAt.Time.Before(tnow) {
-		slog.WarnContext(ctx, "API key is expired", "expiresAt", key.ExpiresAt)
+		slog.WarnContext(ctx, "API key is expired", "keyID", key.ID, "expiresAt", key.ExpiresAt)
 		return false
 	}
 
@@ -350,7 +388,8 @@ func (am *AuthMiddleware) apiKeyKeyFunc(r *http.Request) string {
 	if len(secret) == db.SecretLen {
 		if apiKey, err := am.Store.Impl().GetCachedAPIKey(ctx, secret); err == nil {
 			tnow := time.Now().UTC()
-			if am.isAPIKeyValid(ctx, apiKey, tnow) {
+			// we want to keep this check here to rate limit even expired valid keys (which can be leaked)
+			if isAPIKeyValid(ctx, apiKey, tnow) {
 				// if we know API key is valid, we ratelimit by API key which has different limits
 				return secret
 			}
@@ -369,36 +408,47 @@ func (am *AuthMiddleware) APIKey(next http.Handler) http.Handler {
 			return
 		}
 
-		// by now we are ratelimited or cached, so kind of OK to attempt access DB here
-		apiKey, err := am.Store.Impl().RetrieveAPIKey(ctx, secret)
+		// security assumptions here are that API keys of all legitimate users should be already cached via
+		// the backfill routine for puzzles (legitimate verification assumes a previously issued puzzle if on the same server)
+		// for everybody else, we rely on rate limiting and delaying DB access to check API key as long as possible.
+		// The only exception is when due to routing and/or horizontally scaled servers verify request lands on another node
+		apiKey, err := am.Store.Impl().GetCachedAPIKey(ctx, secret)
 		if err != nil {
 			switch err {
 			case db.ErrNegativeCacheHit, db.ErrRecordNotFound, db.ErrSoftDeleted:
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+				return
 			case db.ErrInvalidInput:
 				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+				return
+			case db.ErrCacheMiss:
+				// do nothing - we postpone accessing DB to after we verify parts of the payload itself
+				// we do not backfill API keys like puzzles as we have to check API key validity synchronously
 			default:
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+				return
 			}
-			return
 		}
 
-		now := time.Now().UTC()
-		if !am.isAPIKeyValid(ctx, apiKey, now) {
-			// am.Cache.SetMissing(ctx, secret, negativeCacheDuration)
-			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-			return
+		if apiKey != nil {
+			now := time.Now().UTC()
+			if !isAPIKeyValid(ctx, apiKey, now) {
+				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+				return
+			} else {
+				// rate limiter key will be the {secret} itself _only_ when we are cached (which means valid API key)
+				// which means if it's not, then we will recheck via "delayed" mechanism of OwnerIDSource
+				// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
+				if rateLimiterKey, ok := ctx.Value(common.RateLimitKeyContextKey).(string); ok && len(rateLimiterKey) > 0 {
+					interval := float64(time.Second) / apiKey.RequestsPerSecond
+					am.ApiKeyRateLimiter.UpdateRequestLimits(r, uint32(apiKey.RequestsBurst), time.Duration(interval))
+				}
+			}
+			ctx = context.WithValue(ctx, common.APIKeyContextKey, apiKey)
 		} else {
-			// rate limiter key will be the {secret} itself _only_ when we are cached
-			// which means if it's not, then we have just fetched the record from DB
-			// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
-			if rateLimiterKey, ok := ctx.Value(common.RateLimitKeyContextKey).(string); ok && (rateLimiterKey != secret) {
-				interval := float64(time.Second) / apiKey.RequestsPerSecond
-				am.ApiKeyRateLimiter.Updater(r)(uint32(apiKey.RequestsBurst), time.Duration(interval))
-			}
+			ctx = context.WithValue(ctx, common.SecretContextKey, secret)
 		}
 
-		ctx = context.WithValue(ctx, common.APIKeyContextKey, apiKey)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	}))
 }
