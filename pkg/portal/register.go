@@ -162,7 +162,7 @@ func (s *Server) doRegister(ctx context.Context, sess *common.Session) (*dbgen.U
 		return nil, nil, err
 	}
 
-	go common.RunOneOffJob(common.CopyTraceID(ctx, context.Background()), s.Jobs.OnboardUser(user))
+	go common.RunOneOffJob(common.CopyTraceID(ctx, context.Background()), s.Jobs.OnboardUser(user, plan))
 
 	return user, org, nil
 }
