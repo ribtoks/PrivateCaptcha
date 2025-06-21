@@ -12,7 +12,6 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 	"github.com/badoux/checkmail"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -74,9 +73,9 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	ownerSource := &portalPropertyOwnerSource{Store: s.Store, Sitekey: data.CaptchaSitekey}
 
 	captchaSolution := r.FormValue(captchaSolutionField)
-	_, verr, err := s.PuzzleEngine.Verify(ctx, []byte(captchaSolution), ownerSource, time.Now().UTC())
-	if err != nil || verr != puzzle.VerifyNoError {
-		slog.ErrorContext(ctx, "Failed to verify captcha", "code", verr, common.ErrAttr(err))
+	verifyResult, err := s.PuzzleEngine.Verify(ctx, []byte(captchaSolution), ownerSource, time.Now().UTC())
+	if err != nil || !verifyResult.Success() {
+		slog.ErrorContext(ctx, "Failed to verify captcha", "errors", verifyResult.ErrorsToStrings(), common.ErrAttr(err))
 		data.CaptchaError = "Captcha verification failed."
 		s.render(w, r, registerFormTemplate, data)
 		return

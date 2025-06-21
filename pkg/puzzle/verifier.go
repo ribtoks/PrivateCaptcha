@@ -74,20 +74,6 @@ func (verr VerifyError) String() string {
 	}
 }
 
-func ErrorCodesToStrings(verr []VerifyError) []string {
-	if len(verr) == 0 {
-		return nil
-	}
-
-	result := make([]string, 0, len(verr))
-
-	for _, err := range verr {
-		result = append(result, err.String())
-	}
-
-	return result
-}
-
 type OwnerIDSource interface {
 	OwnerID(ctx context.Context, tnow time.Time) (int32, error)
 }
@@ -112,7 +98,7 @@ func ParseVerifyPayload(ctx context.Context, payload string) (*VerifyPayload, er
 	parts := strings.Split(payload, ".")
 	solutionsStr, puzzleStr, signatureStr := parts[0], parts[1], parts[2]
 	if len(solutionsStr) == 0 || len(puzzleStr) == 0 || len(signatureStr) == 0 {
-		slog.WarnContext(ctx, "Invalid length of payload parts", "solutions", len(solutionsStr), "puzzle", len(puzzleStr),
+		slog.WarnContext(ctx, "Parts of the payload are missing", "solutions", len(solutionsStr), "puzzle", len(puzzleStr),
 			"signature", len(signatureStr))
 		return nil, errEmptyPayloadPart
 	}

@@ -6,9 +6,15 @@ import (
 	"time"
 )
 
+// this is an exact copy of otter's Loader
+type CacheLoader[K comparable, V any] interface {
+	Load(ctx context.Context, key K) (V, error)
+	Reload(ctx context.Context, key K, oldValue V) (V, error)
+}
+
 type Cache[TKey comparable, TValue any] interface {
 	Get(ctx context.Context, key TKey) (TValue, error)
-	GetEx(ctx context.Context, key TKey, loader func(context.Context, TKey) (TValue, error)) (TValue, error)
+	GetEx(ctx context.Context, key TKey, loader CacheLoader[TKey, TValue]) (TValue, error)
 	SetMissing(ctx context.Context, key TKey) error
 	Set(ctx context.Context, key TKey, t TValue) error
 	SetWithTTL(ctx context.Context, key TKey, t TValue, ttl time.Duration) error

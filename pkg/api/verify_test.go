@@ -212,7 +212,7 @@ func TestVerifyPuzzleAllowReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	property, err := store.Impl().GetCachedPropertyBySitekey(context.TODO(), sitekey)
+	property, err := store.Impl().GetCachedPropertyBySitekey(context.TODO(), sitekey, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

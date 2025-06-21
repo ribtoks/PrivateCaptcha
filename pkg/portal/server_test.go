@@ -37,15 +37,15 @@ func portalDomain() string {
 }
 
 type fakePuzzleEngine struct {
-	result puzzle.VerifyError
+	result *puzzle.VerifyResult
 }
 
 func (f *fakePuzzleEngine) Write(ctx context.Context, p *puzzle.Puzzle, extraSalt []byte, w http.ResponseWriter) error {
 	return nil
 }
 
-func (f *fakePuzzleEngine) Verify(ctx context.Context, payload []byte, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.Puzzle, puzzle.VerifyError, error) {
-	return nil, f.result, nil
+func (f *fakePuzzleEngine) Verify(ctx context.Context, payload []byte, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.VerifyResult, error) {
+	return f.result, nil
 }
 
 func TestMain(m *testing.M) {
@@ -63,7 +63,7 @@ func TestMain(m *testing.M) {
 				CookieName:  "pcsid",
 				MaxLifetime: 1 * time.Minute,
 			},
-			PuzzleEngine: &fakePuzzleEngine{result: puzzle.VerifyNoError},
+			PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Errors: []puzzle.VerifyError{puzzle.VerifyNoError}}},
 			PlanService:  planService,
 		}
 
@@ -113,7 +113,7 @@ func TestMain(m *testing.M) {
 		},
 		Mailer:       &email.StubMailer{},
 		Auth:         &AuthMiddleware{rateLimiter: &ratelimit.StubRateLimiter{}},
-		PuzzleEngine: &fakePuzzleEngine{result: puzzle.VerifyNoError},
+		PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Errors: []puzzle.VerifyError{puzzle.VerifyNoError}}},
 		Metrics:      monitoring.NewStub(),
 		PlanService:  planService,
 	}

@@ -21,11 +21,7 @@ const (
 )
 
 var (
-	errUnsupported  = errors.New("not supported")
-	emptyOrgUsers   = []*dbgen.GetOrganizationUsersRow{}
-	emptyAPIKeys    = []*dbgen.APIKey{}
-	emptyUserOrgs   = []*dbgen.GetUserOrganizationsRow{}
-	emptyProperties = []*dbgen.Property{}
+	errUnsupported = errors.New("not supported")
 	// shortcuts for nullable access levels
 	nullAccessLevelNull   = dbgen.NullAccessLevel{Valid: false}
 	nullAccessLevelOwner  = dbgen.NullAccessLevel{Valid: true, AccessLevel: dbgen.AccessLevelOwner}
@@ -56,7 +52,7 @@ var _ common.Cache[CacheKey, any] = (*TxCache)(nil)
 func (c *TxCache) HitRatio() float64                                  { return 0.0 }
 func (c *TxCache) Missing() any                                       { return nil }
 func (c *TxCache) Get(ctx context.Context, key CacheKey) (any, error) { return nil, errUnsupported }
-func (c *TxCache) GetEx(ctx context.Context, key CacheKey, loader func(context.Context, CacheKey) (any, error)) (any, error) {
+func (c *TxCache) GetEx(ctx context.Context, key CacheKey, loader common.CacheLoader[CacheKey, any]) (any, error) {
 	return nil, errUnsupported
 }
 func (c *TxCache) SetMissing(ctx context.Context, key CacheKey) error {
@@ -279,24 +275,6 @@ func (impl *BusinessStoreImpl) SoftDeleteUser(ctx context.Context, userID int32)
 	_ = impl.cache.Delete(ctx, userCacheKey(user.ID))
 
 	return nil
-}
-
-func (impl *BusinessStoreImpl) getCachedPropertyBySitekey(ctx context.Context, sitekey string) (*dbgen.Property, error) {
-	eid := UUIDFromSiteKey(sitekey)
-	if !eid.Valid {
-		return nil, ErrInvalidInput
-	}
-
-	cacheKey := PropertyBySitekeyCacheKey(sitekey)
-
-	if property, err := fetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
-		// we should NOT check for soft-deleted state because soft-deleted properties are deleted from cache in the first place
-		return property, nil
-	} else if err == ErrNegativeCacheHit {
-		return nil, ErrNegativeCacheHit
-	} else {
-		return nil, err
-	}
 }
 
 func (impl *BusinessStoreImpl) RetrievePropertyBySitekey(ctx context.Context, sitekey string) (*dbgen.Property, error) {
@@ -1535,12 +1513,24 @@ func (impl *BusinessStoreImpl) RetrieveUserPropertiesCount(ctx context.Context, 
 	return count, nil
 }
 
-func (s *BusinessStoreImpl) GetCachedPropertyBySitekey(ctx context.Context, sitekey string) (*dbgen.Property, error) {
+func (impl *BusinessStoreImpl) GetCachedPropertyBySitekey(ctx context.Context, sitekey string, refreshFunc func(string)) (*dbgen.Property, error) {
 	if sitekey == TestPropertySitekey {
 		return nil, ErrTestProperty
 	}
 
-	return s.getCachedPropertyBySitekey(ctx, sitekey)
+	// this check is important to keep as we depend on it at least in Sitekey() middleware
+	if !CanBeValidSitekey(sitekey) {
+		return nil, ErrInvalidInput
+	}
+
+	reader := &cachedPropertyReader{
+		sitekey:     sitekey,
+		cache:       impl.cache,
+		refreshFunc: refreshFunc,
+	}
+
+	// we should NOT check for soft-deleted state because soft-deleted properties are deleted from cache in the first place
+	return reader.Read(ctx)
 }
 
 func (s *BusinessStoreImpl) RetrieveUser(ctx context.Context, id int32) (*dbgen.User, error) {

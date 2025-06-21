@@ -17,6 +17,8 @@ type StaticCache[TKey comparable, TValue comparable] struct {
 	missingValue TValue
 }
 
+var _ common.Cache[int, any] = (*StaticCache[int, any])(nil)
+
 func NewStaticCache[TKey comparable, TValue comparable](capacity int, missingValue TValue) *StaticCache[TKey, TValue] {
 	return &StaticCache[TKey, TValue]{
 		cache:        make(map[TKey]TValue),
@@ -50,14 +52,14 @@ func (c *StaticCache[TKey, TValue]) Get(ctx context.Context, key TKey) (TValue, 
 	}
 }
 
-func (c *StaticCache[TKey, TValue]) GetEx(ctx context.Context, key TKey, loader func(context.Context, TKey) (TValue, error)) (TValue, error) {
+func (c *StaticCache[TKey, TValue]) GetEx(ctx context.Context, key TKey, loader common.CacheLoader[TKey, TValue]) (TValue, error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
 	var err error
 	item, ok := c.cache[key]
 	if !ok {
-		if item, err = loader(ctx, key); err == nil {
+		if item, err = loader.Load(ctx, key); err == nil {
 			c.cache[key] = item
 		} else {
 			slog.ErrorContext(ctx, "Failed to load the value", "key", key, common.ErrAttr(err))

@@ -200,21 +200,6 @@ func (am *AuthMiddleware) Shutdown() {
 	close(am.UsersChan)
 }
 
-func isSiteKeyValid(sitekey string) bool {
-	if len(sitekey) != db.SitekeyLen {
-		return false
-	}
-
-	for _, c := range sitekey {
-		//nolint:staticcheck
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
-			return false
-		}
-	}
-
-	return true
-}
-
 // we cache properties and send owners down the background pipeline
 func (am *AuthMiddleware) backfillSitekeyImpl(ctx context.Context, batch map[string]uint) error {
 	properties, err := am.Store.Impl().RetrievePropertiesBySitekey(ctx, batch, am.NegativeSitekeyThreshold)
@@ -290,6 +275,11 @@ func (am *AuthMiddleware) SitekeyOptions(next http.Handler) http.Handler {
 	}))
 }
 
+func (am *AuthMiddleware) refreshPropertyBySitekey(sitekey string) {
+	// backfill in the background
+	am.SitekeyChan <- sitekey
+}
+
 func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
 	return am.PuzzleRateLimiter.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -301,16 +291,9 @@ func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
 			return
 		}
 
+		// we verify sitekey in underlying DB call
 		sitekey := r.URL.Query().Get(common.ParamSiteKey)
-		if !isSiteKeyValid(sitekey) {
-			slog.Log(ctx, common.LevelTrace, "Sitekey is not valid", "method", r.Method)
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		}
-
-		// NOTE: there's a potential problem here if the property is still cached then
-		// we will not backfill and, thus, verify the subscription validity of the user
-		property, err := am.Store.Impl().GetCachedPropertyBySitekey(ctx, sitekey)
+		property, err := am.Store.Impl().GetCachedPropertyBySitekey(ctx, sitekey, am.refreshPropertyBySitekey)
 		if err != nil {
 			switch err {
 			// this will happen when the user does not have such property or it was deleted
@@ -318,6 +301,7 @@ func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				return
 			case db.ErrInvalidInput:
+				slog.Log(ctx, common.LevelTrace, "Sitekey is not valid", "method", r.Method)
 				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 				return
 			case db.ErrTestProperty:

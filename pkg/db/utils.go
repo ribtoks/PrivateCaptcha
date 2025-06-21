@@ -11,6 +11,7 @@ import (
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/maypok86/otter/v2"
 )
 
 const (
@@ -100,6 +101,21 @@ func UUIDFromSiteKey(s string) pgtype.UUID {
 	return invalidUUID
 }
 
+func CanBeValidSitekey(sitekey string) bool {
+	if len(sitekey) != SitekeyLen {
+		return false
+	}
+
+	for _, c := range sitekey {
+		//nolint:staticcheck
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func UUIDToSecret(uuid pgtype.UUID) string {
 	if !uuid.Valid {
 		return ""
@@ -162,10 +178,6 @@ func queryKeyInt(ck CacheKey) (int32, error) {
 	return ck.IntValue, nil
 }
 
-func queryKeyStr(ck CacheKey) (string, error) {
-	return ck.StrValue, nil
-}
-
 func queryKeySecretUUID(key CacheKey) (pgtype.UUID, error) {
 	result := UUIDFromSecret(key.StrValue)
 	if !result.Valid {
@@ -195,7 +207,11 @@ type storeOneReader[TKey any, T any] struct {
 	cache        common.Cache[CacheKey, any]
 }
 
-func (sf *storeOneReader[TKey, T]) query(ctx context.Context, key CacheKey) (any, error) {
+func (sf *storeOneReader[TKey, T]) Reload(ctx context.Context, key CacheKey, old any) (any, error) {
+	return sf.Load(ctx, key)
+}
+
+func (sf *storeOneReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any, error) {
 	if sf.queryFunc == nil {
 		// in case of otter's refreshing, this should cause silent failure and eligibility for new refresh until item is expired
 		// old item should be returned meanwhile
@@ -226,7 +242,7 @@ func (sf *storeOneReader[TKey, T]) query(ctx context.Context, key CacheKey) (any
 }
 
 func (sf *storeOneReader[TKey, T]) Read(ctx context.Context) (*T, error) {
-	data, err := sf.cache.GetEx(ctx, sf.cacheKey, sf.query)
+	data, err := sf.cache.GetEx(ctx, sf.cacheKey, sf)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +261,11 @@ type storeArrayReader[TKey any, T any] struct {
 	cache        common.Cache[CacheKey, any]
 }
 
-func (sf *storeArrayReader[TKey, T]) query(ctx context.Context, key CacheKey) (any, error) {
+func (sf *storeArrayReader[TKey, T]) Reload(ctx context.Context, key CacheKey, old any) (any, error) {
+	return sf.Load(ctx, key)
+}
+
+func (sf *storeArrayReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any, error) {
 	if sf.queryFunc == nil {
 		// in case of otter's refreshing, this should cause silent failure and eligibility for new refresh until item is expired
 		// old item should be returned meanwhile
@@ -276,12 +296,49 @@ func (sf *storeArrayReader[TKey, T]) query(ctx context.Context, key CacheKey) (a
 }
 
 func (sf *storeArrayReader[TKey, T]) Read(ctx context.Context) ([]*T, error) {
-	data, err := sf.cache.GetEx(ctx, sf.key, sf.query)
+	data, err := sf.cache.GetEx(ctx, sf.key, sf)
 	if err != nil {
 		return nil, err
 	}
 
 	if t, ok := data.([]*T); ok {
+		return t, nil
+	}
+
+	return nil, errInvalidCacheType
+}
+
+// this struct exists only to check if otter attempted loading OR refreshing the value
+type cachedPropertyReader struct {
+	sitekey     string
+	cache       common.Cache[CacheKey, any]
+	refreshFunc func(string)
+}
+
+// refreshing means that value is cached, however it has to be reloaded (which is what we are trying to detect)
+func (sf *cachedPropertyReader) Reload(ctx context.Context, _ CacheKey, old any) (any, error) {
+	if sf.refreshFunc != nil {
+		sf.refreshFunc(sf.sitekey)
+	}
+
+	// we keep old value, but (hopefully) trigger a reload using refreshFunc
+	return old, nil
+}
+
+// loading means value was not in cache - so we return otter.ErrNotFound anyways
+func (sf *cachedPropertyReader) Load(ctx context.Context, _ CacheKey) (any, error) {
+	return nil, otter.ErrNotFound
+}
+
+func (sf *cachedPropertyReader) Read(ctx context.Context) (*dbgen.Property, error) {
+	cacheKey := PropertyBySitekeyCacheKey(sf.sitekey)
+
+	data, err := sf.cache.GetEx(ctx, cacheKey, sf)
+	if err != nil {
+		return nil, err
+	}
+
+	if t, ok := data.(*dbgen.Property); ok {
 		return t, nil
 	}
 

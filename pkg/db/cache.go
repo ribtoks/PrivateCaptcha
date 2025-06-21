@@ -77,8 +77,8 @@ func (c *memcache[TKey, TValue]) Get(ctx context.Context, key TKey) (TValue, err
 	return data, nil
 }
 
-func (c *memcache[TKey, TValue]) GetEx(ctx context.Context, key TKey, loader func(context.Context, TKey) (TValue, error)) (TValue, error) {
-	data, err := c.store.Get(ctx, key, otter.LoaderFunc[TKey, TValue](loader))
+func (c *memcache[TKey, TValue]) GetEx(ctx context.Context, key TKey, loader common.CacheLoader[TKey, TValue]) (TValue, error) {
+	data, err := c.store.Get(ctx, key, loader)
 	if err != nil {
 		if errors.Is(err, otter.ErrNotFound) {
 			slog.Log(ctx, common.LevelTrace, "Item not found in memory cache", "key", key)
