@@ -26,10 +26,27 @@ func (j *WarmupAPICacheJob) InitialPause() time.Duration {
 
 func (j *WarmupAPICacheJob) RunOnce(ctx context.Context) error {
 	// TODO: Switch to a percentile in future
-	users, properties, err := j.TimeSeries.RetrieveRecentTopUsers(ctx, j.Limit)
+	propertiesMap, err := j.TimeSeries.RetrieveRecentTopProperties(ctx, j.Limit)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve top users", common.ErrAttr(err))
 		return err
+	}
+
+	properties, err := j.Store.Impl().RetrievePropertiesByID(ctx, propertiesMap)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to retrieve properties", common.ErrAttr(err))
+		return err
+	}
+
+	t := struct{}{}
+	users := make(map[int32]struct{})
+	for _, p := range properties {
+		if p.OrgOwnerID.Valid {
+			users[p.OrgOwnerID.Int32] = t
+		}
+		if p.CreatorID.Valid && (!p.OrgOwnerID.Valid || (p.CreatorID.Int32 != p.OrgOwnerID.Int32)) {
+			users[p.CreatorID.Int32] = t
+		}
 	}
 
 	for userID := range users {
@@ -38,10 +55,6 @@ func (j *WarmupAPICacheJob) RunOnce(ctx context.Context) error {
 		} else {
 			time.Sleep(j.Backoff)
 		}
-	}
-
-	if _, err := j.Store.Impl().RetrievePropertiesByID(ctx, properties); err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve properties", common.ErrAttr(err))
 	}
 
 	slog.InfoContext(ctx, "Warmed up API cache", "users", len(users), "properties", len(properties))

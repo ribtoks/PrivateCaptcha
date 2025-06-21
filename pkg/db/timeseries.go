@@ -356,39 +356,39 @@ func (ts *TimeSeriesDB) RetrievePropertyStatsByPeriod(ctx context.Context, orgID
 	return results, nil
 }
 
-func (ts *TimeSeriesDB) RetrieveRecentTopUsers(ctx context.Context, limit int) (map[int32]uint, map[int32]uint, error) {
+func (ts *TimeSeriesDB) RetrieveRecentTopProperties(ctx context.Context, limit int) (map[int32]uint, error) {
 	if !ts.IsAvailable() {
-		return nil, nil, ErrMaintenance
+		return nil, ErrMaintenance
 	}
 
-	query := `SELECT user_id, property_id
-FROM %s FINAL
+	// NOTE: we don't use FINAL here because this is just an approximation anyways
+	// that is used to warmup cache so we don't need the most precise results
+	query := `SELECT property_id
+FROM %s
 WHERE timestamp >= now() - INTERVAL 1 DAY
-GROUP BY user_id, property_id
+GROUP BY property_id
+ORDER BY sum(success_count + failure_count) DESC
 LIMIT %d`
 	rows, err := ts.Clickhouse.Query(fmt.Sprintf(query, VerifyLogTable1d, limit))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to execute top usage query", common.ErrAttr(err))
-		return nil, nil, err
+		return nil, err
 	}
 
 	defer rows.Close()
 
-	users := make(map[int32]uint)
 	properties := make(map[int32]uint)
 
 	for rows.Next() {
-		var userID int32
 		var propertyID int32
-		if err := rows.Scan(&userID, &propertyID); err != nil {
+		if err := rows.Scan(&propertyID); err != nil {
 			slog.ErrorContext(ctx, "Failed to read row from top usage query", common.ErrAttr(err))
-			return nil, nil, err
+			return nil, err
 		}
-		users[userID]++
 		properties[propertyID]++
 	}
 
-	return users, properties, nil
+	return properties, nil
 }
 
 func (ts *TimeSeriesDB) lightDelete(ctx context.Context, tables []string, column string, ids string) error {

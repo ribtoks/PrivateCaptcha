@@ -48,7 +48,7 @@ type TimeSeriesStore interface {
 	RetrievePropertyStatsSince(ctx context.Context, r *BackfillRequest, from time.Time) ([]*TimeCount, error)
 	RetrieveAccountStats(ctx context.Context, userID int32, from time.Time) ([]*TimeCount, error)
 	RetrievePropertyStatsByPeriod(ctx context.Context, orgID, propertyID int32, period TimePeriod) ([]*TimePeriodStat, error)
-	RetrieveRecentTopUsers(ctx context.Context, limit int) (map[int32]uint, map[int32]uint, error)
+	RetrieveRecentTopProperties(ctx context.Context, limit int) (map[int32]uint, error)
 	DeletePropertiesData(ctx context.Context, propertyIDs []int32) error
 	DeleteOrganizationsData(ctx context.Context, orgIDs []int32) error
 	DeleteUsersData(ctx context.Context, userIDs []int32) error

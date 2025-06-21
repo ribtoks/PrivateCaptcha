@@ -272,7 +272,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Store:      businessDB,
 		TimeSeries: timeSeriesDB,
 		Backoff:    200 * time.Millisecond,
-		Limit:      50,
+		Limit:      100,
 	})
 	jobs.Run()
 
