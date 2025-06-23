@@ -2,7 +2,7 @@
   "name": "@PrivateCaptcha/private-captcha-js-core",
   "repository": {
     "type": "git",
-    "url": "https://github.com/PrivateCaptcha/PrivateCaptcha.git"
+    "url": "git+https://github.com/PrivateCaptcha/PrivateCaptcha.git"
   },
   "version": "0.0.1",
   "main": "index.json",
@@ -11,9 +11,8 @@
   "homepage": "https://github.com/PrivateCaptcha/PrivateCaptcha",
   "license": "PolyForm Noncommercial License 1.0.0",
   "files": [
-        "index.js",
-        "index.js.map"
-      ],
-  "scripts": {
-  }
+    "index.js",
+    "index.js.map"
+  ],
+  "scripts": {}
 }
