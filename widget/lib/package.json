@@ -1,5 +1,9 @@
 {
   "name": "@PrivateCaptcha/private-captcha-js-core",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PrivateCaptcha/PrivateCaptcha.git"
+  },
   "version": "0.0.1",
   "main": "index.json",
   "type": "module",
