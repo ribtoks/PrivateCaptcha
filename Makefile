@@ -45,9 +45,13 @@ build-js:
 	rm -v web/static/js/* || echo 'Nothing to remove'
 	cd web && env STAGE="$(STAGE)" npm run build
 
-build-widget:
+build-widget-script:
 	rm -v widget/static/js/* || echo 'Nothing to remove'
 	cd widget && env STAGE="$(STAGE)" npm run build
+
+build-widget-library:
+	rm -v widget/lib/*.js widget/lib/*.js.map || echo 'Nothing to remove'
+	cd widget && env STAGE="$(STAGE)" BUILD_TARGET="library" npm run build
 
 build-view-emails:
 	env GOFLAGS="-mod=vendor" go build -o bin/viewemails cmd/viewemails/*.go
@@ -61,7 +65,7 @@ copy-static-js:
 	cp -v web/js/alpine.min.js web/static/js/
 	cp -v web/js/d3.v7.min.js web/static/js/
 
-serve: build-js build-widget copy-static-js build-server
+serve: build-js build-widget-script copy-static-js build-server
 	bin/server
 
 run:
@@ -100,7 +104,7 @@ view-emails: build-view-emails
 run-view-emails:
 	reflex -r '^(pkg\/email|cmd\/viewemails)/' -s -- sh -c 'make view-emails'
 
-view-widget: build-js build-widget build-view-widget
+view-widget: build-js build-widget-script build-view-widget
 	bin/viewwidget
 
 run-view-widget:

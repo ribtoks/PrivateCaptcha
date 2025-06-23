@@ -1,7 +1,7 @@
 {
   "name": "widget",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "./static/js/privatecaptcha.js",
   "type": "module",
   "devDependencies": {
     "esbuild": "^0.25.0",

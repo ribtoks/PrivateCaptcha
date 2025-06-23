@@ -1,0 +1,38 @@
+name: Publish widget js package
+
+on:
+  push:
+    paths:
+    - 'widget/js/**'
+    - 'widget/lib/package.json'
+    - '.github/workflows/widget-package.yml'
+    - '!node_modules/**'
+    - '!widget/node_modules/**'
+  #  tags:
+  #    - '*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      # Setup .npmrc file to publish to GitHub Packages
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          #registry-url: 'https://npm.pkg.github.com'
+      - name: Install widget NPM dependencies
+        run: npm ci
+        working-directory: ./widget
+      - name: Build widget library
+        env:
+          STAGE: prod
+        run: make build-widget-library
+      - name: Publish widget library
+        run: npm publish --registry=https://npm.pkg.github.com
+        working-directory: ./widget/lib
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

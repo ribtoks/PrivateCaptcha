@@ -72,10 +72,10 @@ jobs:
         STAGE: prod
       run: make build-js
 
-    - name: Build widget
+    - name: Build widget script
       env:
         STAGE: prod
-      run: make build-widget
+      run: make build-widget-script
 
     - name: Copy static js
       run: make copy-static-js

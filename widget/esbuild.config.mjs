@@ -3,6 +3,7 @@ import { readFile } from "fs/promises"
 import inlineWorkerPlugin from 'esbuild-plugin-inline-worker';
 
 const stage = process.env.STAGE || 'dev';
+const buildTarget = process.env.BUILD_TARGET || 'default';
 
 const config = {
   dev: {
@@ -15,7 +16,6 @@ const config = {
   }
 };
 
-
 let CSSMinifyPlugin = {
     name: "CSSMinifyPlugin",
     setup(build) {
@@ -27,10 +27,21 @@ let CSSMinifyPlugin = {
     }
 }
 
+let entryPointsConfig;
+let outfileConfig;
+
+if (buildTarget === 'library') {
+  entryPointsConfig = ['./js/widget.js'];
+  outfileConfig = './lib/index.js';
+} else { // 'default'
+  entryPointsConfig = ['./js/captcha.js'];
+  outfileConfig = './static/js/privatecaptcha.js';
+}
+
 build({
-    entryPoints: ['./js/captcha.js'],
+    entryPoints: entryPointsConfig,
     bundle: true,
-    outfile: './static/js/privatecaptcha.js',
+    outfile: outfileConfig,
     loader: { '.css': 'text' },
     plugins: [
         CSSMinifyPlugin,
