@@ -4,7 +4,7 @@
     "type": "git",
     "url": "git+https://github.com/PrivateCaptcha/PrivateCaptcha.git"
   },
-  "version": "0.0.1",
+  "version": "0.0.2",
   "main": "index.json",
   "type": "module",
   "description": "Core classes used for Private Captcha widget, not intended for direct use",

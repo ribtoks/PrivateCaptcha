@@ -8,6 +8,7 @@ import * as errors from './errors.js';
 window.customElements.define('private-captcha', CaptchaElement);
 
 const PUZZLE_ENDPOINT_URL = 'https://api.privatecaptcha.com/puzzle';
+const PUZZLE_EU_ENDPOINT_URL = 'https://api.eu.privatecaptcha.com/puzzle';
 
 
 function findParentFormElement(element) {
@@ -67,17 +68,24 @@ export class CaptchaWidget {
     }
 
     setOptions(options) {
+        const euOnly = this._element.dataset["eu"] || null;
+        const defaultEndpoint = euOnly ? PUZZLE_EU_ENDPOINT_URL : PUZZLE_ENDPOINT_URL;
+
         this._options = Object.assign({
             startMode: this._element.dataset["startMode"] || "click",
             debug: this._element.dataset["debug"],
             fieldName: this._element.dataset["solutionField"] || "private-captcha-solution",
-            puzzleEndpoint: this._element.dataset["puzzleEndpoint"] || PUZZLE_ENDPOINT_URL,
+            puzzleEndpoint: this._element.dataset["puzzleEndpoint"] || defaultEndpoint,
             sitekey: this._element.dataset["sitekey"] || "",
             displayMode: this._element.dataset["displayMode"] || "widget",
             lang: this._element.dataset["lang"] || "en",
             theme: this._element.dataset["theme"] || "light",
             styles: this._element.dataset["styles"] || "",
             storeVariable: this._element.dataset["storeVariable"] || null,
+            initCallback: () => this.trace('init callback'),
+            startedCallback: () => this.trace('started callback'),
+            finishedCallback: () => this.trace('finished callback'),
+            erroredCallback: () => this.trace('errored callback'),
         }, options);
     }
 
@@ -158,6 +166,8 @@ export class CaptchaWidget {
     }
 
     signalInit() {
+        this._options.initCallback(this);
+
         const callback = this._element.dataset['initCallback'];
         if (callback) {
             try {
@@ -165,12 +175,12 @@ export class CaptchaWidget {
             } catch (e) {
                 console.error('[privatecaptcha] Error in init callback:', e);
             }
-        } else {
-            this.trace('init callback')
         }
     }
 
     signalStarted() {
+        this._options.startedCallback(this);
+
         const callback = this._element.dataset['startedCallback'];
         if (callback) {
             try {
@@ -178,12 +188,12 @@ export class CaptchaWidget {
             } catch (e) {
                 console.error('[privatecaptcha] Error in started callback:', e);
             }
-        } else {
-            this.trace('started callback')
         }
     }
 
     signalFinished() {
+        this._options.finishedCallback(this);
+
         const callback = this._element.dataset['finishedCallback'];
         if (callback) {
             try {
@@ -191,12 +201,12 @@ export class CaptchaWidget {
             } catch (e) {
                 console.error('[privatecaptcha] Error in finished callback:', e);
             }
-        } else {
-            this.trace('finished callback')
         }
     }
 
     signalErrored() {
+        this._options.erroredCallback(this);
+
         const callback = this._element.dataset['erroredCallback'];
         if (callback) {
             try {
@@ -204,8 +214,6 @@ export class CaptchaWidget {
             } catch (e) {
                 console.error('[privatecaptcha] Error in errored callback:', e);
             }
-        } else {
-            this.trace('errored callback')
         }
     }
 
