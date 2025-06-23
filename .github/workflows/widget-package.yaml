@@ -14,11 +14,11 @@ on:
   #    - '*'
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write
+      packages: read
     steps:
       - uses: actions/checkout@v4
 
@@ -37,12 +37,32 @@ jobs:
           PACKAGE_NAME=$(node -p "require('./package.json').name")
           if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
             echo "Version $PACKAGE_VERSION already published"
-            exit 0
+            echo "should_publish=false" >> $GITHUB_OUTPUT
           else
             echo "Version $PACKAGE_VERSION not found, proceeding with publish"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      should_publish: ${{ steps.check.outputs.should_publish }}
+
+  publish:
+    needs: check
+    if: needs.check.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # Setup .npmrc file to publish to GitHub Packages
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@PrivateCaptcha'
 
       - name: Install widget NPM dependencies
         run: npm ci
