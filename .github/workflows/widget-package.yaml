@@ -2,10 +2,12 @@ name: Publish widget js package
 
 on:
   push:
+    branches:
+    - main
     paths:
     - 'widget/js/**'
     - 'widget/lib/package.json'
-    - '.github/workflows/widget-package.yml'
+    - '.github/workflows/widget-package.yaml'
     - '!node_modules/**'
     - '!widget/node_modules/**'
   #  tags:
