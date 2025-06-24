@@ -6,6 +6,10 @@
 
 ![CI](https://github.com/PrivateCaptcha/PrivateCaptcha/actions/workflows/ci.yaml/badge.svg) ![Go lint](https://github.com/PrivateCaptcha/PrivateCaptcha/actions/workflows/golangci-lint.yml/badge.svg) ![JS lint](https://github.com/PrivateCaptcha/PrivateCaptcha/actions/workflows/eslint.yml/badge.svg)
 
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=PrivateCaptcha_PrivateCaptcha&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=PrivateCaptcha_PrivateCaptcha)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=PrivateCaptcha_PrivateCaptcha&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=PrivateCaptcha_PrivateCaptcha)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=PrivateCaptcha_PrivateCaptcha&metric=security_rating)](https://sonarcloud.io/dashboard?id=PrivateCaptcha_PrivateCaptcha)
+
 Private Captcha is an independent, privacy-first, self-hostable Proof-of-Work CAPTCHA service made in EU.
 
 ## About
