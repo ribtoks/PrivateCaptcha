@@ -37,7 +37,7 @@ export function ready(cb) {
     })
 }
 
-export let WASM_SUPPORTED = b2wasm.SUPPORTED;
+export const WASM_SUPPORTED = b2wasm.SUPPORTED;
 export let WASM_LOADED = false;
 export let impl = createHash;
 

@@ -23,7 +23,7 @@
                 </a>
             </nav>
             <nav class="hidden sm:flex" aria-label="Breadcrumb">
-                <ol role="list" class="flex items-center space-x-4">
+                <ol class="flex items-center space-x-4">
                     <li>
                         <div class="flex">
                             <a href="{{ relURL "/" }}" class="text-sm font-medium text-gray-400 hover:text-gray-200">
@@ -77,7 +77,7 @@
                             class="absolute right-0 z-10 mt-2 w-72 origin-top-right divide-y divide-gray-200 overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none" tabindex="-1" role="listbox" aria-labelledby="listbox-label">
                             {{ range $org := .Params.Orgs }}
                             {{ if eq $org.Level $.Const.OrgLevelInvited }}
-                            <li class="group text-gray-900 cursor-default select-none p-4 text-sm hover:bg-gray-100" role="option" aria-hidden="true">
+                            <li class="group text-gray-900 cursor-default select-none p-4 text-sm hover:bg-gray-100" role="option" aria-hidden="true" aria-selected="false">
                                 <a href="{{ partsURL $.Const.OrgEndpoint $org.ID }}" class="inline-block cursor-default flex justify-between">
                                     <p :class="orgID == '{{ $org.ID }}' ? 'font-semibold' : 'font-normal'">{{ $org.Name }}</p>
                                     <span
@@ -97,6 +97,7 @@
                                 hx-trigger="click"
                                 hx-get="{{ partsURL $.Const.OrgEndpoint $org.ID $.Const.TabEndpoint $.Const.DashboardEndpoint }}"
                                 hx-replace-url="{{ partsURL $.Const.OrgEndpoint $org.ID }}"
+                                aria-selected="false"
                                 role="option">
                                 <div class="flex justify-between">
                                     <p :class="orgID == '{{ $org.ID }}' ? 'font-semibold' : 'font-normal'">{{ $org.Name }}</p>
@@ -112,7 +113,7 @@
                             {{ end }}
                             {{ end }}
                             {{ if $.Platform.Enterprise }}
-                            <li class="group text-gray-900 cursor-default select-none text-sm hover:bg-gray-100" role="option" aria-hidden="true">
+                            <li class="group text-gray-900 cursor-default select-none text-sm hover:bg-gray-100" role="option" aria-hidden="true" aria-selected="false">
                                 <a
                                     href="{{ partsURL $.Const.OrgEndpoint .Const.NewEndpoint }}"
                                     class="inline-flex items-center justify-center leading-4 text-gray-900 w-full h-full p-4 cursor-default"
