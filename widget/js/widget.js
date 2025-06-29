@@ -5,7 +5,9 @@ import { WorkersPool } from './workerspool.js'
 import { CaptchaElement, STATE_EMPTY, STATE_ERROR, STATE_READY, STATE_IN_PROGRESS, STATE_VERIFIED, STATE_LOADING, STATE_INVALID, DISPLAY_POPUP, DISPLAY_WIDGET } from './html.js';
 import * as errors from './errors.js';
 
-window.customElements.define('private-captcha', CaptchaElement);
+if (typeof window !== "undefined") {
+    window.customElements.define('private-captcha', CaptchaElement);
+}
 
 const PUZZLE_ENDPOINT_URL = 'https://api.privatecaptcha.com/puzzle';
 const PUZZLE_EU_ENDPOINT_URL = 'https://api.eu.privatecaptcha.com/puzzle';
@@ -166,7 +168,9 @@ export class CaptchaWidget {
     }
 
     signalInit() {
-        this._options.initCallback(this);
+        if (this._options.initCallback) {
+            this._options.initCallback(this);
+        }
 
         const callback = this._element.dataset['initCallback'];
         if (callback) {
@@ -179,7 +183,9 @@ export class CaptchaWidget {
     }
 
     signalStarted() {
-        this._options.startedCallback(this);
+        if (this._options.startedCallback) {
+            this._options.startedCallback(this);
+        }
 
         const callback = this._element.dataset['startedCallback'];
         if (callback) {
@@ -192,7 +198,9 @@ export class CaptchaWidget {
     }
 
     signalFinished() {
-        this._options.finishedCallback(this);
+        if (this._options.finishedCallback) {
+            this._options.finishedCallback(this);
+        }
 
         const callback = this._element.dataset['finishedCallback'];
         if (callback) {
@@ -205,7 +213,9 @@ export class CaptchaWidget {
     }
 
     signalErrored() {
-        this._options.erroredCallback(this);
+        if (this._options.erroredCallback) {
+            this._options.erroredCallback(this);
+        }
 
         const callback = this._element.dataset['erroredCallback'];
         if (callback) {

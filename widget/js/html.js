@@ -6,7 +6,9 @@ import styles from "./styles.css" with { type: 'css' };
 import * as i18n from './strings.js';
 import * as errors from './errors.js';
 
-window.customElements.define('progress-ring', ProgressRing);
+if (typeof window !== "undefined") {
+    window.customElements.define('progress-ring', ProgressRing);
+}
 
 export const STATE_EMPTY = 'empty';
 export const STATE_ERROR = 'error';
