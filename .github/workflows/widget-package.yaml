@@ -26,8 +26,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.x'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@PrivateCaptcha'
 
       - name: Check if version should be published
         id: check
@@ -35,7 +33,7 @@ jobs:
         run: |
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
           PACKAGE_NAME=$(node -p "require('./package.json').name")
-          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
+          if npm view "$PACKAGE_NAME@$PACKAGE_VERSION" >/dev/null 2>&1; then
             echo "Version $PACKAGE_VERSION already published"
             echo "should_publish=false" >> $GITHUB_OUTPUT
           else
@@ -43,7 +41,7 @@ jobs:
             echo "should_publish=true" >> $GITHUB_OUTPUT
           fi
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
     outputs:
       should_publish: ${{ steps.check.outputs.should_publish }}
 
@@ -57,12 +55,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Setup .npmrc file to publish to GitHub Packages
       - uses: actions/setup-node@v4
         with:
           node-version: '22.x'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@PrivateCaptcha'
 
       - name: Install widget NPM dependencies
         run: npm ci
@@ -74,7 +69,6 @@ jobs:
         run: make build-widget-library
 
       - name: Publish widget library
-        run: npm publish --registry=https://npm.pkg.github.com --access public
-        working-directory: ./widget/lib
+        run: make publish-widget-library
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

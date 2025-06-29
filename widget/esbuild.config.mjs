@@ -29,19 +29,23 @@ let CSSMinifyPlugin = {
 
 let entryPointsConfig;
 let outfileConfig;
+let formatConfig;
 
 if (buildTarget === 'library') {
   entryPointsConfig = ['./js/widget.js'];
   outfileConfig = './lib/index.js';
+  formatConfig = 'esm';
 } else { // 'default'
   entryPointsConfig = ['./js/captcha.js'];
   outfileConfig = './static/js/privatecaptcha.js';
+  formatConfig = 'iife';
 }
 
 build({
     entryPoints: entryPointsConfig,
     bundle: true,
     outfile: outfileConfig,
+    format: formatConfig,
     loader: { '.css': 'text' },
     plugins: [
         CSSMinifyPlugin,

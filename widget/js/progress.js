@@ -1,6 +1,8 @@
 'use strict';
 
-export class ProgressRing extends HTMLElement {
+import { SafeHTMLElement } from "./utils";
+
+export class ProgressRing extends SafeHTMLElement {
     constructor() {
         super();
 

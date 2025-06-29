@@ -1,6 +1,7 @@
 'use strict';
 
 import { ProgressRing } from './progress.js';
+import { SafeHTMLElement } from "./utils";
 import styles from "./styles.css" with { type: 'css' };
 import * as i18n from './strings.js';
 import * as errors from './errors.js';
@@ -55,7 +56,7 @@ function errorDescription(code, strings) {
     };
 }
 
-export class CaptchaElement extends HTMLElement {
+export class CaptchaElement extends SafeHTMLElement {
     constructor() {
         super();
         this._state = '';

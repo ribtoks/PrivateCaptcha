@@ -1,11 +1,11 @@
 {
-  "name": "@PrivateCaptcha/private-captcha-js-core",
+  "name": "@private-captcha/private-captcha-js-core",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/PrivateCaptcha/PrivateCaptcha.git"
   },
-  "version": "0.0.4",
-  "main": "index.json",
+  "version": "0.0.5",
+  "main": "index.js",
   "type": "module",
   "private": false,
   "description": "Core classes used for Private Captcha widget (not intended for direct use)",
