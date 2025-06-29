@@ -4,9 +4,10 @@
     "type": "git",
     "url": "git+https://github.com/PrivateCaptcha/PrivateCaptcha.git"
   },
-  "version": "0.0.2",
+  "version": "0.0.3",
   "main": "index.json",
   "type": "module",
+  "private": false,
   "description": "Core classes used for Private Captcha widget, not intended for direct use",
   "homepage": "https://github.com/PrivateCaptcha/PrivateCaptcha",
   "license": "PolyForm Noncommercial License 1.0.0",
