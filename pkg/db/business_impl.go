@@ -112,7 +112,7 @@ func (impl *BusinessStoreImpl) RetrieveFromCache(ctx context.Context, key string
 	if err == pgx.ErrNoRows {
 		return nil, ErrCacheMiss
 	} else if err != nil {
-		slog.ErrorContext(ctx, "Failed to read Paddle prices", common.ErrAttr(err))
+		slog.ErrorContext(ctx, "Failed to read from cache", "key", key, common.ErrAttr(err))
 		return nil, err
 	}
 
@@ -128,11 +128,16 @@ func (impl *BusinessStoreImpl) StoreInCache(ctx context.Context, key string, dat
 		return ErrMaintenance
 	}
 
-	return impl.querier.CreateCache(ctx, &dbgen.CreateCacheParams{
+	if err := impl.querier.CreateCache(ctx, &dbgen.CreateCacheParams{
 		Key:     key,
 		Value:   data,
 		Column3: ttl,
-	})
+	}); err != nil {
+		slog.ErrorContext(ctx, "Failed to write to cache", "key", key, common.ErrAttr(err))
+		return err
+	}
+
+	return nil
 }
 
 func (impl *BusinessStoreImpl) ping(ctx context.Context) error {
