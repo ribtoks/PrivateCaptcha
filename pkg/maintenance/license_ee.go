@@ -18,6 +18,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/license"
 	"github.com/jpillora/backoff"
+	"github.com/rs/xid"
 )
 
 const (
@@ -26,8 +27,8 @@ const (
 )
 
 var (
-	errHTTPRequest           = errors.New("HTTP request error")
-	errHTTPRequestFailed     = errors.New("HTTP request failed")
+	errLicenseRequest        = errors.New("license request error")
+	errLicenseServer         = errors.New("license server error")
 	errEnterpriseConfigError = errors.New("enterprise config error")
 )
 
@@ -60,12 +61,17 @@ func (j *checkLicenseJob) doFetchActivation(ctx context.Context, licenseURL, lic
 	form.Set("lid", licenseKey)
 	form.Set("email", email)
 
-	req, err := http.NewRequest("POST", licenseURL, bytes.NewBufferString(form.Encode()))
+	req, err := http.NewRequest(http.MethodPost, licenseURL, bytes.NewBufferString(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
 
+	rid := xid.New().String()
 	req.Header.Set(common.HeaderContentType, common.ContentTypeURLEncoded)
+	req.Header.Set(common.HeaderRequestID, rid)
+
+	rlog := slog.With("requestID", rid)
+	rlog.DebugContext(ctx, "Sending license request", "URL", licenseURL)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -74,21 +80,26 @@ func (j *checkLicenseJob) doFetchActivation(ctx context.Context, licenseURL, lic
 	}
 	defer resp.Body.Close()
 
-	// we can retry on server errors
+	const maxBytes = 256 * 1024
+	limitedReader := io.LimitReader(resp.Body, maxBytes)
+	responseData, responseErr := io.ReadAll(limitedReader)
+
+	// we _can_ retry on server errors and rate limiting
 	if (resp.StatusCode >= 500) || (resp.StatusCode == http.StatusTooManyRequests) {
-		slog.WarnContext(ctx, "Failed to fetch activation", "code", resp.StatusCode)
-		return nil, errHTTPRequestFailed
+		rlog.WarnContext(ctx, "Failed to fetch activation", "code", resp.StatusCode, "response", string(responseData))
+		return nil, errLicenseServer
 	}
 
 	// the difference is that we don't retry on most 4xx (client) errors (e.g. BadRequest)
 	if resp.StatusCode >= 400 {
-		slog.WarnContext(ctx, "Failed to fetch activation", "code", resp.StatusCode)
-		return nil, errHTTPRequest
+		rlog.WarnContext(ctx, "Failed to fetch activation", "code", resp.StatusCode, "response", string(responseData))
+
+		return nil, errLicenseRequest
 	}
 
-	const maxBytes = 1 << 20 // 1 MB
-	limitedReader := io.LimitReader(resp.Body, maxBytes)
-	return io.ReadAll(limitedReader)
+	rlog.DebugContext(ctx, "Received license response", "code", resp.StatusCode, "response", len(responseData))
+
+	return responseData, responseErr
 }
 
 func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
@@ -119,7 +130,7 @@ func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
 
 	for i := 0; i < activationAPIAttempts; i++ {
 		data, err = j.doFetchActivation(ctx, url, licenseKey, email)
-		if (err == nil) || (err == errHTTPRequest) {
+		if (err == nil) || (err == errLicenseRequest) {
 			break
 		} else {
 			slog.WarnContext(ctx, "Failed to fetch activation", "attempt", i, common.ErrAttr(err))
