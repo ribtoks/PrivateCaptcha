@@ -96,6 +96,12 @@ func DefaultMapper(c common.ConfigKey) string {
 		return "PC_USER_FINGERPRINT_KEY"
 	case common.APISaltKey:
 		return "PC_API_SALT"
+	case common.EnterpriseLicenseKeyKey:
+		return "EE_LICENSE_KEY"
+	case common.EnterpriseEmailKey:
+		return "EE_EMAIL"
+	case common.EnterpriseUrlKey:
+		return "EE_URL"
 	default:
 		return ""
 	}

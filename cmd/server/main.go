@@ -213,6 +213,14 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	}
 	updateConfigFunc(ctx)
 
+	checkLicenseJob := maintenance.NewCheckLicenseJob(businessDB, cfg)
+	go func() {
+		if err := checkLicenseJob.RunOnce(common.TraceContext(context.Background(), "check_license")); err != nil {
+			// TODO: Handle EE license error more gracefully
+			panic(err)
+		}
+	}()
+
 	quit := make(chan struct{})
 	go func(ctx context.Context) {
 		signals := make(chan os.Signal, 1)
@@ -274,6 +282,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Backoff:    200 * time.Millisecond,
 		Limit:      100,
 	})
+	jobs.AddLocked(24*time.Hour, checkLicenseJob)
 	jobs.Run()
 
 	var localServer *http.Server
@@ -378,11 +387,6 @@ func main() {
 	}
 
 	cfg := config.NewEnvConfig(config.DefaultMapper, env.Get)
-
-	if err = checkLicense(context.Background(), cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
 
 	switch *flagMode {
 	case modeServer:

@@ -34,3 +34,5 @@ pc.env
 .DS_Store
 
 coverage_*.out
+
+*.keys

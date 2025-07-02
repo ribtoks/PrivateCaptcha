@@ -1,0 +1,10 @@
+services:
+  server:
+    build:
+      args:
+        EXTRA_BUILD_FLAGS: '-tags enterprise'
+
+  migration:
+    build:
+      args:
+        EXTRA_BUILD_FLAGS: '-tags enterprise'

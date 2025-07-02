@@ -6,7 +6,7 @@ DOCKER_IMAGE ?= private-captcha
 SQLC_MIGRATION_FIX = pkg/db/migrations/postgres/000000_sqlc_fix.sql
 
 test-unit:
-	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short -coverprofile=coverage_unit.out ./...
+	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short -coverprofile=coverage_unit.out -tags tests ./...
 
 bench-unit:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -bench=. -benchtime=20s -short ./...
@@ -24,10 +24,13 @@ vendors:
 build: build-server build-loadtest
 
 build-tests:
-	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -c -cover -covermode=atomic -o tests/ $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
+	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -c -cover -covermode=atomic -tags enterprise,tests -o tests/ $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 
 build-server:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$(GIT_COMMIT)" -o bin/server ./cmd/server
+
+build-server-ee:
+	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$(GIT_COMMIT)" -tags enterprise -o bin/server ./cmd/server
 
 build-loadtest:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/loadtest cmd/loadtest/*.go
@@ -75,16 +78,19 @@ run:
 	reflex -r '^(pkg|cmd|vendor|web)/' -R '^(web/static/js|web/node_modules)' -s -- sh -c 'make serve'
 
 run-docker:
-	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.dev.yml -f docker/docker-compose.local.yml up --build
+	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.base.yml -f docker/docker-compose.local.yml up --build
+
+run-docker-ee:
+	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.base.yml -f docker/docker-compose.local.yml -f docker/docker-compose.ee.yml up --build
 
 profile-docker:
-	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.dev.yml -f docker/docker-compose.monitoring.yml up --build
+	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.base.yml -f docker/docker-compose.monitoring.yml up --build
 
 watch-docker:
-	@docker compose -f docker/docker-compose.dev.yml watch
+	@docker compose -f docker/docker-compose.base.yml watch
 
 clean-docker:
-	@docker compose -f docker/docker-compose.dev.yml down -v --remove-orphans
+	@docker compose -f docker/docker-compose.base.yml down -v --remove-orphans
 
 sqlc:
 	# https://github.com/sqlc-dev/sqlc/issues/3571
