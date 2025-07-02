@@ -23,8 +23,9 @@ vendors:
 
 build: build-server build-loadtest
 
+build-tests: EXTRA_BUILD_FLAGS ?= -tags enterprise,tests
 build-tests:
-	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -c -cover -covermode=atomic -tags enterprise,tests -o tests/ $(shell go list -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
+	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -c -cover -covermode=atomic $(EXTRA_BUILD_FLAGS) -o tests/ $(shell go list $(EXTRA_BUILD_FLAGS) -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 
 build-server:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$(GIT_COMMIT)" -o bin/server ./cmd/server
