@@ -18,6 +18,8 @@ linters:
       - pkg/db/generated/
 
 run:
-  build-tags: "enterprise,tests"
+  build-tags: 
+    - enterprise
+    - tests
   timeout: 5m
   tests: false

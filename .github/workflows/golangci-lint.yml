@@ -9,6 +9,7 @@ on:
     - 'widget/build.go'
     - 'web/build.go'
     - '.github/workflows/golangci-lint.yml'
+    - '.golangci.yml'
     - '!pkg/db/generated/**'
     - '!pkg/db/queries/**'
     - '!pkg/db/migrations/**'
