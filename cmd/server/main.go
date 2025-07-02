@@ -213,15 +213,15 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	}
 	updateConfigFunc(ctx)
 
-	checkLicenseJob := maintenance.NewCheckLicenseJob(businessDB, cfg)
-	go func() {
-		if err := checkLicenseJob.RunOnce(common.TraceContext(context.Background(), "check_license")); err != nil {
-			// TODO: Handle EE license error more gracefully
-			panic(err)
-		}
-	}()
-
 	quit := make(chan struct{})
+	quitFunc := func(ctx context.Context) {
+		slog.DebugContext(ctx, "Server quit triggered")
+		healthCheck.Shutdown(ctx)
+		// Give time for readiness check to propagate
+		time.Sleep(min(_readinessDrainDelay, healthCheck.Interval()))
+		close(quit)
+	}
+
 	go func(ctx context.Context) {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -243,14 +243,16 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 				}
 				updateConfigFunc(ctx)
 			case syscall.SIGINT, syscall.SIGTERM:
-				healthCheck.Shutdown(ctx)
-				// Give time for readiness check to propagate
-				time.Sleep(min(_readinessDrainDelay, healthCheck.Interval()))
-				close(quit)
+				quitFunc(ctx)
 				return
 			}
 		}
 	}(common.TraceContext(context.Background(), "signal_handler"))
+
+	checkLicenseJob := maintenance.NewCheckLicenseJob(businessDB, cfg, quitFunc)
+	go func() {
+		_ = common.RunPeriodicJobOnce(common.TraceContext(context.Background(), "check_license"), checkLicenseJob)
+	}()
 
 	go func() {
 		slog.InfoContext(ctx, "Listening", "address", listener.Addr().String(), "version", GitCommit, "stage", stage)

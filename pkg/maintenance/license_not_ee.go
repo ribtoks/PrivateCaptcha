@@ -10,7 +10,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 )
 
-func NewCheckLicenseJob(db.Implementor, common.ConfigStore) common.PeriodicJob {
+func NewCheckLicenseJob(db.Implementor, common.ConfigStore, func(ctx context.Context)) common.PeriodicJob {
 	return &checkLicenseNoopJob{}
 }
 

@@ -32,26 +32,28 @@ var (
 	errEnterpriseConfigError = errors.New("enterprise config error")
 )
 
-func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore) common.PeriodicJob {
+func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFunc func(ctx context.Context)) common.PeriodicJob {
 	keys, _ := license.ActivationKeys()
 
 	return &checkLicenseJob{
-		Store:      store,
-		Keys:       keys,
-		URL:        config.Get(common.EnterpriseUrlKey),
-		LicenseKey: config.Get(common.EnterpriseLicenseKeyKey),
-		Email:      config.Get(common.EnterpriseEmailKey),
-		AdminEmail: config.Get(common.AdminEmailKey),
+		store:      store,
+		keys:       keys,
+		url:        config.Get(common.EnterpriseUrlKey),
+		licenseKey: config.Get(common.EnterpriseLicenseKeyKey),
+		email:      config.Get(common.EnterpriseEmailKey),
+		adminEmail: config.Get(common.AdminEmailKey),
+		quitFunc:   quitFunc,
 	}
 }
 
 type checkLicenseJob struct {
-	Store      db.Implementor
-	Keys       []*license.ActivationKey
-	URL        common.ConfigItem
-	LicenseKey common.ConfigItem
-	Email      common.ConfigItem
-	AdminEmail common.ConfigItem
+	store      db.Implementor
+	keys       []*license.ActivationKey
+	url        common.ConfigItem
+	licenseKey common.ConfigItem
+	email      common.ConfigItem
+	adminEmail common.ConfigItem
+	quitFunc   func(ctx context.Context)
 }
 
 var _ common.PeriodicJob = (*checkLicenseJob)(nil)
@@ -103,17 +105,17 @@ func (j *checkLicenseJob) doFetchActivation(ctx context.Context, licenseURL, lic
 }
 
 func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
-	url := j.URL.Value()
+	url := j.url.Value()
 	if len(url) == 0 {
 		return nil, errEnterpriseConfigError
 	}
 
-	licenseKey := j.LicenseKey.Value()
+	licenseKey := j.licenseKey.Value()
 	if len(licenseKey) == 0 {
 		return nil, errEnterpriseConfigError
 	}
 
-	email := j.Email.Value()
+	email := j.email.Value()
 	if len(email) == 0 {
 		return nil, errEnterpriseConfigError
 	}
@@ -141,19 +143,35 @@ func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
 	return data, err
 }
 
-func (j *checkLicenseJob) RunOnce(ctx context.Context) error {
-	if len(j.Keys) == 0 {
+func (j *checkLicenseJob) activateLicense(ctx context.Context, tnow time.Time) error {
+	data, err := j.fetchActivation(ctx)
+	if err != nil {
+		return err
+	}
+
+	msg, err := license.VerifyActivation(ctx, data, j.keys, tnow)
+	if err == nil {
+		slog.InfoContext(ctx, "Server activation is valid")
+		_ = j.store.Impl().StoreInCache(ctx, activationCacheKey, data, msg.Expiration.Sub(tnow))
+	} else {
+		slog.ErrorContext(ctx, "Failed to verify server activation", common.ErrAttr(err))
+	}
+
+	return err
+}
+
+func (j *checkLicenseJob) checkLicense(ctx context.Context) error {
+	if len(j.keys) == 0 {
 		slog.ErrorContext(ctx, "No license keys available")
 		return errEnterpriseConfigError
 	}
 
 	tnow := time.Now().UTC()
-	hadCached := false
+	cachedIsValid := false
 
-	if data, err := j.Store.Impl().RetrieveFromCache(ctx, activationCacheKey); err == nil {
-		hadCached = true
-
-		if msg, err := license.VerifyActivation(ctx, data, j.Keys, tnow); err == nil {
+	if data, err := j.store.Impl().RetrieveFromCache(ctx, activationCacheKey); err == nil {
+		if msg, err := license.VerifyActivation(ctx, data, j.keys, tnow); err == nil {
+			cachedIsValid = true
 			expiration := msg.Expiration.Sub(tnow)
 			slog.InfoContext(ctx, "Cached activation is valid", "expiration", expiration.String())
 			if expiration.Hours() > 24*7 {
@@ -164,33 +182,37 @@ func (j *checkLicenseJob) RunOnce(ctx context.Context) error {
 			slog.WarnContext(ctx, "Failed to verify cached activation", common.ErrAttr(err))
 		}
 	} else {
-		slog.WarnContext(ctx, "License is not cached", common.ErrAttr(err))
+		slog.WarnContext(ctx, "Activation is not cached", common.ErrAttr(err))
 	}
 
-	data, err := j.fetchActivation(ctx)
-	if err != nil {
-		if hadCached {
-			adminEmail := j.AdminEmail.Value()
-			if admin, aerr := j.Store.Impl().FindUserByEmail(ctx, adminEmail); aerr == nil {
+	if err := j.activateLicense(ctx, tnow); err != nil {
+		if cachedIsValid {
+			// create warning, but swallow the error
+			adminEmail := j.adminEmail.Value()
+			if admin, aerr := j.store.Impl().FindUserByEmail(ctx, adminEmail); aerr == nil {
 				duration := 7 * 24 * time.Hour
 				text := fmt.Sprintf("Failed to renew EE license (%s): <i>%s</i>", tnow.Format(time.DateOnly), err.Error())
-				_, _ = j.Store.Impl().CreateNotification(ctx, text, tnow, &duration, &admin.ID)
+				_, _ = j.store.Impl().CreateNotification(ctx, text, tnow, &duration, &admin.ID)
 			} else {
 				slog.ErrorContext(ctx, "Failed to find admin user by email", "email", adminEmail, common.ErrAttr(aerr))
 			}
+
+			return nil
 		}
+
 		return err
 	}
 
-	msg, err := license.VerifyActivation(ctx, data, j.Keys, tnow)
-	if err == nil {
-		slog.InfoContext(ctx, "Received activation is valid")
-		_ = j.Store.Impl().StoreInCache(ctx, activationCacheKey, data, msg.Expiration.Sub(tnow))
-	} else {
-		slog.ErrorContext(ctx, "Failed to verify activation", common.ErrAttr(err))
+	return nil
+}
+
+func (j *checkLicenseJob) RunOnce(ctx context.Context) error {
+	if err := j.checkLicense(ctx); err != nil {
+		go j.quitFunc(ctx)
+		return err
 	}
 
-	return err
+	return nil
 }
 
 func (j *checkLicenseJob) Interval() time.Duration {
