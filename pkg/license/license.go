@@ -98,6 +98,10 @@ func (lm *LicenseMessage) WriteTo(w io.Writer) (int64, error) {
 }
 
 func (lm *LicenseMessage) UnmarshalBinary(data []byte) error {
+	if len(data) < (1 + 4 + 4 + 4 + 4) {
+		return io.ErrShortBuffer
+	}
+
 	var offset int
 
 	// version field is currently not used
