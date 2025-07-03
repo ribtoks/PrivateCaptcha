@@ -34,7 +34,7 @@ func TestLicenseActivation(t *testing.T) {
 
 	signature := ed25519.Sign(privKey, message)
 
-	license := &signedMessage{
+	license := &SignedMessage{
 		Message:   base64.StdEncoding.EncodeToString(message),
 		Signature: base64.StdEncoding.EncodeToString(signature),
 	}

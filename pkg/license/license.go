@@ -149,7 +149,7 @@ func (lm *LicenseMessage) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
-type signedMessage struct {
+type SignedMessage struct {
 	Message   string `json:"message"`
 	Signature string `json:"signature"`
 }
@@ -165,7 +165,7 @@ func findKeyByID(keys []*ActivationKey, id int) (*ActivationKey, error) {
 }
 
 func VerifyActivation(ctx context.Context, data []byte, keys []*ActivationKey, tnow time.Time) (*LicenseMessage, error) {
-	sm := &signedMessage{}
+	sm := &SignedMessage{}
 	err := json.Unmarshal(data, &sm)
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to unmarshal signed message", common.ErrAttr(err))
