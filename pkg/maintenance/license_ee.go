@@ -40,7 +40,7 @@ func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFun
 	}
 
 	if len(keys) == 0 {
-		return errNoEnterpriseKeys
+		return nil, errNoEnterpriseKeys
 	}
 
 	return &checkLicenseJob{
