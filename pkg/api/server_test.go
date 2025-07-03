@@ -1,5 +1,3 @@
-//go:build !unittests
-
 package api
 
 import (

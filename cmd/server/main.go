@@ -249,7 +249,10 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		}
 	}(common.TraceContext(context.Background(), "signal_handler"))
 
-	checkLicenseJob := maintenance.NewCheckLicenseJob(businessDB, cfg, quitFunc)
+	checkLicenseJob, err := maintenance.NewCheckLicenseJob(businessDB, cfg, quitFunc)
+	if err != nil {
+		return err
+	}
 	go func() {
 		_ = common.RunPeriodicJobOnce(common.TraceContext(context.Background(), "check_license"), checkLicenseJob)
 	}()

@@ -4,9 +4,10 @@ STAGE ?= dev
 GIT_COMMIT ?= $(shell git rev-list -1 HEAD)
 DOCKER_IMAGE ?= private-captcha
 SQLC_MIGRATION_FIX = pkg/db/migrations/postgres/000000_sqlc_fix.sql
+EXTRA_BUILD_FLAGS ?=
 
 test-unit:
-	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short -coverprofile=coverage_unit.out -tags tests ./...
+	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short -coverprofile=coverage_unit.out ./...
 
 bench-unit:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -bench=. -benchtime=20s -short ./...
@@ -23,15 +24,17 @@ vendors:
 
 build: build-server build-loadtest
 
-build-tests: EXTRA_BUILD_FLAGS ?= -tags enterprise,tests
 build-tests:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -c -cover -covermode=atomic $(EXTRA_BUILD_FLAGS) -o tests/ $(shell go list $(EXTRA_BUILD_FLAGS) -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
 
-build-server:
-	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$(GIT_COMMIT)" -o bin/server ./cmd/server
+build-tests-ee: EXTRA_BUILD_FLAGS = -tags enterprise
+build-tests-ee: build-tests
 
-build-server-ee:
-	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$(GIT_COMMIT)" -tags enterprise -o bin/server ./cmd/server
+build-server:
+	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$(GIT_COMMIT)" $(EXTRA_BUILD_FLAGS) -o bin/server ./cmd/server
+
+build-server-ee: EXTRA_BUILD_FLAGS = -tags enterprise
+build-server-ee: build-server
 
 build-loadtest:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build -ldflags="-s -w" -o bin/loadtest cmd/loadtest/*.go

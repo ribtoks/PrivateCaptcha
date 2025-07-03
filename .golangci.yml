@@ -20,6 +20,5 @@ linters:
 run:
   build-tags: 
     - enterprise
-    - tests
   timeout: 5m
   tests: false

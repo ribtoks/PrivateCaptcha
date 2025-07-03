@@ -1,16 +1,14 @@
-//go:build !tests
-
 package license
 
 import (
 	"crypto/ed25519"
-	_ "embed"
+	"embed"
 	"encoding/base64"
 	"encoding/json"
 )
 
-//go:embed public.keys
-var embeddedKeys []byte
+//go:embed *.keys
+var embeddedKeys embed.FS
 
 type hardcodedKey struct {
 	KeyID   int    `json:"KeyID"`
@@ -36,8 +34,27 @@ func activationKeys(hardcodedKeys []*hardcodedKey) ([]*ActivationKey, error) {
 func ActivationKeys() ([]*ActivationKey, error) {
 	var parsedKeys []*hardcodedKey
 
-	if err := json.Unmarshal(embeddedKeys, &parsedKeys); err != nil {
+	files, err := embeddedKeys.ReadDir(".")
+	if err != nil {
 		return nil, err
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		content, err := embeddedKeys.ReadFile(file.Name())
+		if err != nil {
+			return nil, err
+		}
+
+		var keysFromFile []*hardcodedKey
+		if err := json.Unmarshal(content, &keysFromFile); err != nil {
+			return nil, err
+		}
+
+		parsedKeys = append(parsedKeys, keysFromFile...)
 	}
 
 	return activationKeys(parsedKeys)

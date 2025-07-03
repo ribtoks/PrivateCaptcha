@@ -32,8 +32,11 @@ var (
 	errEnterpriseConfigError = errors.New("enterprise config error")
 )
 
-func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFunc func(ctx context.Context)) common.PeriodicJob {
-	keys, _ := license.ActivationKeys()
+func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFunc func(ctx context.Context)) (common.PeriodicJob, error) {
+	keys, err := license.ActivationKeys()
+	if err != nil {
+		return nil, err
+	}
 
 	return &checkLicenseJob{
 		store:      store,
@@ -43,7 +46,7 @@ func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFun
 		email:      config.Get(common.EnterpriseEmailKey),
 		adminEmail: config.Get(common.AdminEmailKey),
 		quitFunc:   quitFunc,
-	}
+	}, nil
 }
 
 type checkLicenseJob struct {
