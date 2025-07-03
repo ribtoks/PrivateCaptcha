@@ -190,9 +190,11 @@ func (j *checkLicenseJob) checkLicense(ctx context.Context) error {
 			// create warning, but swallow the error
 			adminEmail := j.adminEmail.Value()
 			if admin, aerr := j.store.Impl().FindUserByEmail(ctx, adminEmail); aerr == nil {
-				duration := 7 * 24 * time.Hour
+				// truncating time will cause duplicate notification being rejected based on SQL constraint
+				notifTime := tnow.Truncate(24 * time.Hour)
+				notifDuration := 7 * 24 * time.Hour
 				text := fmt.Sprintf("Failed to renew EE license (%s): <i>%s</i>", tnow.Format(time.DateOnly), err.Error())
-				_, _ = j.store.Impl().CreateNotification(ctx, text, tnow, &duration, &admin.ID)
+				_, _ = j.store.Impl().CreateNotification(ctx, text, notifTime, &notifDuration, &admin.ID)
 			} else {
 				slog.ErrorContext(ctx, "Failed to find admin user by email", "email", adminEmail, common.ErrAttr(aerr))
 			}
