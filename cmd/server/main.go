@@ -135,12 +135,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		return err
 	}
 
-	router := http.NewServeMux()
-
 	apiURLConfig := config.AsURL(ctx, cfg.Get(common.APIBaseURLKey))
-	apiDomain := apiURLConfig.Domain()
-	apiServer.Setup(router, apiDomain, verbose, common.NoopMiddleware)
-
 	sessionStore := db.NewSessionStore(pool, memory.New(), 1*time.Minute, session.KeyPersistent)
 	portalServer := &portal.Server{
 		Stage:      stage,
@@ -178,6 +173,34 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Metrics:       metrics,
 	}
 
+	updateConfigFunc := func(ctx context.Context) {
+		cfg.Update(ctx)
+		maintenanceMode := config.AsBool(cfg.Get(common.MaintenanceModeKey))
+		businessDB.UpdateConfig(maintenanceMode)
+		timeSeriesDB.UpdateConfig(maintenanceMode)
+		portalServer.UpdateConfig(ctx, cfg)
+		apiServer.UpdateConfig(ctx, cfg)
+	}
+	updateConfigFunc(ctx)
+
+	quit := make(chan struct{})
+	quitFunc := func(ctx context.Context) {
+		slog.DebugContext(ctx, "Server quit triggered")
+		healthCheck.Shutdown(ctx)
+		// Give time for readiness check to propagate
+		time.Sleep(min(_readinessDrainDelay, healthCheck.Interval()))
+		close(quit)
+	}
+
+	checkLicenseJob, err := maintenance.NewCheckLicenseJob(businessDB, cfg, quitFunc)
+	if err != nil {
+		return err
+	}
+	// nolint:errcheck
+	go common.RunPeriodicJobOnce(common.TraceContext(context.Background(), "check_license"), checkLicenseJob)
+
+	router := http.NewServeMux()
+	apiServer.Setup(router, apiURLConfig.Domain(), verbose, common.NoopMiddleware)
 	portalDomain := portalURLConfig.Domain()
 	_ = portalServer.Setup(router, portalDomain, common.NoopMiddleware)
 	rateLimiter := portalServer.Auth.RateLimit()
@@ -201,25 +224,6 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		BaseContext: func(_ net.Listener) context.Context {
 			return ongoingCtx
 		},
-	}
-
-	updateConfigFunc := func(ctx context.Context) {
-		cfg.Update(ctx)
-		maintenanceMode := config.AsBool(cfg.Get(common.MaintenanceModeKey))
-		businessDB.UpdateConfig(maintenanceMode)
-		timeSeriesDB.UpdateConfig(maintenanceMode)
-		portalServer.UpdateConfig(ctx, cfg)
-		apiServer.UpdateConfig(ctx, cfg)
-	}
-	updateConfigFunc(ctx)
-
-	quit := make(chan struct{})
-	quitFunc := func(ctx context.Context) {
-		slog.DebugContext(ctx, "Server quit triggered")
-		healthCheck.Shutdown(ctx)
-		// Give time for readiness check to propagate
-		time.Sleep(min(_readinessDrainDelay, healthCheck.Interval()))
-		close(quit)
 	}
 
 	go func(ctx context.Context) {
@@ -248,14 +252,6 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 			}
 		}
 	}(common.TraceContext(context.Background(), "signal_handler"))
-
-	checkLicenseJob, err := maintenance.NewCheckLicenseJob(businessDB, cfg, quitFunc)
-	if err != nil {
-		return err
-	}
-	go func() {
-		_ = common.RunPeriodicJobOnce(common.TraceContext(context.Background(), "check_license"), checkLicenseJob)
-	}()
 
 	go func() {
 		slog.InfoContext(ctx, "Listening", "address", listener.Addr().String(), "version", GitCommit, "stage", stage)
