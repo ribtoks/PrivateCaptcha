@@ -30,12 +30,17 @@ var (
 	errLicenseRequest        = errors.New("license request error")
 	errLicenseServer         = errors.New("license server error")
 	errEnterpriseConfigError = errors.New("enterprise config error")
+	errNoEnterpriseKeys      = errors.New("enterprise keys not found")
 )
 
 func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFunc func(ctx context.Context)) (common.PeriodicJob, error) {
 	keys, err := license.ActivationKeys()
 	if err != nil {
 		return nil, err
+	}
+
+	if len(keys) == 0 {
+		return errEnterpriseKeys
 	}
 
 	return &checkLicenseJob{
