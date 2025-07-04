@@ -3,6 +3,10 @@
   "extends": [
     "config:base"
   ],
+  "minimumReleaseAge": "7",
+  "internalChecksFilter": "strict",
+  "postUpdateOptions": ["gomodTidy"],
+  "prConcurrentLimit": 5,
   "packageRules": [
     {
       "matchUpdateTypes": ["patch"],
