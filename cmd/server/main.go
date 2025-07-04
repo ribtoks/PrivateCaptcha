@@ -281,9 +281,9 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Store:      businessDB,
 		TimeSeries: timeSeriesDB,
 		Backoff:    200 * time.Millisecond,
-		Limit:      100,
+		Limit:      50,
 	})
-	jobs.AddLocked(24*time.Hour, checkLicenseJob)
+	jobs.AddLocked(2*time.Hour, checkLicenseJob)
 	jobs.Run()
 
 	var localServer *http.Server

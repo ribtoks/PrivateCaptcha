@@ -36,6 +36,7 @@ const (
 	ParamAllowLocalhost   = "allow_localhost"
 	ParamAllowReplay      = "allow_replay"
 	ParamIgnoreError      = "ignore_error"
+	ParamLicenseKey       = "lid"
 )
 
 var (

@@ -68,8 +68,8 @@ var _ common.PeriodicJob = (*checkLicenseJob)(nil)
 
 func (j *checkLicenseJob) doFetchActivation(ctx context.Context, licenseURL, licenseKey, email string) ([]byte, error) {
 	form := url.Values{}
-	form.Set("lid", licenseKey)
-	form.Set("email", email)
+	form.Set(common.ParamLicenseKey, licenseKey)
+	form.Set(common.ParamEmail, email)
 
 	req, err := http.NewRequest(http.MethodPost, licenseURL, bytes.NewBufferString(form.Encode()))
 	if err != nil {
@@ -86,7 +86,7 @@ func (j *checkLicenseJob) doFetchActivation(ctx context.Context, licenseURL, lic
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, common.NewRetriableError(err)
 	}
 	defer resp.Body.Close()
 
@@ -95,12 +95,14 @@ func (j *checkLicenseJob) doFetchActivation(ctx context.Context, licenseURL, lic
 	responseData, responseErr := io.ReadAll(limitedReader)
 
 	// we _can_ retry on server errors and rate limiting
-	if (resp.StatusCode >= 500) || (resp.StatusCode == http.StatusTooManyRequests) {
+	if (resp.StatusCode >= 500) ||
+		(resp.StatusCode == http.StatusTooManyRequests) ||
+		(resp.StatusCode == http.StatusRequestTimeout) {
 		rlog.WarnContext(ctx, "Failed to fetch activation", "code", resp.StatusCode, "response", string(responseData))
-		return nil, errLicenseServer
+		return nil, common.NewRetriableError(errLicenseServer)
 	}
 
-	// the difference is that we don't retry on most 4xx (client) errors (e.g. BadRequest)
+	// the difference is that we don't retry on most 4xx (client) errors (e.g. BadRequest / Forbidden)
 	if resp.StatusCode >= 400 {
 		rlog.WarnContext(ctx, "Failed to fetch activation", "code", resp.StatusCode, "response", string(responseData))
 
@@ -140,11 +142,13 @@ func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
 
 	for i := 0; i < activationAPIAttempts; i++ {
 		data, err = j.doFetchActivation(ctx, url, licenseKey, email)
-		if (err == nil) || (err == errLicenseRequest) {
-			break
-		} else {
-			slog.WarnContext(ctx, "Failed to fetch activation", "attempt", i, common.ErrAttr(err))
+
+		var rerr common.RetriableError
+		if err != nil && errors.As(err, &rerr) {
+			slog.WarnContext(ctx, "Failed to fetch activation", "attempt", i, common.ErrAttr(rerr.Unwrap()))
 			time.Sleep(b.Duration())
+		} else {
+			break
 		}
 	}
 
@@ -154,6 +158,7 @@ func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
 func (j *checkLicenseJob) activateLicense(ctx context.Context, tnow time.Time) error {
 	data, err := j.fetchActivation(ctx)
 	if err != nil {
+		slog.ErrorContext(ctx, "Failed to fetch activation", common.ErrAttr(err))
 		return err
 	}
 
@@ -226,11 +231,12 @@ func (j *checkLicenseJob) RunOnce(ctx context.Context) error {
 }
 
 func (j *checkLicenseJob) Interval() time.Duration {
-	return 24 * time.Hour
+	// we run frequently intentionally (for license verification) but we should hit cache 99.9% of the time
+	return 1 * time.Hour
 }
 
 func (j *checkLicenseJob) Jitter() time.Duration {
-	return 1
+	return 10 * time.Minute
 }
 
 func (j *checkLicenseJob) Name() string {

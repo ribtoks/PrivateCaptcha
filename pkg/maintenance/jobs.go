@@ -27,6 +27,8 @@ type jobs struct {
 	maintenanceCtx    context.Context
 }
 
+// Implicit logic is that lockDuration is the actual job Interval, but it is defined by the SQL lock.
+// Job's Interval() is much smaller only for the purpose of "retrying" if the previous job execution failed
 func (j *jobs) AddLocked(lockDuration time.Duration, job common.PeriodicJob) {
 	j.periodicJobs = append(j.periodicJobs, &UniquePeriodicJob{
 		Job:          job,

@@ -199,3 +199,20 @@ func EnvToBool(value string) bool {
 		return false
 	}
 }
+
+// RetriableError is a wrapper for errors that should be retried.
+type RetriableError struct {
+	err error
+}
+
+func NewRetriableError(err error) RetriableError {
+	return RetriableError{err}
+}
+
+func (e RetriableError) Error() string {
+	return e.err.Error()
+}
+
+func (e RetriableError) Unwrap() error {
+	return e.err
+}
