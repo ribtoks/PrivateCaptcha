@@ -3,8 +3,10 @@ package db
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -13,9 +15,10 @@ import (
 )
 
 var (
-	ErrNegativeCacheHit = errors.New("negative hit")
-	ErrCacheMiss        = errors.New("cache miss")
-	ErrSetMissing       = errors.New("cannot set missing value directly")
+	ErrNegativeCacheHit    = errors.New("negative hit")
+	ErrCacheMiss           = errors.New("cache miss")
+	ErrSetMissing          = errors.New("cannot set missing value directly")
+	errEmptyCacheKeyPrefix = errors.New("cache key prefix is empty")
 )
 
 type memcache[TKey comparable, TValue comparable] struct {
@@ -147,10 +150,10 @@ func (c *memcache[TKey, TValue]) Delete(ctx context.Context, key TKey) error {
 	return nil
 }
 
-type cacheKeyPrefix byte
+type CacheKeyPrefix byte
 
 const (
-	userCacheKeyPrefix cacheKeyPrefix = iota
+	userCacheKeyPrefix CacheKeyPrefix = iota
 	apiKeyCacheKeyPrefix
 	orgCacheKeyPrefix
 	orgPropertiesCacheKeyPrefix
@@ -161,40 +164,73 @@ const (
 	userAPIKeysCacheKeyPrefix
 	subscriptionCacheKeyPrefix
 	notificationCacheKeyPrefix
+	// Add new fields _above_
+	CACHE_KEY_PREFIXES_COUNT
 )
+
+var (
+	cachePrefixToStrings []string
+	cachePrefixMux       sync.Mutex
+)
+
+func init() {
+	cachePrefixMux.Lock()
+	defer cachePrefixMux.Unlock()
+
+	cachePrefixToStrings = make([]string, CACHE_KEY_PREFIXES_COUNT)
+
+	cachePrefixToStrings[userCacheKeyPrefix] = "user/"
+	cachePrefixToStrings[apiKeyCacheKeyPrefix] = "apikey/"
+	cachePrefixToStrings[orgCacheKeyPrefix] = "org/"
+	cachePrefixToStrings[orgPropertiesCacheKeyPrefix] = "orgProperties/"
+	cachePrefixToStrings[propertyByIDCacheKeyPrefix] = "propID/"
+	cachePrefixToStrings[propertyBySitekeyCacheKeyPrefix] = "propSitekey/"
+	cachePrefixToStrings[userOrgsCacheKeyPrefix] = "userOrgs/"
+	cachePrefixToStrings[orgUsersCacheKeyPrefix] = "orgUsers/"
+	cachePrefixToStrings[userAPIKeysCacheKeyPrefix] = "userApiKeys/"
+	cachePrefixToStrings[subscriptionCacheKeyPrefix] = "subscr/"
+	cachePrefixToStrings[notificationCacheKeyPrefix] = "notif/"
+
+	for i, v := range cachePrefixToStrings {
+		if len(v) == 0 {
+			panic(fmt.Sprintf("found unconfigured value for key: %v", i))
+		}
+	}
+}
+
+func RegisterCachePrefixString(prefix CacheKeyPrefix, s string) error {
+	if len(s) == 0 {
+		return errEmptyCacheKeyPrefix
+	}
+
+	cachePrefixMux.Lock()
+	defer cachePrefixMux.Unlock()
+
+	if int(prefix) >= len(cachePrefixToStrings) {
+		newSlice := make([]string, int(prefix)+1)
+		copy(newSlice, cachePrefixToStrings)
+		cachePrefixToStrings = newSlice
+	}
+
+	if cachePrefixToStrings[prefix] != "" {
+		return fmt.Errorf("cache: duplicate registration for prefix %v", prefix)
+	}
+
+	cachePrefixToStrings[prefix] = s
+	return nil
+}
 
 // it's a "union" type which is better than doing string concatenation as before
 type CacheKey struct {
-	Prefix   cacheKeyPrefix
+	Prefix   CacheKeyPrefix
 	IntValue int32
 	StrValue string
 }
 
 func (ck CacheKey) String() string {
 	var prefix string
-	switch ck.Prefix {
-	case userCacheKeyPrefix:
-		prefix = "user/"
-	case apiKeyCacheKeyPrefix:
-		prefix = "apikey/"
-	case orgCacheKeyPrefix:
-		prefix = "org/"
-	case orgPropertiesCacheKeyPrefix:
-		prefix = "orgProperties/"
-	case propertyByIDCacheKeyPrefix:
-		prefix = "propID/"
-	case propertyBySitekeyCacheKeyPrefix:
-		prefix = "propSitekey/"
-	case userOrgsCacheKeyPrefix:
-		prefix = "userOrgs/"
-	case orgUsersCacheKeyPrefix:
-		prefix = "orgUsers/"
-	case userAPIKeysCacheKeyPrefix:
-		prefix = "userApiKeys/"
-	case subscriptionCacheKeyPrefix:
-		prefix = "subscr/"
-	case notificationCacheKeyPrefix:
-		prefix = "notif/"
+	if int(ck.Prefix) < len(cachePrefixToStrings) {
+		prefix = cachePrefixToStrings[ck.Prefix]
 	}
 
 	if len(ck.StrValue) != 0 {
@@ -208,7 +244,7 @@ func (ck CacheKey) LogValue() slog.Value {
 	return slog.StringValue(ck.String())
 }
 
-func int32CacheKey(prefix cacheKeyPrefix, value int32) CacheKey {
+func Int32CacheKey(prefix CacheKeyPrefix, value int32) CacheKey {
 	return CacheKey{
 		Prefix:   prefix,
 		IntValue: value,
@@ -216,7 +252,7 @@ func int32CacheKey(prefix cacheKeyPrefix, value int32) CacheKey {
 	}
 }
 
-func stringCacheKey(prefix cacheKeyPrefix, value string) CacheKey {
+func StringCacheKey(prefix CacheKeyPrefix, value string) CacheKey {
 	return CacheKey{
 		Prefix:   prefix,
 		IntValue: 0,
@@ -224,22 +260,22 @@ func stringCacheKey(prefix cacheKeyPrefix, value string) CacheKey {
 	}
 }
 
-func userCacheKey(id int32) CacheKey     { return int32CacheKey(userCacheKeyPrefix, id) }
-func APIKeyCacheKey(str string) CacheKey { return stringCacheKey(apiKeyCacheKeyPrefix, str) }
-func orgCacheKey(orgID int32) CacheKey   { return int32CacheKey(orgCacheKeyPrefix, orgID) }
+func userCacheKey(id int32) CacheKey     { return Int32CacheKey(userCacheKeyPrefix, id) }
+func APIKeyCacheKey(str string) CacheKey { return StringCacheKey(apiKeyCacheKeyPrefix, str) }
+func orgCacheKey(orgID int32) CacheKey   { return Int32CacheKey(orgCacheKeyPrefix, orgID) }
 func orgPropertiesCacheKey(orgID int32) CacheKey {
-	return int32CacheKey(orgPropertiesCacheKeyPrefix, orgID)
+	return Int32CacheKey(orgPropertiesCacheKeyPrefix, orgID)
 }
 func propertyByIDCacheKey(propID int32) CacheKey {
-	return int32CacheKey(propertyByIDCacheKeyPrefix, propID)
+	return Int32CacheKey(propertyByIDCacheKeyPrefix, propID)
 }
 func PropertyBySitekeyCacheKey(sitekey string) CacheKey {
-	return stringCacheKey(propertyBySitekeyCacheKeyPrefix, sitekey)
+	return StringCacheKey(propertyBySitekeyCacheKeyPrefix, sitekey)
 }
-func userOrgsCacheKey(userID int32) CacheKey { return int32CacheKey(userOrgsCacheKeyPrefix, userID) }
-func orgUsersCacheKey(orgID int32) CacheKey  { return int32CacheKey(orgUsersCacheKeyPrefix, orgID) }
+func userOrgsCacheKey(userID int32) CacheKey { return Int32CacheKey(userOrgsCacheKeyPrefix, userID) }
+func orgUsersCacheKey(orgID int32) CacheKey  { return Int32CacheKey(orgUsersCacheKeyPrefix, orgID) }
 func userAPIKeysCacheKey(userID int32) CacheKey {
-	return int32CacheKey(userAPIKeysCacheKeyPrefix, userID)
+	return Int32CacheKey(userAPIKeysCacheKeyPrefix, userID)
 }
-func subscriptionCacheKey(sID int32) CacheKey { return int32CacheKey(subscriptionCacheKeyPrefix, sID) }
-func notificationCacheKey(ID int32) CacheKey  { return int32CacheKey(notificationCacheKeyPrefix, ID) }
+func subscriptionCacheKey(sID int32) CacheKey { return Int32CacheKey(subscriptionCacheKeyPrefix, sID) }
+func notificationCacheKey(ID int32) CacheKey  { return Int32CacheKey(notificationCacheKeyPrefix, ID) }
