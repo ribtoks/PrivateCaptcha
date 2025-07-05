@@ -177,7 +177,9 @@ func init() {
 	cachePrefixMux.Lock()
 	defer cachePrefixMux.Unlock()
 
-	cachePrefixToStrings = make([]string, CACHE_KEY_PREFIXES_COUNT)
+	if len(cachePrefixToStrings) < int(CACHE_KEY_PREFIXES_COUNT) {
+		cachePrefixToStrings = make([]string, CACHE_KEY_PREFIXES_COUNT)
+	}
 
 	cachePrefixToStrings[userCacheKeyPrefix] = "user/"
 	cachePrefixToStrings[apiKeyCacheKeyPrefix] = "apikey/"

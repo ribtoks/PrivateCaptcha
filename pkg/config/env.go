@@ -31,7 +31,9 @@ func init() {
 	configKeyStrMux.Lock()
 	defer configKeyStrMux.Unlock()
 
-	configKeyToEnvName = make([]string, common.COMMON_CONFIG_KEYS_COUNT)
+	if len(configKeyToEnvName) < int(common.COMMON_CONFIG_KEYS_COUNT) {
+		configKeyToEnvName = make([]string, common.COMMON_CONFIG_KEYS_COUNT)
+	}
 
 	configKeyToEnvName[common.APIBaseURLKey] = "PC_API_BASE_URL"
 	configKeyToEnvName[common.PortalBaseURLKey] = "PC_PORTAL_BASE_URL"
