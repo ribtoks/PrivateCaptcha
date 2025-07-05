@@ -5,32 +5,43 @@ package maintenance
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
 	_ "embed"
+	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"runtime"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/license"
+	"github.com/denisbrodbeck/machineid"
 	"github.com/jpillora/backoff"
 	"github.com/rs/xid"
 )
 
 const (
 	activationCacheKey    = "license_activation"
-	activationAPIAttempts = 5
+	activationAPIAttempts = 8
 )
 
 var (
+	// NOTE: for testing, replace with host.docker.internal domain
+	licenseURL               = fmt.Sprintf("https://api.privatecaptcha.com/%s/%s/", common.SelfHostedEndpoint, common.ActivationEndpoint)
 	errLicenseRequest        = errors.New("license request error")
 	errLicenseServer         = errors.New("license server error")
 	errEnterpriseConfigError = errors.New("enterprise config error")
 	errNoEnterpriseKeys      = errors.New("enterprise keys not found")
+	errNoMacAddress          = errors.New("mac address not found")
 )
 
 func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFunc func(ctx context.Context)) (common.PeriodicJob, error) {
@@ -43,12 +54,15 @@ func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFun
 		return nil, errNoEnterpriseKeys
 	}
 
+	if len(licenseURL) == 0 {
+		return nil, errEnterpriseConfigError
+	}
+
 	return &checkLicenseJob{
 		store:      store,
 		keys:       keys,
-		url:        config.Get(common.EnterpriseUrlKey),
+		url:        licenseURL,
 		licenseKey: config.Get(common.EnterpriseLicenseKeyKey),
-		email:      config.Get(common.EnterpriseEmailKey),
 		adminEmail: config.Get(common.AdminEmailKey),
 		quitFunc:   quitFunc,
 	}, nil
@@ -57,19 +71,18 @@ func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFun
 type checkLicenseJob struct {
 	store      db.Implementor
 	keys       []*license.ActivationKey
-	url        common.ConfigItem
+	url        string
 	licenseKey common.ConfigItem
-	email      common.ConfigItem
 	adminEmail common.ConfigItem
 	quitFunc   func(ctx context.Context)
 }
 
 var _ common.PeriodicJob = (*checkLicenseJob)(nil)
 
-func (j *checkLicenseJob) doFetchActivation(ctx context.Context, licenseURL, licenseKey, email string) ([]byte, error) {
+func doFetchActivation(ctx context.Context, licenseURL, licenseKey, hwid string) ([]byte, error) {
 	form := url.Values{}
 	form.Set(common.ParamLicenseKey, licenseKey)
-	form.Set(common.ParamEmail, email)
+	form.Set(common.ParamHardwareID, hwid)
 
 	req, err := http.NewRequest(http.MethodPost, licenseURL, bytes.NewBufferString(form.Encode()))
 	if err != nil {
@@ -94,10 +107,11 @@ func (j *checkLicenseJob) doFetchActivation(ctx context.Context, licenseURL, lic
 	limitedReader := io.LimitReader(resp.Body, maxBytes)
 	responseData, responseErr := io.ReadAll(limitedReader)
 
-	// we _can_ retry on server errors and rate limiting
+	// we _can_ retry on server errors and few select client errors (e.g. rate limiting)
 	if (resp.StatusCode >= 500) ||
 		(resp.StatusCode == http.StatusTooManyRequests) ||
-		(resp.StatusCode == http.StatusRequestTimeout) {
+		(resp.StatusCode == http.StatusRequestTimeout) ||
+		(resp.StatusCode == http.StatusTooEarly) {
 		rlog.WarnContext(ctx, "Failed to fetch activation", "code", resp.StatusCode, "response", string(responseData))
 		return nil, common.NewRetriableError(errLicenseServer)
 	}
@@ -114,20 +128,55 @@ func (j *checkLicenseJob) doFetchActivation(ctx context.Context, licenseURL, lic
 	return responseData, responseErr
 }
 
-func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
-	url := j.url.Value()
-	if len(url) == 0 {
-		return nil, errEnterpriseConfigError
+func getMacAddress() (string, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
 	}
 
+	for _, iface := range interfaces {
+		if (iface.Flags&net.FlagUp != 0) && (iface.Flags&net.FlagLoopback == 0) {
+			if str := iface.HardwareAddr.String(); len(str) > 0 {
+				return str, nil
+			}
+		}
+	}
+
+	return "", errNoMacAddress
+}
+
+func generateHWID(salt string) string {
+	hasher := hmac.New(sha256.New, []byte(salt))
+
+	if mac, err := getMacAddress(); err == nil {
+		_, _ = hasher.Write([]byte(mac))
+	}
+
+	if hostname, err := os.Hostname(); err == nil {
+		_, _ = hasher.Write([]byte(hostname))
+	}
+
+	numCPU := runtime.NumCPU()
+	_ = binary.Write(hasher, binary.LittleEndian, numCPU)
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	_ = binary.Write(hasher, binary.LittleEndian, m.Sys)
+
+	return hex.EncodeToString(hasher.Sum(nil))
+}
+
+func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
 	licenseKey := j.licenseKey.Value()
 	if len(licenseKey) == 0 {
 		return nil, errEnterpriseConfigError
 	}
 
-	email := j.email.Value()
-	if len(email) == 0 {
-		return nil, errEnterpriseConfigError
+	const app = "PrivateCaptcha"
+	hwid, merr := machineid.ProtectedID(app)
+	if merr != nil {
+		slog.ErrorContext(ctx, "Failed to generate HWID", common.ErrAttr(merr))
+		hwid = generateHWID(app)
 	}
 
 	b := &backoff.Backoff{
@@ -141,7 +190,7 @@ func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
 	var err error
 
 	for i := 0; i < activationAPIAttempts; i++ {
-		data, err = j.doFetchActivation(ctx, url, licenseKey, email)
+		data, err = doFetchActivation(ctx, j.url, licenseKey, hwid)
 
 		var rerr common.RetriableError
 		if err != nil && errors.As(err, &rerr) {

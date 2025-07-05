@@ -31,4 +31,6 @@ const (
 	ReadyEndpoint        = "ready"
 	LiveEndpoint         = "live"
 	NotificationEndpoint = "notification"
+	SelfHostedEndpoint   = "selfhosted"
+	ActivationEndpoint   = "activation"
 )

@@ -40,8 +40,6 @@ const (
 	UserFingerprintIVKey
 	APISaltKey
 	EnterpriseLicenseKeyKey
-	EnterpriseEmailKey
-	EnterpriseUrlKey
 	// Add new fields _above_
 	COMMON_CONFIG_KEYS_COUNT
 )

@@ -37,6 +37,7 @@ const (
 	ParamAllowReplay      = "allow_replay"
 	ParamIgnoreError      = "ignore_error"
 	ParamLicenseKey       = "lid"
+	ParamHardwareID       = "hwid"
 )
 
 var (
