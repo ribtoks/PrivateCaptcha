@@ -148,7 +148,7 @@ func UUIDFromSecret(s string) pgtype.UUID {
 	return invalidUUID
 }
 
-func fetchCachedOne[T any](ctx context.Context, cache common.Cache[CacheKey, any], key CacheKey) (*T, error) {
+func FetchCachedOne[T any](ctx context.Context, cache common.Cache[CacheKey, any], key CacheKey) (*T, error) {
 	data, err := cache.Get(ctx, key)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func fetchCachedOne[T any](ctx context.Context, cache common.Cache[CacheKey, any
 	return nil, errInvalidCacheType
 }
 
-func fetchCachedArray[T any](ctx context.Context, cache common.Cache[CacheKey, any], key CacheKey) ([]*T, error) {
+func FetchCachedArray[T any](ctx context.Context, cache common.Cache[CacheKey, any], key CacheKey) ([]*T, error) {
 	data, err := cache.Get(ctx, key)
 	if err != nil {
 		return nil, err
@@ -200,35 +200,35 @@ func queryKeyPgInt(key CacheKey) (pgtype.Int4, error) {
 	return Int(key.IntValue), nil
 }
 
-type storeOneReader[TKey any, T any] struct {
-	cacheKey     CacheKey
-	queryFunc    func(context.Context, TKey) (*T, error)
-	queryKeyFunc func(CacheKey) (TKey, error)
-	cache        common.Cache[CacheKey, any]
+type StoreOneReader[TKey any, T any] struct {
+	CacheKey     CacheKey
+	QueryFunc    func(context.Context, TKey) (*T, error)
+	QueryKeyFunc func(CacheKey) (TKey, error)
+	Cache        common.Cache[CacheKey, any]
 }
 
-func (sf *storeOneReader[TKey, T]) Reload(ctx context.Context, key CacheKey, old any) (any, error) {
+func (sf *StoreOneReader[TKey, T]) Reload(ctx context.Context, key CacheKey, old any) (any, error) {
 	return sf.Load(ctx, key)
 }
 
-func (sf *storeOneReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any, error) {
-	if sf.queryFunc == nil {
+func (sf *StoreOneReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any, error) {
+	if sf.QueryFunc == nil {
 		// in case of otter's refreshing, this should cause silent failure and eligibility for new refresh until item is expired
 		// old item should be returned meanwhile
 		return nil, ErrMaintenance
 	}
 
-	queryKey, err := sf.queryKeyFunc(key)
+	queryKey, err := sf.QueryKeyFunc(key)
 	if err != nil {
 		return nil, err
 	}
 
-	t, err := sf.queryFunc(ctx, queryKey)
+	t, err := sf.QueryFunc(ctx, queryKey)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			// this will cause cache to store this missing value and ultimately return ErrNegativeCacheHit
 			// we do not return otter.ErrNotFound (as per docs), because in such case item will be purged from cache
-			return sf.cache.Missing(), nil
+			return sf.Cache.Missing(), nil
 		}
 
 		slog.ErrorContext(ctx, "Failed to query value from DB", "cacheKey", key, common.ErrAttr(err))
@@ -241,8 +241,8 @@ func (sf *storeOneReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any,
 	return t, nil
 }
 
-func (sf *storeOneReader[TKey, T]) Read(ctx context.Context) (*T, error) {
-	data, err := sf.cache.GetEx(ctx, sf.cacheKey, sf)
+func (sf *StoreOneReader[TKey, T]) Read(ctx context.Context) (*T, error) {
+	data, err := sf.Cache.GetEx(ctx, sf.CacheKey, sf)
 	if err != nil {
 		return nil, err
 	}
@@ -254,30 +254,30 @@ func (sf *storeOneReader[TKey, T]) Read(ctx context.Context) (*T, error) {
 	return nil, errInvalidCacheType
 }
 
-type storeArrayReader[TKey any, T any] struct {
-	key          CacheKey
-	queryFunc    func(context.Context, TKey) ([]*T, error)
-	queryKeyFunc func(CacheKey) (TKey, error)
-	cache        common.Cache[CacheKey, any]
+type StoreArrayReader[TKey any, T any] struct {
+	Key          CacheKey
+	QueryFunc    func(context.Context, TKey) ([]*T, error)
+	QueryKeyFunc func(CacheKey) (TKey, error)
+	Cache        common.Cache[CacheKey, any]
 }
 
-func (sf *storeArrayReader[TKey, T]) Reload(ctx context.Context, key CacheKey, old any) (any, error) {
+func (sf *StoreArrayReader[TKey, T]) Reload(ctx context.Context, key CacheKey, old any) (any, error) {
 	return sf.Load(ctx, key)
 }
 
-func (sf *storeArrayReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any, error) {
-	if sf.queryFunc == nil {
+func (sf *StoreArrayReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any, error) {
+	if sf.QueryFunc == nil {
 		// in case of otter's refreshing, this should cause silent failure and eligibility for new refresh until item is expired
 		// old item should be returned meanwhile
 		return nil, ErrMaintenance
 	}
 
-	queryKey, err := sf.queryKeyFunc(key)
+	queryKey, err := sf.QueryKeyFunc(key)
 	if err != nil {
 		return nil, err
 	}
 
-	t, err := sf.queryFunc(ctx, queryKey)
+	t, err := sf.QueryFunc(ctx, queryKey)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			// unlike in case of one, we want to store empty array here and not "missing" value
@@ -295,8 +295,8 @@ func (sf *storeArrayReader[TKey, T]) Load(ctx context.Context, key CacheKey) (an
 	return t, nil
 }
 
-func (sf *storeArrayReader[TKey, T]) Read(ctx context.Context) ([]*T, error) {
-	data, err := sf.cache.GetEx(ctx, sf.key, sf)
+func (sf *StoreArrayReader[TKey, T]) Read(ctx context.Context) ([]*T, error) {
+	data, err := sf.Cache.GetEx(ctx, sf.Key, sf)
 	if err != nil {
 		return nil, err
 	}

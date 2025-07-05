@@ -269,7 +269,7 @@ func (impl *BusinessStoreImpl) SoftDeleteUser(ctx context.Context, userID int32)
 
 	// invalidate user caches
 	userOrgsCacheKey := userOrgsCacheKey(userID)
-	if orgs, err := fetchCachedArray[dbgen.GetUserOrganizationsRow](ctx, impl.cache, userOrgsCacheKey); err == nil {
+	if orgs, err := FetchCachedArray[dbgen.GetUserOrganizationsRow](ctx, impl.cache, userOrgsCacheKey); err == nil {
 		for _, org := range orgs {
 			_ = impl.cache.Delete(ctx, orgCacheKey(org.Organization.ID))
 			_ = impl.cache.Delete(ctx, orgPropertiesCacheKey(org.Organization.ID))
@@ -283,14 +283,14 @@ func (impl *BusinessStoreImpl) SoftDeleteUser(ctx context.Context, userID int32)
 }
 
 func (impl *BusinessStoreImpl) RetrievePropertyBySitekey(ctx context.Context, sitekey string) (*dbgen.Property, error) {
-	reader := &storeOneReader[pgtype.UUID, dbgen.Property]{
-		cacheKey: PropertyBySitekeyCacheKey(sitekey),
-		cache:    impl.cache,
+	reader := &StoreOneReader[pgtype.UUID, dbgen.Property]{
+		CacheKey: PropertyBySitekeyCacheKey(sitekey),
+		Cache:    impl.cache,
 	}
 
 	if impl.querier != nil {
-		reader.queryFunc = impl.querier.GetPropertyByExternalID
-		reader.queryKeyFunc = queryKeySitekeyUUID
+		reader.QueryFunc = impl.querier.GetPropertyByExternalID
+		reader.QueryKeyFunc = queryKeySitekeyUUID
 	}
 
 	return reader.Read(ctx)
@@ -315,7 +315,7 @@ func (impl *BusinessStoreImpl) RetrievePropertiesBySitekey(ctx context.Context, 
 		}
 
 		cacheKey := PropertyBySitekeyCacheKey(sitekey)
-		if property, err := fetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
+		if property, err := FetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
 			result = append(result, property)
 			continue
 		} else if err == ErrNegativeCacheHit {
@@ -380,7 +380,7 @@ func (impl *BusinessStoreImpl) RetrievePropertiesByID(ctx context.Context, batch
 
 	for pID := range batch {
 		cacheKey := propertyByIDCacheKey(pID)
-		if property, err := fetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
+		if property, err := FetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
 			result = append(result, property)
 			continue
 		} else if err == ErrNegativeCacheHit {
@@ -428,7 +428,7 @@ func (impl *BusinessStoreImpl) RetrievePropertiesByID(ctx context.Context, batch
 func (impl *BusinessStoreImpl) GetCachedAPIKey(ctx context.Context, secret string) (*dbgen.APIKey, error) {
 	cacheKey := APIKeyCacheKey(secret)
 
-	if apiKey, err := fetchCachedOne[dbgen.APIKey](ctx, impl.cache, cacheKey); err == nil {
+	if apiKey, err := FetchCachedOne[dbgen.APIKey](ctx, impl.cache, cacheKey); err == nil {
 		return apiKey, nil
 	} else if err == ErrNegativeCacheHit {
 		return nil, ErrNegativeCacheHit
@@ -439,28 +439,28 @@ func (impl *BusinessStoreImpl) GetCachedAPIKey(ctx context.Context, secret strin
 
 // Fetches API key from DB, backed by cache
 func (impl *BusinessStoreImpl) RetrieveAPIKey(ctx context.Context, secret string) (*dbgen.APIKey, error) {
-	reader := &storeOneReader[pgtype.UUID, dbgen.APIKey]{
-		cacheKey: APIKeyCacheKey(secret),
-		cache:    impl.cache,
+	reader := &StoreOneReader[pgtype.UUID, dbgen.APIKey]{
+		CacheKey: APIKeyCacheKey(secret),
+		Cache:    impl.cache,
 	}
 
 	if impl.querier != nil {
-		reader.queryFunc = impl.querier.GetAPIKeyByExternalID
-		reader.queryKeyFunc = queryKeySecretUUID
+		reader.QueryFunc = impl.querier.GetAPIKeyByExternalID
+		reader.QueryKeyFunc = queryKeySecretUUID
 	}
 
 	return reader.Read(ctx)
 }
 
 func (impl *BusinessStoreImpl) retrieveUser(ctx context.Context, userID int32) (*dbgen.User, error) {
-	reader := &storeOneReader[int32, dbgen.User]{
-		cacheKey: userCacheKey(userID),
-		cache:    impl.cache,
+	reader := &StoreOneReader[int32, dbgen.User]{
+		CacheKey: userCacheKey(userID),
+		Cache:    impl.cache,
 	}
 
 	if impl.querier != nil {
-		reader.queryKeyFunc = queryKeyInt
-		reader.queryFunc = impl.querier.GetUserByID
+		reader.QueryKeyFunc = queryKeyInt
+		reader.QueryFunc = impl.querier.GetUserByID
 	}
 
 	return reader.Read(ctx)
@@ -519,14 +519,14 @@ func (impl *BusinessStoreImpl) FindUserBySubscriptionID(ctx context.Context, sub
 }
 
 func (impl *BusinessStoreImpl) RetrieveUserOrganizations(ctx context.Context, userID int32) ([]*dbgen.GetUserOrganizationsRow, error) {
-	reader := &storeArrayReader[pgtype.Int4, dbgen.GetUserOrganizationsRow]{
-		key:   userOrgsCacheKey(userID),
-		cache: impl.cache,
+	reader := &StoreArrayReader[pgtype.Int4, dbgen.GetUserOrganizationsRow]{
+		Key:   userOrgsCacheKey(userID),
+		Cache: impl.cache,
 	}
 
 	if impl.querier != nil {
-		reader.queryKeyFunc = queryKeyPgInt
-		reader.queryFunc = impl.querier.GetUserOrganizations
+		reader.QueryKeyFunc = queryKeyPgInt
+		reader.QueryFunc = impl.querier.GetUserOrganizations
 	}
 
 	orgs, err := reader.Read(ctx)
@@ -548,14 +548,14 @@ func (impl *BusinessStoreImpl) RetrieveUserOrganizations(ctx context.Context, us
 func (impl *BusinessStoreImpl) retrieveOrganizationWithAccess(ctx context.Context, userID, orgID int32) (*dbgen.Organization, dbgen.NullAccessLevel, error) {
 	cacheKey := orgCacheKey(orgID)
 
-	if org, err := fetchCachedOne[dbgen.Organization](ctx, impl.cache, cacheKey); err == nil {
+	if org, err := FetchCachedOne[dbgen.Organization](ctx, impl.cache, cacheKey); err == nil {
 		if org.UserID.Int32 == userID {
 			return org, nullAccessLevelOwner, nil
 		}
 		// NOTE: for security reasons, we want to verify that this user has rights to get this org
 
 		// this value should be in cache if user opens "Members" tab in the org
-		if users, err := fetchCachedArray[dbgen.GetOrganizationUsersRow](ctx, impl.cache, orgUsersCacheKey(orgID)); err == nil {
+		if users, err := FetchCachedArray[dbgen.GetOrganizationUsersRow](ctx, impl.cache, orgUsersCacheKey(orgID)); err == nil {
 			if hasUser := slices.ContainsFunc(users, func(u *dbgen.GetOrganizationUsersRow) bool { return u.User.ID == userID }); hasUser {
 				slog.Log(ctx, common.LevelTrace, "Found cached org from organization users", "orgID", orgID, "userID", userID)
 				return org, nullAccessLevelMember, nil
@@ -566,7 +566,7 @@ func (impl *BusinessStoreImpl) retrieveOrganizationWithAccess(ctx context.Contex
 	}
 
 	// this value should be in cache for "normal" use-cases (e.g. user logs in to the portal)
-	if orgs, err := fetchCachedArray[dbgen.GetUserOrganizationsRow](ctx, impl.cache, userOrgsCacheKey(userID)); err == nil {
+	if orgs, err := FetchCachedArray[dbgen.GetUserOrganizationsRow](ctx, impl.cache, userOrgsCacheKey(userID)); err == nil {
 		if index := slices.IndexFunc(orgs, func(o *dbgen.GetUserOrganizationsRow) bool { return o.Organization.ID == orgID }); index != -1 {
 			slog.Log(ctx, common.LevelTrace, "Found cached org from user organizations", "orgID", orgID, "userID", userID)
 			org := &dbgen.Organization{}
@@ -625,13 +625,13 @@ func (impl *BusinessStoreImpl) cacheProperty(ctx context.Context, property *dbge
 func (impl *BusinessStoreImpl) retrieveOrgProperty(ctx context.Context, orgID, propID int32) (*dbgen.Property, error) {
 	cacheKey := propertyByIDCacheKey(propID)
 
-	if prop, err := fetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
+	if prop, err := FetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
 		return prop, nil
 	} else if err == ErrNegativeCacheHit {
 		return nil, ErrNegativeCacheHit
 	}
 
-	if properties, err := fetchCachedArray[dbgen.Property](ctx, impl.cache, orgPropertiesCacheKey(orgID)); err == nil {
+	if properties, err := FetchCachedArray[dbgen.Property](ctx, impl.cache, orgPropertiesCacheKey(orgID)); err == nil {
 		if index := slices.IndexFunc(properties, func(p *dbgen.Property) bool { return p.ID == propID }); index != -1 {
 			property := properties[index]
 			impl.cacheProperty(ctx, property)
@@ -661,14 +661,14 @@ func (impl *BusinessStoreImpl) retrieveOrgProperty(ctx context.Context, orgID, p
 }
 
 func (impl *BusinessStoreImpl) RetrieveSubscription(ctx context.Context, sID int32) (*dbgen.Subscription, error) {
-	reader := &storeOneReader[int32, dbgen.Subscription]{
-		cacheKey: subscriptionCacheKey(sID),
-		cache:    impl.cache,
+	reader := &StoreOneReader[int32, dbgen.Subscription]{
+		CacheKey: subscriptionCacheKey(sID),
+		Cache:    impl.cache,
 	}
 
 	if impl.querier != nil {
-		reader.queryKeyFunc = queryKeyInt
-		reader.queryFunc = impl.querier.GetSubscriptionByID
+		reader.QueryKeyFunc = queryKeyInt
+		reader.QueryFunc = impl.querier.GetSubscriptionByID
 	}
 
 	return reader.Read(ctx)
@@ -812,14 +812,14 @@ func (impl *BusinessStoreImpl) SoftDeleteProperty(ctx context.Context, propID in
 }
 
 func (impl *BusinessStoreImpl) RetrieveOrgProperties(ctx context.Context, orgID int32) ([]*dbgen.Property, error) {
-	reader := &storeArrayReader[pgtype.Int4, dbgen.Property]{
-		key:   orgPropertiesCacheKey(orgID),
-		cache: impl.cache,
+	reader := &StoreArrayReader[pgtype.Int4, dbgen.Property]{
+		Key:   orgPropertiesCacheKey(orgID),
+		Cache: impl.cache,
 	}
 
 	if impl.querier != nil {
-		reader.queryKeyFunc = queryKeyPgInt
-		reader.queryFunc = impl.querier.GetOrgProperties
+		reader.QueryKeyFunc = queryKeyPgInt
+		reader.QueryFunc = impl.querier.GetOrgProperties
 	}
 
 	return reader.Read(ctx)
@@ -875,14 +875,14 @@ func (impl *BusinessStoreImpl) SoftDeleteOrganization(ctx context.Context, orgID
 
 // NOTE: by definition this does not include the owner as this relationship is set directly in the 'organizations' table
 func (impl *BusinessStoreImpl) RetrieveOrganizationUsers(ctx context.Context, orgID int32) ([]*dbgen.GetOrganizationUsersRow, error) {
-	reader := &storeArrayReader[int32, dbgen.GetOrganizationUsersRow]{
-		key:   orgUsersCacheKey(orgID),
-		cache: impl.cache,
+	reader := &StoreArrayReader[int32, dbgen.GetOrganizationUsersRow]{
+		Key:   orgUsersCacheKey(orgID),
+		Cache: impl.cache,
 	}
 
 	if impl.querier != nil {
-		reader.queryKeyFunc = queryKeyInt
-		reader.queryFunc = impl.querier.GetOrganizationUsers
+		reader.QueryKeyFunc = queryKeyInt
+		reader.QueryFunc = impl.querier.GetOrganizationUsers
 	}
 
 	return reader.Read(ctx)
@@ -1037,14 +1037,14 @@ func (impl *BusinessStoreImpl) UpdateUser(ctx context.Context, userID int32, nam
 }
 
 func (impl *BusinessStoreImpl) RetrieveUserAPIKeys(ctx context.Context, userID int32) ([]*dbgen.APIKey, error) {
-	reader := &storeArrayReader[pgtype.Int4, dbgen.APIKey]{
-		key:   userAPIKeysCacheKey(userID),
-		cache: impl.cache,
+	reader := &StoreArrayReader[pgtype.Int4, dbgen.APIKey]{
+		Key:   userAPIKeysCacheKey(userID),
+		Cache: impl.cache,
 	}
 
 	if impl.querier != nil {
-		reader.queryKeyFunc = queryKeyPgInt
-		reader.queryFunc = impl.querier.GetUserAPIKeys
+		reader.QueryKeyFunc = queryKeyPgInt
+		reader.QueryFunc = impl.querier.GetUserAPIKeys
 	}
 
 	keys, err := reader.Read(ctx)
@@ -1409,14 +1409,14 @@ func (impl *BusinessStoreImpl) DeleteUsers(ctx context.Context, ids []int32) err
 }
 
 func (impl *BusinessStoreImpl) RetrieveNotification(ctx context.Context, id int32) (*dbgen.SystemNotification, error) {
-	reader := &storeOneReader[int32, dbgen.SystemNotification]{
-		cacheKey: notificationCacheKey(id),
-		cache:    impl.cache,
+	reader := &StoreOneReader[int32, dbgen.SystemNotification]{
+		CacheKey: notificationCacheKey(id),
+		Cache:    impl.cache,
 	}
 
 	if impl.querier != nil {
-		reader.queryKeyFunc = queryKeyInt
-		reader.queryFunc = impl.querier.GetNotificationById
+		reader.QueryKeyFunc = queryKeyInt
+		reader.QueryFunc = impl.querier.GetNotificationById
 	}
 
 	return reader.Read(ctx)
