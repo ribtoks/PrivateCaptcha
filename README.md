@@ -66,6 +66,8 @@ Private Captcha is a private and open alternative to:
 
 ### Comparisons
 
+> DISCLAIMER: just like other similar tables, this reflects an author's opinion more than "legal reality"
+
 Feature | Private Captcha | Friendly Captcha | Cap | Altcha | CloudFlare Turnstile | Google reCAPTCHA | hCAPTCHA
 --- | --- | --- | --- | --- | --- | --- | ---
 User-friendly | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: | :x: | :x:
