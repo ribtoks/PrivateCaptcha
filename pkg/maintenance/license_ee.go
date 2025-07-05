@@ -157,7 +157,7 @@ func generateHWID(salt string) string {
 	}
 
 	numCPU := runtime.NumCPU()
-	_ = binary.Write(hasher, binary.LittleEndian, numCPU)
+	_ = binary.Write(hasher, binary.LittleEndian, int32(numCPU))
 
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
