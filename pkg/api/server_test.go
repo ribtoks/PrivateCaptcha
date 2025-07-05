@@ -33,7 +33,7 @@ const (
 )
 
 func testsConfigStore() common.ConfigStore {
-	baseCfg := config.NewBaseConfig(config.NewEnvConfig(config.DefaultMapper, os.Getenv))
+	baseCfg := config.NewBaseConfig(config.NewEnvConfig(os.Getenv))
 	baseCfg.Add(config.NewStaticValue(common.PuzzleLeakyBucketBurstKey, "20"))
 	baseCfg.Add(config.NewStaticValue(common.DefaultLeakyBucketBurstKey, "20"))
 	baseCfg.Add(config.NewStaticValue(common.PuzzleLeakyBucketRateKey, "10"))

@@ -387,7 +387,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 	}
 
-	cfg := config.NewEnvConfig(config.DefaultMapper, env.Get)
+	cfg := config.NewEnvConfig(env.Get)
 
 	switch *flagMode {
 	case modeServer:

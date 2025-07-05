@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"sync"
 
@@ -10,7 +11,8 @@ import (
 )
 
 var (
-	errEmptyEnvVar = errors.New("environment variable is empty")
+	errEmptyEnvVar  = errors.New("environment variable is empty")
+	errEmptyEnvName = errors.New("environment variable name is empty")
 )
 
 type envConfigValue struct {
@@ -20,87 +22,82 @@ type envConfigValue struct {
 
 var _ common.ConfigItem = (*envConfigValue)(nil)
 
-type ConfigMapper func(common.ConfigKey) string
+var (
+	configKeyToEnvName []string
+	configKeyStrMux    sync.Mutex
+)
 
-func DefaultMapper(c common.ConfigKey) string {
-	switch c {
-	case common.APIBaseURLKey:
-		return "PC_API_BASE_URL"
-	case common.PortalBaseURLKey:
-		return "PC_PORTAL_BASE_URL"
-	case common.CDNBaseURLKey:
-		return "PC_CDN_BASE_URL"
-	case common.StageKey:
-		return "STAGE"
-	case common.VerboseKey:
-		return "PC_VERBOSE"
-	case common.SmtpEndpointKey:
-		return "SMTP_ENDPOINT"
-	case common.SmtpUsernameKey:
-		return "SMTP_USERNAME"
-	case common.SmtpPasswordKey:
-		return "SMTP_PASSWORD"
-	case common.ClickHouseHostKey:
-		return "PC_CLICKHOUSE_HOST"
-	case common.ClickHouseDBKey:
-		return "PC_CLICKHOUSE_DB"
-	case common.ClickHouseAdminKey:
-		return "PC_CLICKHOUSE_ADMIN"
-	case common.ClickHouseUserKey:
-		return "PC_CLICKHOUSE_USER"
-	case common.ClickHouseAdminPasswordKey:
-		return "PC_CLICKHOUSE_ADMIN_PASSWORD"
-	case common.ClickHousePasswordKey:
-		return "PC_CLICKHOUSE_PASSWORD"
-	case common.PostgresKey:
-		return "PC_POSTGRES"
-	case common.PostgresHostKey:
-		return "PC_POSTGRES_HOST"
-	case common.PostgresDBKey:
-		return "PC_POSTGRES_DB"
-	case common.PostgresUserKey:
-		return "PC_POSTGRES_USER"
-	case common.PostgresAdminKey:
-		return "PC_POSTGRES_ADMIN"
-	case common.PostgresAdminPasswordKey:
-		return "PC_POSTGRES_ADMIN_PASSWORD"
-	case common.PostgresPasswordKey:
-		return "PC_POSTGRES_PASSWORD"
-	case common.AdminEmailKey:
-		return "PC_ADMIN_EMAIL"
-	case common.EmailFromKey:
-		return "PC_EMAIL_FROM"
-	case common.LocalAddressKey:
-		return "PC_LOCAL_ADDRESS"
-	case common.MaintenanceModeKey:
-		return "PC_MAINTENANCE_MODE"
-	case common.RegistrationAllowedKey:
-		return "PC_REGISTRATION_ALLOWED"
-	case common.HealthCheckIntervalKey:
-		return "PC_HEALTHCHECK_INTERVAL"
-	case common.PuzzleLeakyBucketRateKey:
-		return "PC_PUZZLE_LEAKY_BUCKET_RPS"
-	case common.PuzzleLeakyBucketBurstKey:
-		return "PC_PUZZLE_LEAKY_BUCKET_BURST"
-	case common.DefaultLeakyBucketRateKey:
-		return "PC_DEFAULT_LEAKY_BUCKET_RPS"
-	case common.DefaultLeakyBucketBurstKey:
-		return "PC_DEFAULT_LEAKY_BUCKET_BURST"
-	case common.RateLimitHeaderKey:
-		return "PC_RATE_LIMIT_HEADER"
-	case common.HostKey:
-		return "PC_HOST"
-	case common.PortKey:
-		return "PC_PORT"
-	case common.UserFingerprintIVKey:
-		return "PC_USER_FINGERPRINT_KEY"
-	case common.APISaltKey:
-		return "PC_API_SALT"
-	case common.EnterpriseLicenseKeyKey:
-		return "EE_LICENSE_KEY"
-	default:
-		return ""
+func init() {
+	configKeyStrMux.Lock()
+	defer configKeyStrMux.Unlock()
+
+	configKeyToEnvName = make([]string, common.COMMON_CONFIG_KEYS_COUNT)
+
+	configKeyToEnvName[common.APIBaseURLKey] = "PC_API_BASE_URL"
+	configKeyToEnvName[common.PortalBaseURLKey] = "PC_PORTAL_BASE_URL"
+	configKeyToEnvName[common.CDNBaseURLKey] = "PC_CDN_BASE_URL"
+	configKeyToEnvName[common.StageKey] = "STAGE"
+	configKeyToEnvName[common.VerboseKey] = "PC_VERBOSE"
+	configKeyToEnvName[common.SmtpEndpointKey] = "SMTP_ENDPOINT"
+	configKeyToEnvName[common.SmtpUsernameKey] = "SMTP_USERNAME"
+	configKeyToEnvName[common.SmtpPasswordKey] = "SMTP_PASSWORD"
+	configKeyToEnvName[common.ClickHouseHostKey] = "PC_CLICKHOUSE_HOST"
+	configKeyToEnvName[common.ClickHouseDBKey] = "PC_CLICKHOUSE_DB"
+	configKeyToEnvName[common.ClickHouseAdminKey] = "PC_CLICKHOUSE_ADMIN"
+	configKeyToEnvName[common.ClickHouseUserKey] = "PC_CLICKHOUSE_USER"
+	configKeyToEnvName[common.ClickHouseAdminPasswordKey] = "PC_CLICKHOUSE_ADMIN_PASSWORD"
+	configKeyToEnvName[common.ClickHousePasswordKey] = "PC_CLICKHOUSE_PASSWORD"
+	configKeyToEnvName[common.PostgresKey] = "PC_POSTGRES"
+	configKeyToEnvName[common.PostgresHostKey] = "PC_POSTGRES_HOST"
+	configKeyToEnvName[common.PostgresDBKey] = "PC_POSTGRES_DB"
+	configKeyToEnvName[common.PostgresUserKey] = "PC_POSTGRES_USER"
+	configKeyToEnvName[common.PostgresAdminKey] = "PC_POSTGRES_ADMIN"
+	configKeyToEnvName[common.PostgresAdminPasswordKey] = "PC_POSTGRES_ADMIN_PASSWORD"
+	configKeyToEnvName[common.PostgresPasswordKey] = "PC_POSTGRES_PASSWORD"
+	configKeyToEnvName[common.AdminEmailKey] = "PC_ADMIN_EMAIL"
+	configKeyToEnvName[common.EmailFromKey] = "PC_EMAIL_FROM"
+	configKeyToEnvName[common.LocalAddressKey] = "PC_LOCAL_ADDRESS"
+	configKeyToEnvName[common.MaintenanceModeKey] = "PC_MAINTENANCE_MODE"
+	configKeyToEnvName[common.RegistrationAllowedKey] = "PC_REGISTRATION_ALLOWED"
+	configKeyToEnvName[common.HealthCheckIntervalKey] = "PC_HEALTHCHECK_INTERVAL"
+	configKeyToEnvName[common.PuzzleLeakyBucketRateKey] = "PC_PUZZLE_LEAKY_BUCKET_RPS"
+	configKeyToEnvName[common.PuzzleLeakyBucketBurstKey] = "PC_PUZZLE_LEAKY_BUCKET_BURST"
+	configKeyToEnvName[common.DefaultLeakyBucketRateKey] = "PC_DEFAULT_LEAKY_BUCKET_RPS"
+	configKeyToEnvName[common.DefaultLeakyBucketBurstKey] = "PC_DEFAULT_LEAKY_BUCKET_BURST"
+	configKeyToEnvName[common.RateLimitHeaderKey] = "PC_RATE_LIMIT_HEADER"
+	configKeyToEnvName[common.HostKey] = "PC_HOST"
+	configKeyToEnvName[common.PortKey] = "PC_PORT"
+	configKeyToEnvName[common.UserFingerprintIVKey] = "PC_USER_FINGERPRINT_KEY"
+	configKeyToEnvName[common.APISaltKey] = "PC_API_SALT"
+	configKeyToEnvName[common.EnterpriseLicenseKeyKey] = "EE_LICENSE_KEY"
+
+	for i, v := range configKeyToEnvName {
+		if len(v) == 0 {
+			panic(fmt.Sprintf("found unconfigured value for key: %v", i))
+		}
 	}
+}
+
+func RegisterEnvNameForConfigKey(key common.ConfigKey, s string) error {
+	if len(s) == 0 {
+		return errEmptyEnvName
+	}
+
+	configKeyStrMux.Lock()
+	defer configKeyStrMux.Unlock()
+
+	if int(key) >= len(configKeyToEnvName) {
+		newSlice := make([]string, int(key)+1)
+		copy(newSlice, configKeyToEnvName)
+		configKeyToEnvName = newSlice
+	}
+
+	if configKeyToEnvName[key] != "" {
+		return fmt.Errorf("config: duplicate env name registration for config key %v", key)
+	}
+
+	configKeyToEnvName[key] = s
+	return nil
 }
 
 func (v *envConfigValue) Key() common.ConfigKey {
@@ -111,9 +108,17 @@ func (v *envConfigValue) Value() string {
 	return v.value
 }
 
-func (v *envConfigValue) Update(mapper ConfigMapper, getenv func(string) string) error {
+func (v *envConfigValue) Update(getenv func(string) string) error {
+	var name string
+	if int(v.key) < len(configKeyToEnvName) {
+		name = configKeyToEnvName[v.key]
+	}
+	if len(name) == 0 {
+		return errEmptyEnvName
+	}
+
 	// NOTE: there's still a kind of a race condition here as we don't protect access
-	value := getenv(mapper(v.key))
+	value := getenv(name)
 	v.value = value
 	if len(value) == 0 {
 		return errEmptyEnvVar
@@ -126,16 +131,14 @@ type envConfig struct {
 	lock   sync.Mutex
 	items  map[common.ConfigKey]*envConfigValue
 	getenv func(string) string
-	mapper ConfigMapper
 }
 
 var _ common.ConfigStore = (*envConfig)(nil)
 
-func NewEnvConfig(mapper ConfigMapper, getenv func(string) string) *envConfig {
+func NewEnvConfig(getenv func(string) string) *envConfig {
 	return &envConfig{
 		items:  make(map[common.ConfigKey]*envConfigValue),
 		getenv: getenv,
-		mapper: mapper,
 	}
 }
 
@@ -148,10 +151,15 @@ func (c *envConfig) Get(key common.ConfigKey) common.ConfigItem {
 		return item
 	}
 
-	// NOTE: not optimal to read under the lock, but it's not too bad here
+	var name string
+	if int(key) < len(configKeyToEnvName) {
+		name = configKeyToEnvName[key]
+	}
+
+	// NOTE: not optimal to read under the lock, but it's not _too_ bad here
 	item = &envConfigValue{
 		key:   key,
-		value: c.getenv(c.mapper(key)),
+		value: c.getenv(name),
 	}
 	c.items[key] = item
 
@@ -163,8 +171,8 @@ func (c *envConfig) Update(ctx context.Context) {
 	defer c.lock.Unlock()
 
 	for key, cfg := range c.items {
-		if err := cfg.Update(c.mapper, c.getenv); err != nil {
-			slog.WarnContext(ctx, "Cannot update environment config", "key", c.mapper(key), common.ErrAttr(err))
+		if err := cfg.Update(c.getenv); err != nil {
+			slog.WarnContext(ctx, "Cannot update environment config", "key", configKeyToEnvName[key], common.ErrAttr(err))
 		}
 	}
 }

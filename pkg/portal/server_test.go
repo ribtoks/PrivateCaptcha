@@ -80,7 +80,7 @@ func TestMain(m *testing.M) {
 
 	common.SetupLogs(common.StageTest, true)
 
-	cfg = config.NewEnvConfig(config.DefaultMapper, os.Getenv)
+	cfg = config.NewEnvConfig(os.Getenv)
 
 	var pool *pgxpool.Pool
 	var clickhouse *sql.DB

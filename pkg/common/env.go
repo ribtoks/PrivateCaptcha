@@ -19,6 +19,10 @@ type EnvMap struct {
 }
 
 func (em *EnvMap) GetEx(key string) (string, bool) {
+	if len(key) == 0 {
+		return "", false
+	}
+
 	em.lock.Lock()
 	defer em.lock.Unlock()
 
