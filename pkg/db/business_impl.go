@@ -296,132 +296,61 @@ func (impl *BusinessStoreImpl) RetrievePropertyBySitekey(ctx context.Context, si
 	return reader.Read(ctx)
 }
 
-// TODO: Refactor this to use otter.Cache BulkGet() API
-// and also it's clone RetrievePropertiesByID()
 func (impl *BusinessStoreImpl) RetrievePropertiesBySitekey(ctx context.Context, sitekeys map[string]uint, minMissingCount uint) ([]*dbgen.Property, error) {
-	if len(sitekeys) == 0 {
-		return []*dbgen.Property{}, nil
+	reader := &StoreBulkReader[string, pgtype.UUID, dbgen.Property]{
+		ArgFunc:         propertySitekeyFunc,
+		Cache:           impl.cache,
+		CacheKeyFunc:    PropertyBySitekeyCacheKey,
+		QueryKeyFunc:    stringKeySitekeyUUID,
+		MinMissingCount: minMissingCount,
 	}
 
-	keys := make([]pgtype.UUID, 0, len(sitekeys))
-	keysMap := make(map[string]struct{})
-	result := make([]*dbgen.Property, 0, len(sitekeys))
-	t := struct{}{}
-
-	for sitekey := range sitekeys {
-		eid := UUIDFromSiteKey(sitekey)
-		if !eid.Valid {
-			continue
-		}
-
-		cacheKey := PropertyBySitekeyCacheKey(sitekey)
-		if property, err := FetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
-			result = append(result, property)
-			continue
-		} else if err == ErrNegativeCacheHit {
-			continue
-		}
-
-		keys = append(keys, eid)
-		keysMap[sitekey] = t
+	if impl.querier != nil {
+		reader.QueryFunc = impl.querier.GetPropertiesByExternalID
 	}
 
-	if len(keys) == 0 {
-		if len(result) > 0 {
-			slog.DebugContext(ctx, "All properties are cached", "count", len(result))
-			return result, nil
-		}
-
-		slog.WarnContext(ctx, "No valid sitekeys to fetch from DB")
-		return nil, ErrInvalidInput
-	}
-
-	if impl.querier == nil {
-		return result, ErrMaintenance
-	}
-
-	properties, err := impl.querier.GetPropertiesByExternalID(ctx, keys)
-	if err != nil && err != pgx.ErrNoRows {
-		slog.ErrorContext(ctx, "Failed to retrieve properties by sitekeys", common.ErrAttr(err))
+	cached, items, err := reader.Read(ctx, sitekeys)
+	if err != nil {
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, "Fetched properties from DB by sitekeys", "count", len(properties))
-
-	for _, p := range properties {
-		sitekey := UUIDToSiteKey(p.ExternalID)
+	for _, item := range items {
+		sitekey := UUIDToSiteKey(item.ExternalID)
 		cacheKey := PropertyBySitekeyCacheKey(sitekey)
-		_ = impl.cache.SetWithTTL(ctx, cacheKey, p, propertyTTL)
-		delete(keysMap, sitekey)
+		_ = impl.cache.SetWithTTL(ctx, cacheKey, item, propertyTTL)
 	}
 
-	for missingKey := range keysMap {
-		// TODO: Switch to a probabilistic logic via an interface for negative caching
-		if count, ok := sitekeys[missingKey]; ok && (count >= minMissingCount) {
-			_ = impl.cache.SetMissing(ctx, PropertyBySitekeyCacheKey(missingKey))
-		}
-	}
-
-	result = append(result, properties...)
-
+	result := cached
+	result = append(result, items...)
 	return result, nil
 }
 
 // this is pretty much a copy paste of RetrievePropertiesBySitekey
 func (impl *BusinessStoreImpl) RetrievePropertiesByID(ctx context.Context, batch map[int32]uint) ([]*dbgen.Property, error) {
-	if len(batch) == 0 {
-		return []*dbgen.Property{}, nil
+	reader := &StoreBulkReader[int32, int32, dbgen.Property]{
+		ArgFunc:      propertyIDFunc,
+		Cache:        impl.cache,
+		CacheKeyFunc: propertyByIDCacheKey,
+		QueryKeyFunc: IdentityKeyFunc[int32],
 	}
 
-	keys := make([]int32, 0, len(batch))
-	keysMap := make(map[int32]struct{})
-	result := make([]*dbgen.Property, 0, len(batch))
-	t := struct{}{}
-
-	for pID := range batch {
-		cacheKey := propertyByIDCacheKey(pID)
-		if property, err := FetchCachedOne[dbgen.Property](ctx, impl.cache, cacheKey); err == nil {
-			result = append(result, property)
-			continue
-		} else if err == ErrNegativeCacheHit {
-			continue
-		}
-
-		keys = append(keys, pID)
-		keysMap[pID] = t
+	if impl.querier != nil {
+		reader.QueryFunc = impl.querier.GetPropertiesByID
 	}
 
-	if len(keys) == 0 {
-		if len(result) > 0 {
-			slog.DebugContext(ctx, "All properties are cached", "count", len(result))
-			return result, nil
-		}
-
-		slog.WarnContext(ctx, "No valid properties to fetch from DB")
-		return nil, ErrInvalidInput
-	}
-
-	if impl.querier == nil {
-		return result, ErrMaintenance
-	}
-
-	properties, err := impl.querier.GetPropertiesByID(ctx, keys)
-	if err != nil && err != pgx.ErrNoRows {
-		slog.ErrorContext(ctx, "Failed to retrieve properties by sitekeys", common.ErrAttr(err))
+	cached, items, err := reader.Read(ctx, batch)
+	if err != nil {
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, "Fetched properties from DB by sitekeys", "count", len(properties))
-
-	for _, p := range properties {
-		sitekey := UUIDToSiteKey(p.ExternalID)
+	for _, item := range items {
+		sitekey := UUIDToSiteKey(item.ExternalID)
 		cacheKey := PropertyBySitekeyCacheKey(sitekey)
-		_ = impl.cache.SetWithTTL(ctx, cacheKey, p, propertyTTL)
-		delete(keysMap, p.ID)
+		_ = impl.cache.SetWithTTL(ctx, cacheKey, item, propertyTTL)
 	}
 
-	result = append(result, properties...)
-
+	result := cached
+	result = append(result, items...)
 	return result, nil
 }
 
@@ -525,7 +454,7 @@ func (impl *BusinessStoreImpl) RetrieveUserOrganizations(ctx context.Context, us
 	}
 
 	if impl.querier != nil {
-		reader.QueryKeyFunc = queryKeyPgInt
+		reader.QueryKeyFunc = QueryKeyPgInt
 		reader.QueryFunc = impl.querier.GetUserOrganizations
 	}
 
@@ -818,7 +747,7 @@ func (impl *BusinessStoreImpl) RetrieveOrgProperties(ctx context.Context, orgID 
 	}
 
 	if impl.querier != nil {
-		reader.QueryKeyFunc = queryKeyPgInt
+		reader.QueryKeyFunc = QueryKeyPgInt
 		reader.QueryFunc = impl.querier.GetOrgProperties
 	}
 
@@ -1043,7 +972,7 @@ func (impl *BusinessStoreImpl) RetrieveUserAPIKeys(ctx context.Context, userID i
 	}
 
 	if impl.querier != nil {
-		reader.QueryKeyFunc = queryKeyPgInt
+		reader.QueryKeyFunc = QueryKeyPgInt
 		reader.QueryFunc = impl.querier.GetUserAPIKeys
 	}
 

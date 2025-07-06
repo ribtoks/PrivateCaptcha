@@ -196,7 +196,28 @@ func queryKeySitekeyUUID(key CacheKey) (pgtype.UUID, error) {
 	return result, nil
 }
 
-func queryKeyPgInt(key CacheKey) (pgtype.Int4, error) {
+func stringKeySitekeyUUID(key string) (pgtype.UUID, error) {
+	result := UUIDFromSiteKey(key)
+	if !result.Valid {
+		return result, ErrInvalidInput
+	}
+
+	return result, nil
+}
+
+func IdentityKeyFunc[TKey any](key TKey) (TKey, error) {
+	return key, nil
+}
+
+func propertySitekeyFunc(p *dbgen.Property) string {
+	return UUIDToSiteKey(p.ExternalID)
+}
+
+func propertyIDFunc(p *dbgen.Property) int32 {
+	return p.ID
+}
+
+func QueryKeyPgInt(key CacheKey) (pgtype.Int4, error) {
 	return Int(key.IntValue), nil
 }
 
@@ -343,4 +364,77 @@ func (sf *cachedPropertyReader) Read(ctx context.Context) (*dbgen.Property, erro
 	}
 
 	return nil, errInvalidCacheType
+}
+
+// TODO: Refactor this to use otter.Cache BulkGet() API
+type StoreBulkReader[TArg comparable, TKey any, T any] struct {
+	ArgFunc         func(*T) TArg
+	QueryFunc       func(context.Context, []TKey) ([]*T, error)
+	QueryKeyFunc    func(TArg) (TKey, error)
+	Cache           common.Cache[CacheKey, any]
+	CacheKeyFunc    func(TArg) CacheKey
+	MinMissingCount uint
+}
+
+// returns cached and fetched items separately
+func (br *StoreBulkReader[TArg, TKey, T]) Read(ctx context.Context, args map[TArg]uint) ([]*T, []*T, error) {
+	if len(args) == 0 {
+		return []*T{}, []*T{}, nil
+	}
+
+	queryKeys := make([]TKey, 0, len(args))
+	argsMap := make(map[TArg]struct{})
+	cached := make([]*T, 0, len(args))
+
+	for arg := range args {
+		cacheKey := br.CacheKeyFunc(arg)
+		if t, err := FetchCachedOne[T](ctx, br.Cache, cacheKey); err == nil {
+			cached = append(cached, t)
+			continue
+		} else if err == ErrNegativeCacheHit {
+			continue
+		}
+
+		if key, err := br.QueryKeyFunc(arg); err == nil {
+			queryKeys = append(queryKeys, key)
+			argsMap[arg] = struct{}{}
+		}
+	}
+
+	if len(queryKeys) == 0 {
+		if len(cached) > 0 {
+			slog.DebugContext(ctx, "All items are cached", "count", len(cached))
+			return cached, []*T{}, nil
+		}
+
+		slog.WarnContext(ctx, "No valid keys to fetch from DB")
+		return nil, nil, ErrInvalidInput
+	}
+
+	if br.QueryFunc == nil {
+		return cached, []*T{}, ErrMaintenance
+	}
+
+	items, err := br.QueryFunc(ctx, queryKeys)
+	if err != nil && err != pgx.ErrNoRows {
+		slog.ErrorContext(ctx, "Failed to query items", "keys", len(queryKeys), common.ErrAttr(err))
+		return cached, nil, err
+	}
+
+	slog.DebugContext(ctx, "Fetched items from DB", "count", len(items))
+
+	for _, item := range items {
+		arg := br.ArgFunc(item)
+		delete(argsMap, arg)
+	}
+
+	for missingKey := range argsMap {
+		// TODO: Switch to a probabilistic logic via an interface for negative caching
+		if count, ok := args[missingKey]; ok && (count >= br.MinMissingCount) {
+			cacheKey := br.CacheKeyFunc(missingKey)
+			_ = br.Cache.SetMissing(ctx, cacheKey)
+		}
+	}
+
+	return cached, items, nil
 }
