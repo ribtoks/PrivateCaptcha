@@ -38,6 +38,7 @@ const (
 	ParamIgnoreError      = "ignore_error"
 	ParamLicenseKey       = "lid"
 	ParamHardwareID       = "hwid"
+	ParamVersion          = "version"
 )
 
 var (

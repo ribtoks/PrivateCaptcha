@@ -44,7 +44,7 @@ var (
 	errNoMacAddress          = errors.New("mac address not found")
 )
 
-func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFunc func(ctx context.Context)) (common.PeriodicJob, error) {
+func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, version string, quitFunc func(ctx context.Context)) (common.PeriodicJob, error) {
 	keys, err := license.ActivationKeys()
 	if err != nil {
 		return nil, err
@@ -65,6 +65,7 @@ func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, quitFun
 		licenseKey: config.Get(common.EnterpriseLicenseKeyKey),
 		adminEmail: config.Get(common.AdminEmailKey),
 		quitFunc:   quitFunc,
+		version:    version,
 	}, nil
 }
 
@@ -75,14 +76,16 @@ type checkLicenseJob struct {
 	licenseKey common.ConfigItem
 	adminEmail common.ConfigItem
 	quitFunc   func(ctx context.Context)
+	version    string
 }
 
 var _ common.PeriodicJob = (*checkLicenseJob)(nil)
 
-func doFetchActivation(ctx context.Context, licenseURL, licenseKey, hwid string) ([]byte, error) {
+func doFetchActivation(ctx context.Context, licenseURL, licenseKey, hwid, version string) ([]byte, error) {
 	form := url.Values{}
 	form.Set(common.ParamLicenseKey, licenseKey)
 	form.Set(common.ParamHardwareID, hwid)
+	form.Set(common.ParamVersion, version)
 
 	req, err := http.NewRequest(http.MethodPost, licenseURL, bytes.NewBufferString(form.Encode()))
 	if err != nil {
@@ -190,7 +193,7 @@ func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
 	var err error
 
 	for i := 0; i < activationAPIAttempts; i++ {
-		data, err = doFetchActivation(ctx, j.url, licenseKey, hwid)
+		data, err = doFetchActivation(ctx, j.url, licenseKey, hwid, j.version)
 
 		var rerr common.RetriableError
 		if err != nil && errors.As(err, &rerr) {

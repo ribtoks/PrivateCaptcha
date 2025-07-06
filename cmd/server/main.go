@@ -192,7 +192,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		close(quit)
 	}
 
-	checkLicenseJob, err := maintenance.NewCheckLicenseJob(businessDB, cfg, quitFunc)
+	checkLicenseJob, err := maintenance.NewCheckLicenseJob(businessDB, cfg, GitCommit, quitFunc)
 	if err != nil {
 		return err
 	}
