@@ -27,10 +27,8 @@ const (
 	ClickHousePasswordKey
 	ClickHouseAdminKey
 	ClickHouseAdminPasswordKey
-	PuzzleLeakyBucketRateKey
-	PuzzleLeakyBucketBurstKey
-	DefaultLeakyBucketRateKey
-	DefaultLeakyBucketBurstKey
+	RateLimitRateKey
+	RateLimitBurstKey
 	SmtpEndpointKey
 	SmtpUsernameKey
 	SmtpPasswordKey

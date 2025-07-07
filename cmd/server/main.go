@@ -24,9 +24,11 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/difficulty"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/leakybucket"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/maintenance"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/monitoring"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/portal"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session/store/memory"
 	"github.com/PrivateCaptcha/PrivateCaptcha/web"
@@ -42,6 +44,17 @@ const (
 	_shutdownHardPeriod  = 3 * time.Second
 	_shutdownPeriod      = 10 * time.Second
 	_dbConnectTimeout    = 30 * time.Second
+)
+
+const (
+	// for puzzles the logic is that if something becomes popular, there will be a spike, but normal usage should be "low"
+	// NOTE: this assumes correct configuration of the whole chain of reverse proxies
+	// the main problem are NATs/VPNs that make possible for clump of legitimate users to actually come from 1 public IP
+	generalLeakyBucketCap = 20
+	generalLeakInterval   = 1 * time.Second
+	// public defaults are reasonably low but we assume we should be fully cached on CDN level
+	publicLeakyBucketCap = 8
+	publicLeakInterval   = 2 * time.Second
 )
 
 var (
@@ -92,6 +105,28 @@ func createListener(ctx context.Context, cfg common.ConfigStore) (net.Listener, 
 	return listener, nil
 }
 
+func newIPAddrBuckets(cfg common.ConfigStore) *ratelimit.IPAddrBuckets {
+	const (
+		// number of simultaneous different clients for public APIs (/puzzle, /siteverify etc.), before forcing cleanup
+		maxBuckets = 1_000_000
+	)
+
+	puzzleBucketRate := cfg.Get(common.RateLimitRateKey)
+	puzzleBucketBurst := cfg.Get(common.RateLimitBurstKey)
+
+	return ratelimit.NewIPAddrBuckets(maxBuckets,
+		leakybucket.Cap(puzzleBucketBurst.Value(), generalLeakyBucketCap),
+		leakybucket.Interval(puzzleBucketRate.Value(), generalLeakInterval))
+}
+
+func updateIPBuckets(cfg common.ConfigStore, rateLimiter ratelimit.HTTPRateLimiter) {
+	bucketRate := cfg.Get(common.RateLimitRateKey)
+	bucketBurst := cfg.Get(common.RateLimitBurstKey)
+	rateLimiter.UpdateLimits(
+		leakybucket.Cap(bucketBurst.Value(), generalLeakyBucketCap),
+		leakybucket.Interval(bucketRate.Value(), generalLeakInterval))
+}
+
 func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener net.Listener) error {
 	stage := cfg.Get(common.StageKey).Value()
 	verbose := config.AsBool(cfg.Get(common.VerboseKey))
@@ -118,11 +153,14 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	mailer := email.NewMailer(cfg)
 	portalMailer := email.NewPortalMailer("https:"+cdnURLConfig.URL(), portalURLConfig.Domain(), mailer, cfg)
 
+	rateLimitHeader := cfg.Get(common.RateLimitHeaderKey).Value()
+	ipRateLimiter := ratelimit.NewIPAddrRateLimiter("general", rateLimitHeader, newIPAddrBuckets(cfg))
+
 	apiServer := &api.Server{
 		Stage:              stage,
 		BusinessDB:         businessDB,
 		TimeSeries:         timeSeriesDB,
-		Auth:               api.NewAuthMiddleware(cfg, businessDB, api.NewUserLimiter(businessDB), planService),
+		Auth:               api.NewAuthMiddleware(businessDB, api.NewUserLimiter(businessDB), ipRateLimiter, planService),
 		VerifyLogChan:      make(chan *common.VerifyRecord, 10*api.VerifyBatchSize),
 		Salt:               api.NewPuzzleSalt(cfg.Get(common.APISaltKey)),
 		UserFingerprintKey: api.NewUserFingerprintKey(cfg.Get(common.UserFingerprintIVKey)),
@@ -154,7 +192,6 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		PuzzleEngine: apiServer,
 		Metrics:      metrics,
 		Mailer:       portalMailer,
-		Auth:         portal.NewAuthMiddleware(portal.NewRateLimiter(cfg)),
 	}
 
 	templatesBuilder := portal.NewTemplatesBuilder()
@@ -175,11 +212,11 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 
 	updateConfigFunc := func(ctx context.Context) {
 		cfg.Update(ctx)
+		updateIPBuckets(cfg, ipRateLimiter)
 		maintenanceMode := config.AsBool(cfg.Get(common.MaintenanceModeKey))
 		businessDB.UpdateConfig(maintenanceMode)
 		timeSeriesDB.UpdateConfig(maintenanceMode)
 		portalServer.UpdateConfig(ctx, cfg)
-		apiServer.UpdateConfig(ctx, cfg)
 	}
 	updateConfigFunc(ctx)
 
@@ -203,7 +240,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	apiServer.Setup(router, apiURLConfig.Domain(), verbose, common.NoopMiddleware)
 	portalDomain := portalURLConfig.Domain()
 	_ = portalServer.Setup(router, portalDomain, common.NoopMiddleware)
-	rateLimiter := portalServer.Auth.RateLimit()
+	rateLimiter := ipRateLimiter.RateLimitExFunc(publicLeakyBucketCap, publicLeakInterval)
 	cdnDomain := cdnURLConfig.Domain()
 	cdnChain := alice.New(common.Recovered, metrics.CDNHandler, rateLimiter)
 	router.Handle("GET "+cdnDomain+"/portal/", http.StripPrefix("/portal/", cdnChain.Then(web.Static())))
@@ -316,7 +353,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		jobs.Shutdown()
 		sessionStore.Shutdown()
 		apiServer.Shutdown()
-		portalServer.Shutdown()
+		ipRateLimiter.Shutdown()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), _shutdownPeriod)
 		defer cancel()
 		httpServer.SetKeepAlivesEnabled(false)

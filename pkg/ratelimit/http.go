@@ -41,6 +41,8 @@ func clientIP(strategy realclientip.Strategy, r *http.Request) string {
 type HTTPRateLimiter interface {
 	Shutdown()
 	RateLimit(next http.Handler) http.Handler
+	// this API allows to create a "view" (in SQL sense) to underlying rate limiter with other defaults for new buckets
+	RateLimitExFunc(initCapacity leakybucket.TLevel, initLeakInterval time.Duration) func(next http.Handler) http.Handler
 	UpdateRequestLimits(r *http.Request, capacity leakybucket.TLevel, leakInterval time.Duration)
 	UpdateLimits(capacity leakybucket.TLevel, leakInterval time.Duration)
 }
@@ -74,6 +76,34 @@ func (l *httpRateLimiter[TKey]) cleanup(ctx context.Context) {
 	})
 }
 
+func (l *httpRateLimiter[TKey]) RateLimitExFunc(initCapacity leakybucket.TLevel, initLeakInterval time.Duration) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			key := l.keyFunc(r)
+
+			addResult := l.buckets.AddEx(key, 1, time.Now(), initCapacity, initLeakInterval)
+
+			setRateLimitHeaders(w, addResult)
+
+			if addResult.Added > 0 {
+				//slog.Log(r.Context(), common.LevelTrace, "Allowing request", "ratelimiter", l.name,
+				//	"key", key, "host", r.Host, "path", r.URL.Path, "method", r.Method,
+				//	"level", addResult.CurrLevel, "capacity", addResult.Capacity, "found", addResult.Found)
+
+				ctx := context.WithValue(r.Context(), common.RateLimitKeyContextKey, key)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			} else {
+				slog.Log(r.Context(), common.LevelTrace, "Rate limiting request", "ratelimiter", l.name,
+					"key", key, "host", r.Host, "path", r.URL.Path, "method", r.Method,
+					"level", addResult.CurrLevel, "capacity", addResult.Capacity, "resetAfter", addResult.ResetAfter.String(),
+					"retryAfter", addResult.RetryAfter.String(), "found", addResult.Found)
+				l.rejectedHandler.ServeHTTP(w, r)
+			}
+		})
+	}
+}
+
+// this is a twin of RateLimitEx() that is using `buckets` defaults
 func (l *httpRateLimiter[TKey]) RateLimit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := l.keyFunc(r)

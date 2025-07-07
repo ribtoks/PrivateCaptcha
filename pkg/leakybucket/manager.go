@@ -116,6 +116,10 @@ func (m *Manager[TKey, T, TBucket]) Update(key TKey, capacity TLevel, leakInterv
 }
 
 func (m *Manager[TKey, T, TBucket]) Add(key TKey, n TLevel, tnow time.Time) AddResult {
+	return m.AddEx(key, n, tnow, m.capacity, m.leakInterval)
+}
+
+func (m *Manager[TKey, T, TBucket]) AddEx(key TKey, n TLevel, tnow time.Time, initCapacity TLevel, initLeakInterval time.Duration) AddResult {
 	result := AddResult{}
 
 	if n == 0 {
@@ -135,7 +139,7 @@ func (m *Manager[TKey, T, TBucket]) Add(key TKey, n TLevel, tnow time.Time) AddR
 			result.Found = true
 		} else {
 			bucket = new(T)
-			bucket.Init(key, m.capacity, m.leakInterval, tnow)
+			bucket.Init(key, initCapacity, initLeakInterval, tnow)
 			m.buckets[key] = bucket
 			heap.Push(&m.heap, bucket)
 			m.ensureUpperBoundUnsafe()
@@ -184,6 +188,7 @@ func (m *Manager[TKey, T, TBucket]) compressUnsafe(cap int, collect bool) ([]Lea
 	return deleted, deletedCount
 }
 
+// TODO: Don't cleanup too much if we aren't too close to lowerBound altogether
 func (m *Manager[TKey, T, TBucket]) cleanupImpl(tnow time.Time, maxToDelete int, collect bool) ([]LeakyBucket[TKey], int) {
 	m.lock.Lock()
 	defer m.lock.Unlock()

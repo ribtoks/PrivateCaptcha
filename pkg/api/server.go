@@ -172,10 +172,6 @@ func (s *Server) Setup(router *http.ServeMux, domain string, verbose bool, secur
 	s.setupWithPrefix(domain, router, s.Cors.Handler, security)
 }
 
-func (s *Server) UpdateConfig(ctx context.Context, cfg common.ConfigStore) {
-	s.Auth.UpdateConfig(cfg)
-}
-
 func (s *Server) Shutdown() {
 	s.Levels.Shutdown()
 	s.Auth.Shutdown()

@@ -10,16 +10,12 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/leakybucket"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
 )
 
 const (
-	// for puzzles the logic is that if something becomes popular, there will be a spike, but normal usage should be low
-	puzzleLeakyBucketCap = 20
-	puzzleLeakInterval   = 1 * time.Second
-	userLimitTTL         = 1 * time.Hour
-	userLimitRefresh     = 3 * time.Hour
+	userLimitTTL     = 1 * time.Hour
+	userLimitRefresh = 3 * time.Hour
 )
 
 type UserLimiter interface {
@@ -30,8 +26,7 @@ type UserLimiter interface {
 type AuthMiddleware struct {
 	Store                 db.Implementor
 	PlanService           billing.PlanService
-	PuzzleRateLimiter     ratelimit.HTTPRateLimiter
-	ApiKeyRateLimiter     ratelimit.HTTPRateLimiter
+	RateLimiter           ratelimit.HTTPRateLimiter
 	SitekeyChan           chan string
 	UsersChan             chan int32
 	BatchSize             int
@@ -40,33 +35,6 @@ type AuthMiddleware struct {
 	Limiter               UserLimiter
 	// this is a simple way to control negative cache spam, disabled by default
 	NegativeSitekeyThreshold uint
-}
-
-func newAPIKeyBuckets() *ratelimit.StringBuckets {
-	const (
-		maxBuckets = 1_000
-		// NOTE: these defaults will be adjusted per API key quota almost immediately after verifying API key
-		// requests burst
-		leakyBucketCap = 10
-		// effective 0.5 rps
-		leakInterval = 2 * time.Second
-	)
-
-	return ratelimit.NewAPIKeyBuckets(maxBuckets, leakyBucketCap, leakInterval)
-}
-
-func newPuzzleIPAddrBuckets(cfg common.ConfigStore) *ratelimit.IPAddrBuckets {
-	const (
-		// number of simultaneous different users for /puzzle
-		maxBuckets = 1_000_000
-	)
-
-	puzzleBucketRate := cfg.Get(common.PuzzleLeakyBucketRateKey)
-	puzzleBucketBurst := cfg.Get(common.PuzzleLeakyBucketBurstKey)
-
-	return ratelimit.NewIPAddrBuckets(maxBuckets,
-		leakybucket.Cap(puzzleBucketBurst.Value(), puzzleLeakyBucketCap),
-		leakybucket.Interval(puzzleBucketRate.Value(), puzzleLeakInterval))
 }
 
 type baseUserLimiter struct {
@@ -144,15 +112,15 @@ func NewUserLimiter(store db.Implementor) *baseUserLimiter {
 	}
 }
 
-func NewAuthMiddleware(cfg common.ConfigStore,
+func NewAuthMiddleware(
 	store db.Implementor,
 	limiter UserLimiter,
+	rateLimiter ratelimit.HTTPRateLimiter,
 	planService billing.PlanService) *AuthMiddleware {
 	const batchSize = 10
-	rateLimitHeader := cfg.Get(common.RateLimitHeaderKey).Value()
 
 	am := &AuthMiddleware{
-		PuzzleRateLimiter:     ratelimit.NewIPAddrRateLimiter("puzzle", rateLimitHeader, newPuzzleIPAddrBuckets(cfg)),
+		RateLimiter:           rateLimiter,
 		Store:                 store,
 		Limiter:               limiter,
 		PlanService:           planService,
@@ -162,9 +130,6 @@ func NewAuthMiddleware(cfg common.ConfigStore,
 		SitekeyBackfillCancel: func() {},
 		UsersBackfillCancel:   func() {},
 	}
-
-	am.ApiKeyRateLimiter = ratelimit.NewAPIKeyRateLimiter(
-		rateLimitHeader, newAPIKeyBuckets(), am.apiKeyKeyFunc)
 
 	return am
 }
@@ -182,18 +147,8 @@ func (am *AuthMiddleware) StartBackfill(backfillDelay time.Duration) {
 	go common.ProcessBatchMap(usersBackfillCtx, am.UsersChan, backfillDelay, am.BatchSize, am.BatchSize*10, am.backfillUsersImpl)
 }
 
-func (am *AuthMiddleware) UpdateConfig(cfg common.ConfigStore) {
-	puzzleBucketRate := cfg.Get(common.PuzzleLeakyBucketRateKey)
-	puzzleBucketBurst := cfg.Get(common.PuzzleLeakyBucketBurstKey)
-	am.PuzzleRateLimiter.UpdateLimits(
-		leakybucket.Cap(puzzleBucketBurst.Value(), puzzleLeakyBucketCap),
-		leakybucket.Interval(puzzleBucketRate.Value(), puzzleLeakInterval))
-}
-
 func (am *AuthMiddleware) Shutdown() {
 	slog.Debug("Shutting down auth middleware")
-	am.ApiKeyRateLimiter.Shutdown()
-	am.PuzzleRateLimiter.Shutdown()
 	am.SitekeyBackfillCancel()
 	am.UsersBackfillCancel()
 	close(am.SitekeyChan)
@@ -258,7 +213,7 @@ func isOriginAllowed(origin string, property *dbgen.Property) bool {
 }
 
 func (am *AuthMiddleware) SitekeyOptions(next http.Handler) http.Handler {
-	return am.PuzzleRateLimiter.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return am.RateLimiter.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		sitekey := r.URL.Query().Get(common.ParamSiteKey)
@@ -281,7 +236,7 @@ func (am *AuthMiddleware) refreshPropertyBySitekey(sitekey string) {
 }
 
 func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
-	return am.PuzzleRateLimiter.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return am.RateLimiter.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		origin := r.Header.Get("Origin")
@@ -365,26 +320,18 @@ func isAPIKeyValid(ctx context.Context, key *dbgen.APIKey, tnow time.Time) bool 
 	return true
 }
 
-func (am *AuthMiddleware) apiKeyKeyFunc(r *http.Request) string {
-	ctx := r.Context()
-	secret := r.Header.Get(common.HeaderAPIKey)
-
-	if len(secret) == db.SecretLen {
-		if apiKey, err := am.Store.Impl().GetCachedAPIKey(ctx, secret); err == nil {
-			tnow := time.Now().UTC()
-			// we want to keep this check here to rate limit even expired valid keys (which can be leaked)
-			if isAPIKeyValid(ctx, apiKey, tnow) {
-				// if we know API key is valid, we ratelimit by API key which has different limits
-				return secret
-			}
-		}
-	}
-
-	return ""
-}
-
 func (am *AuthMiddleware) APIKey(next http.Handler) http.Handler {
-	return am.ApiKeyRateLimiter.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	const (
+		// NOTE: these defaults will be adjusted per API key quota almost immediately after verifying API key
+		// requests burst
+		apiKeyLeakyBucketCap = 10
+		// effective 0.5 rps
+		apiKeyLeakInterval = 2 * time.Second
+	)
+
+	rateLimiter := am.RateLimiter.RateLimitExFunc(apiKeyLeakyBucketCap, apiKeyLeakInterval)
+
+	return rateLimiter(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		secret := r.Header.Get(common.HeaderAPIKey)
 		if len(secret) != db.SecretLen {
@@ -420,13 +367,10 @@ func (am *AuthMiddleware) APIKey(next http.Handler) http.Handler {
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				return
 			} else {
-				// rate limiter key will be the {secret} itself _only_ when we are cached (which means valid API key)
-				// which means if it's not, then we will recheck via "delayed" mechanism of OwnerIDSource
+				// if we are not cached, then we will recheck via "delayed" mechanism of OwnerIDSource
 				// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
-				if rateLimiterKey, ok := ctx.Value(common.RateLimitKeyContextKey).(string); ok && len(rateLimiterKey) > 0 {
-					interval := float64(time.Second) / apiKey.RequestsPerSecond
-					am.ApiKeyRateLimiter.UpdateRequestLimits(r, uint32(apiKey.RequestsBurst), time.Duration(interval))
-				}
+				interval := float64(time.Second) / apiKey.RequestsPerSecond
+				am.RateLimiter.UpdateRequestLimits(r, uint32(apiKey.RequestsBurst), time.Duration(interval))
 			}
 			ctx = context.WithValue(ctx, common.APIKeyContextKey, apiKey)
 		} else {

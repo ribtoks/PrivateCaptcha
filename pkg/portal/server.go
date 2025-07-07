@@ -19,6 +19,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/monitoring"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 )
 
@@ -106,7 +107,7 @@ type Server struct {
 	maintenanceMode atomic.Bool
 	canRegister     atomic.Bool
 	SettingsTabs    []*SettingsTab
-	Auth            *AuthMiddleware
+	RateLimiter     ratelimit.HTTPRateLimiter
 	RenderConstants interface{}
 	Jobs            Jobs
 	PlatformCtx     interface{}
@@ -197,7 +198,16 @@ func defaultMaxBytesHandler(next http.Handler) http.Handler {
 }
 
 func (s *Server) MiddlewarePublicChain(rg *RouteGenerator, security alice.Constructor) alice.Chain {
-	return alice.New(common.Recovered, security, s.Metrics.HandlerIDFunc(rg.LastPath), s.Auth.RateLimit(), monitoring.Logged)
+	const (
+		// by default we are allowing 1 request per 2 seconds from a single client IP address with a {leakyBucketCap} burst
+		// for portal we raise these limits for authenticated users and for CDN we have full-on caching
+		defaultLeakyBucketCap = 10
+		defaultLeakInterval   = 2 * time.Second
+	)
+
+	ratelimiter := s.RateLimiter.RateLimitExFunc(defaultLeakyBucketCap, defaultLeakInterval)
+
+	return alice.New(common.Recovered, security, s.Metrics.HandlerIDFunc(rg.LastPath), ratelimiter, monitoring.Logged)
 }
 
 func (s *Server) MiddlewarePrivateRead(public alice.Chain) alice.Chain {
@@ -285,10 +295,6 @@ func (s *Server) isMaintenanceMode() bool {
 	return s.maintenanceMode.Load()
 }
 
-func (s *Server) Shutdown() {
-	s.Auth.Shutdown()
-}
-
 func (s *Server) Handler(modelFunc ModelFunc) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -346,6 +352,13 @@ func (s *Server) maintenance(next http.Handler) http.Handler {
 }
 
 func (s *Server) private(next http.Handler) http.Handler {
+	const (
+		// "authenticated" means when we "legitimize" IP address using business logic
+		authenticatedBucketCap = 20
+		// this effectively means 1 request/second
+		authenticatedLeakInterval = 1 * time.Second
+	)
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		sess := s.Sessions.SessionStart(w, r)
 
@@ -355,7 +368,7 @@ func (s *Server) private(next http.Handler) http.Handler {
 		if step, ok := sess.Get(session.KeyLoginStep).(int); ok {
 			if step == loginStepCompleted {
 				// update limits each time as rate limiting gets cleaned up frequently (impact shouldn't be much in portal)
-				s.Auth.UpdatePortalLimits(r)
+				s.RateLimiter.UpdateRequestLimits(r, authenticatedBucketCap, authenticatedLeakInterval)
 
 				ctx = context.WithValue(ctx, common.LoggedInContextKey, true)
 				ctx = context.WithValue(ctx, common.SessionContextKey, sess)

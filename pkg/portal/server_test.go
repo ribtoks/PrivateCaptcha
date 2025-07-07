@@ -112,7 +112,7 @@ func TestMain(m *testing.M) {
 			MaxLifetime: sessionStore.MaxLifetime(),
 		},
 		Mailer:       &email.StubMailer{},
-		Auth:         &AuthMiddleware{rateLimiter: &ratelimit.StubRateLimiter{}},
+		RateLimiter:  &ratelimit.StubRateLimiter{},
 		PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Errors: []puzzle.VerifyError{puzzle.VerifyNoError}}},
 		Metrics:      monitoring.NewStub(),
 		PlanService:  planService,

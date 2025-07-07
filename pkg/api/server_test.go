@@ -15,6 +15,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/difficulty"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/monitoring"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -34,10 +35,8 @@ const (
 
 func testsConfigStore() common.ConfigStore {
 	baseCfg := config.NewBaseConfig(config.NewEnvConfig(os.Getenv))
-	baseCfg.Add(config.NewStaticValue(common.PuzzleLeakyBucketBurstKey, "20"))
-	baseCfg.Add(config.NewStaticValue(common.DefaultLeakyBucketBurstKey, "20"))
-	baseCfg.Add(config.NewStaticValue(common.PuzzleLeakyBucketRateKey, "10"))
-	baseCfg.Add(config.NewStaticValue(common.DefaultLeakyBucketRateKey, "10"))
+	baseCfg.Add(config.NewStaticValue(common.RateLimitBurstKey, "20"))
+	baseCfg.Add(config.NewStaticValue(common.RateLimitRateKey, "10"))
 	return baseCfg
 }
 
@@ -75,11 +74,13 @@ func TestMain(m *testing.M) {
 	planService := billing.NewPlanService(nil)
 	testPlan = planService.GetInternalTrialPlan()
 
+	stubRateLimiter := &ratelimit.StubRateLimiter{}
+
 	s = &Server{
 		Stage:              common.StageTest,
 		BusinessDB:         store,
 		TimeSeries:         timeSeries,
-		Auth:               NewAuthMiddleware(cfg, store, NewUserLimiter(store), planService),
+		Auth:               NewAuthMiddleware(store, NewUserLimiter(store), stubRateLimiter, planService),
 		VerifyLogChan:      make(chan *common.VerifyRecord, 10*VerifyBatchSize),
 		Salt:               NewPuzzleSalt(cfg.Get(common.APISaltKey)),
 		UserFingerprintKey: NewUserFingerprintKey(cfg.Get(common.UserFingerprintIVKey)),
