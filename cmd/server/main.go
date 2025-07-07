@@ -192,6 +192,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		PuzzleEngine: apiServer,
 		Metrics:      metrics,
 		Mailer:       portalMailer,
+		RateLimiter:  ipRateLimiter,
 	}
 
 	templatesBuilder := portal.NewTemplatesBuilder()
