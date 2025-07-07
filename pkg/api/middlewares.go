@@ -112,17 +112,16 @@ func NewUserLimiter(store db.Implementor) *baseUserLimiter {
 	}
 }
 
-func NewAuthMiddleware(
-	store db.Implementor,
-	limiter UserLimiter,
+func NewAuthMiddleware(store db.Implementor,
 	rateLimiter ratelimit.HTTPRateLimiter,
+	userLimiter UserLimiter,
 	planService billing.PlanService) *AuthMiddleware {
 	const batchSize = 10
 
 	am := &AuthMiddleware{
 		RateLimiter:           rateLimiter,
 		Store:                 store,
-		Limiter:               limiter,
+		Limiter:               userLimiter,
 		PlanService:           planService,
 		SitekeyChan:           make(chan string, 100*batchSize),
 		UsersChan:             make(chan int32, 10*batchSize),

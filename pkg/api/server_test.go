@@ -74,13 +74,11 @@ func TestMain(m *testing.M) {
 	planService := billing.NewPlanService(nil)
 	testPlan = planService.GetInternalTrialPlan()
 
-	stubRateLimiter := &ratelimit.StubRateLimiter{}
-
 	s = &Server{
 		Stage:              common.StageTest,
 		BusinessDB:         store,
 		TimeSeries:         timeSeries,
-		Auth:               NewAuthMiddleware(store, NewUserLimiter(store), stubRateLimiter, planService),
+		Auth:               NewAuthMiddleware(store, &ratelimit.StubRateLimiter{}, NewUserLimiter(store), planService),
 		VerifyLogChan:      make(chan *common.VerifyRecord, 10*VerifyBatchSize),
 		Salt:               NewPuzzleSalt(cfg.Get(common.APISaltKey)),
 		UserFingerprintKey: NewUserFingerprintKey(cfg.Get(common.UserFingerprintIVKey)),

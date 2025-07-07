@@ -160,7 +160,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Stage:              stage,
 		BusinessDB:         businessDB,
 		TimeSeries:         timeSeriesDB,
-		Auth:               api.NewAuthMiddleware(businessDB, api.NewUserLimiter(businessDB), ipRateLimiter, planService),
+		Auth:               api.NewAuthMiddleware(businessDB, ipRateLimiter, api.NewUserLimiter(businessDB), planService),
 		VerifyLogChan:      make(chan *common.VerifyRecord, 10*api.VerifyBatchSize),
 		Salt:               api.NewPuzzleSalt(cfg.Get(common.APISaltKey)),
 		UserFingerprintKey: api.NewUserFingerprintKey(cfg.Get(common.UserFingerprintIVKey)),
