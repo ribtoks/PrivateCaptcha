@@ -5,18 +5,12 @@ on:
     tags:
       - '*'
 
-env:
-  # Use docker.io for Docker Hub if empty
-  REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
-
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
 
 jobs:
-  build-and-push:
+  community-build-and-push:
     runs-on: ubuntu-latest
 
     permissions:
@@ -56,4 +50,58 @@ jobs:
             ghcr.io/${{ env.REPO_LOWER }}:latest
             ghcr.io/${{ env.REPO_LOWER }}:${{ github.sha }}
             ghcr.io/${{ env.REPO_LOWER }}:${{ env.REPO_TAG }}
+
+  enterprise-build-and-push:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.4'
+
+      - name: Retrieve the activation keys
+        working-directory: ./cmd/keyspack
+        env:
+          ACTIVATION_KEYS_BASE64: ${{ secrets.ACTIVATION_KEYS_BASE64 }}
+        run: |
+          echo "$ACTIVATION_KEYS_BASE64" | go run main.go -base64 -mode read > ../../pkg/license/public.keys
+
+      - name: Convert repository name to lowercase
+        run: |
+          echo "REPO_LOWER_EE=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')-ee" >> $GITHUB_ENV
+
+      - name: Get tag
+        id: tag
+        run: |
+          echo "REPO_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            STAGE=prod
+            EXTRA_BUILD_FLAGS=-tags enterprise
+          tags: |
+            ghcr.io/${{ env.REPO_LOWER_EE }}:latest
+            ghcr.io/${{ env.REPO_LOWER_EE }}:${{ github.sha }}
+            ghcr.io/${{ env.REPO_LOWER_EE }}:${{ env.REPO_TAG }}
 
