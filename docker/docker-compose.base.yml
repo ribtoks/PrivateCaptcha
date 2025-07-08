@@ -86,8 +86,6 @@ services:
       interval: 3s
       timeout: 3s
       retries: 3
-    ports:
-      - '5432:5432'
     networks:
       - postgres_network
     volumes:
@@ -99,9 +97,6 @@ services:
     pull_policy: if_not_present
     environment:
       CLICKHOUSE_DB: privatecaptcha
-    ports:
-      - '9000:9000' # Native client interface
-      - '8123:8123' # HTTP interface
     networks:
       - clickhouse_network
     healthcheck:

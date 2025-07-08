@@ -2,7 +2,7 @@ services:
   server:
     ports:
       # this is the default Golang endpoint for pprof. In case of profiling, port 9090 conflicts with prometheus below
-      - 6060:6060
+      - 127.0.0.1:6060:6060
     environment:
       PC_LOCAL_ADDRESS: "0.0.0.0:6060"
       PC_VERBOSE: ''
@@ -23,7 +23,7 @@ services:
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
     ports:
-      - 9090:9090
+      - 127.0.0.1:9090:9090
     networks:
       - server_network
       - monitoring_network
@@ -34,7 +34,7 @@ services:
     depends_on:
       - prometheus
     ports:
-      - 3000:3000
+      - 127.0.0.1:3000:3000
     networks:
       - monitoring_network
     volumes:

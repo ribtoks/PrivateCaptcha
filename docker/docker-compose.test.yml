@@ -106,9 +106,6 @@ services:
       interval: 3s
       timeout: 3s
       retries: 3
-    ports:
-      - '9000:9000' # Native client interface
-      #- '8123:8123' # HTTP interface
     networks:
       - test_clickhouse_network
     volumes:
