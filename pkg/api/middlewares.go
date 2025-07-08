@@ -10,7 +10,6 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
 )
 
 const (
@@ -26,7 +25,6 @@ type UserLimiter interface {
 type AuthMiddleware struct {
 	Store                 db.Implementor
 	PlanService           billing.PlanService
-	RateLimiter           ratelimit.HTTPRateLimiter
 	SitekeyChan           chan string
 	UsersChan             chan int32
 	BatchSize             int
@@ -113,13 +111,11 @@ func NewUserLimiter(store db.Implementor) *baseUserLimiter {
 }
 
 func NewAuthMiddleware(store db.Implementor,
-	rateLimiter ratelimit.HTTPRateLimiter,
 	userLimiter UserLimiter,
 	planService billing.PlanService) *AuthMiddleware {
 	const batchSize = 10
 
 	am := &AuthMiddleware{
-		RateLimiter:           rateLimiter,
 		Store:                 store,
 		Limiter:               userLimiter,
 		PlanService:           planService,
@@ -212,7 +208,7 @@ func isOriginAllowed(origin string, property *dbgen.Property) bool {
 }
 
 func (am *AuthMiddleware) SitekeyOptions(next http.Handler) http.Handler {
-	return am.RateLimiter.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		sitekey := r.URL.Query().Get(common.ParamSiteKey)
@@ -226,7 +222,7 @@ func (am *AuthMiddleware) SitekeyOptions(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, common.SitekeyContextKey, sitekey)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
-	}))
+	})
 }
 
 func (am *AuthMiddleware) refreshPropertyBySitekey(sitekey string) {
@@ -235,7 +231,7 @@ func (am *AuthMiddleware) refreshPropertyBySitekey(sitekey string) {
 }
 
 func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
-	return am.RateLimiter.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
 		origin := r.Header.Get("Origin")
@@ -298,7 +294,7 @@ func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r.WithContext(ctx))
-	}))
+	})
 }
 
 func isAPIKeyValid(ctx context.Context, key *dbgen.APIKey, tnow time.Time) bool {
@@ -320,17 +316,7 @@ func isAPIKeyValid(ctx context.Context, key *dbgen.APIKey, tnow time.Time) bool 
 }
 
 func (am *AuthMiddleware) APIKey(next http.Handler) http.Handler {
-	const (
-		// NOTE: these defaults will be adjusted per API key quota almost immediately after verifying API key
-		// requests burst
-		apiKeyLeakyBucketCap = 10
-		// effective 0.5 rps
-		apiKeyLeakInterval = 2 * time.Second
-	)
-
-	rateLimiter := am.RateLimiter.RateLimitExFunc(apiKeyLeakyBucketCap, apiKeyLeakInterval)
-
-	return rateLimiter(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		secret := r.Header.Get(common.HeaderAPIKey)
 		if len(secret) != db.SecretLen {
@@ -365,11 +351,6 @@ func (am *AuthMiddleware) APIKey(next http.Handler) http.Handler {
 			if !isAPIKeyValid(ctx, apiKey, now) {
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				return
-			} else {
-				// if we are not cached, then we will recheck via "delayed" mechanism of OwnerIDSource
-				// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
-				interval := float64(time.Second) / apiKey.RequestsPerSecond
-				am.RateLimiter.UpdateRequestLimits(r, uint32(apiKey.RequestsBurst), time.Duration(interval))
 			}
 			ctx = context.WithValue(ctx, common.APIKeyContextKey, apiKey)
 		} else {
@@ -377,5 +358,5 @@ func (am *AuthMiddleware) APIKey(next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r.WithContext(ctx))
-	}))
+	})
 }

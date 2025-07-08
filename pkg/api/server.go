@@ -18,6 +18,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/difficulty"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/monitoring"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/justinas/alice"
 	"github.com/rs/cors"
@@ -66,6 +67,7 @@ type Server struct {
 	Mailer             common.Mailer
 	TestPuzzle         *puzzle.Puzzle
 	TestPuzzleData     *puzzle.PuzzlePayload
+	RateLimiter        ratelimit.HTTPRateLimiter
 }
 
 var _ puzzle.Engine = (*Server)(nil)
@@ -184,11 +186,22 @@ func (s *Server) Shutdown() {
 func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandler, security alice.Constructor) {
 	prefix := domain + "/"
 	slog.Debug("Setting up the API routes", "prefix", prefix)
-	publicChain := alice.New(common.Recovered, monitoring.Traced, security, s.Metrics.Handler)
+	publicChain := alice.New(common.Recovered, security, s.Metrics.Handler)
 	// NOTE: auth middleware provides rate limiting internally
-	router.Handle(http.MethodGet+" "+prefix+common.PuzzleEndpoint, publicChain.Append(corsHandler, common.TimeoutHandler(1*time.Second), s.Auth.Sitekey).ThenFunc(s.puzzleHandler))
-	router.Handle(http.MethodOptions+" "+prefix+common.PuzzleEndpoint, publicChain.Append(common.Cached, corsHandler, s.Auth.SitekeyOptions).ThenFunc(s.puzzlePreFlight))
-	verifyChain := publicChain.Append(common.TimeoutHandler(5*time.Second), s.Auth.APIKey)
+	puzzleChain := publicChain.Append(s.RateLimiter.RateLimit, monitoring.Traced, common.TimeoutHandler(1*time.Second))
+	router.Handle(http.MethodGet+" "+prefix+common.PuzzleEndpoint, puzzleChain.Append(corsHandler, s.Auth.Sitekey).ThenFunc(s.puzzleHandler))
+	router.Handle(http.MethodOptions+" "+prefix+common.PuzzleEndpoint, puzzleChain.Append(common.Cached, corsHandler, s.Auth.SitekeyOptions).ThenFunc(s.puzzlePreFlight))
+
+	const (
+		// NOTE: these defaults will be adjusted per API key quota almost immediately after verifying API key
+		// requests burst
+		apiKeyLeakyBucketCap = 10
+		// effective 0.5 rps
+		apiKeyLeakInterval = 2 * time.Second
+	)
+	apiRateLimiter := s.RateLimiter.RateLimitExFunc(apiKeyLeakyBucketCap, apiKeyLeakInterval)
+
+	verifyChain := publicChain.Append(apiRateLimiter, monitoring.Traced, common.TimeoutHandler(5*time.Second), s.Auth.APIKey)
 	router.Handle(http.MethodPost+" "+prefix+common.VerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(http.HandlerFunc(s.verifyHandler), maxSolutionsBodySize)))
 
 	// "root" access
@@ -399,6 +412,13 @@ func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		}
 		return
+	}
+
+	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok && (apiKey != nil) {
+		// if we are not cached, then we will recheck via "delayed" mechanism of OwnerIDSource
+		// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
+		interval := float64(time.Second) / apiKey.RequestsPerSecond
+		s.RateLimiter.UpdateRequestLimits(r, uint32(apiKey.RequestsBurst), time.Duration(interval))
 	}
 
 	vr2 := &VerifyResponseRecaptchaV2{
