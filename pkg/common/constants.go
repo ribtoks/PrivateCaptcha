@@ -52,5 +52,5 @@ var (
 	HeaderAPIKey              = http.CanonicalHeaderKey("X-API-Key")
 	HeaderAccessControlOrigin = http.CanonicalHeaderKey("Access-Control-Allow-Origin")
 	HeaderAccessControlAge    = http.CanonicalHeaderKey("Access-Control-Max-Age")
-	HeaderRequestID           = http.CanonicalHeaderKey("X-Request-ID")
+	HeaderTraceID             = http.CanonicalHeaderKey("X-Trace-ID")
 )

@@ -70,7 +70,7 @@ func Traced(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx, tid := common.TraceContextFunc(r.Context(), traceID)
 		headers := w.Header()
-		headers[common.HeaderRequestID] = []string{tid}
+		headers[common.HeaderTraceID] = []string{tid}
 		h.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

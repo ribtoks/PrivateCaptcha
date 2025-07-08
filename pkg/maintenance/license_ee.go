@@ -94,7 +94,7 @@ func doFetchActivation(ctx context.Context, licenseURL, licenseKey, hwid, versio
 
 	rid := xid.New().String()
 	req.Header.Set(common.HeaderContentType, common.ContentTypeURLEncoded)
-	req.Header.Set(common.HeaderRequestID, rid)
+	req.Header.Set(common.HeaderTraceID, rid)
 
 	rlog := slog.With("requestID", rid)
 	rlog.DebugContext(ctx, "Sending license request", "URL", licenseURL)
