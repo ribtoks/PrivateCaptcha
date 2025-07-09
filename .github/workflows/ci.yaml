@@ -97,7 +97,7 @@ jobs:
     - name: Cache unit coverage report
       uses: actions/cache/save@v4
       with:
-        path: coverage_unit.out
+        path: coverage_unit.cov
         key: unit-coverage-${{ github.run_id }}
 
     - name: Build tests
@@ -145,7 +145,7 @@ jobs:
       uses: actions/cache/save@v4
       if: success() # Only cache if tests succeeded and file is presumably complete
       with:
-        path: coverage_integration.out
+        path: coverage_reports
         key: integration-coverage-${{ github.run_id }}
 
     - name: Migrate Databases Down
@@ -177,14 +177,14 @@ jobs:
       - name: Restore unit coverage report
         uses: actions/cache/restore@v4
         with:
-          path: coverage_unit.out
+          path: coverage_unit.cov
           key: unit-coverage-${{ github.run_id }}
           fail-on-cache-miss: true
 
       - name: Restore integration coverage report
         uses: actions/cache/restore@v4
         with:
-          path: coverage_integration.out
+          path: coverage_reports
           key: integration-coverage-${{ github.run_id }}
           fail-on-cache-miss: true
 
