@@ -25,6 +25,7 @@ mkdir -p "$COVERAGE_DIR"
 for f in `ls $TESTS_DIR/`; do
     echo "Running $f..."
     ./$TESTS_DIR/$f -test.v -test.parallel 1 -test.coverprofile="$COVERAGE_DIR/$f.cov" # -test.run "^TestUniqueJob"
+done
 
 echo "Success"
 # env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -p 1 -v ./... -run "^TestLock"
