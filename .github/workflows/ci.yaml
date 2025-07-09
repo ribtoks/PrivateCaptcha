@@ -92,7 +92,7 @@ jobs:
       run: make build
 
     - name: Unit Tests
-      run: make test-unit
+      run: make test-unit-cover
 
     - name: Cache unit coverage report
       uses: actions/cache/save@v4

@@ -14,7 +14,7 @@ ARG EXTRA_BUILD_FLAGS=
 ARG GO_LDFLAGS="-s -w"
 RUN --mount=type=cache,target=/cache/gomod --mount=type=cache,target=/cache/gobuild,sharing=locked env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build -C cmd/server -ldflags="${GO_LDFLAGS} -X main.GitCommit=${GIT_COMMIT}" ${EXTRA_BUILD_FLAGS} -o ../../bin/server
 
-RUN --mount=type=cache,target=/cache/gomod --mount=type=cache,target=/cache/gobuild,sharing=locked env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -c -cover -covermode=atomic ${EXTRA_BUILD_FLAGS} -o tests/ $(go list ${EXTRA_BUILD_FLAGS} -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
+RUN --mount=type=cache,target=/cache/gomod --mount=type=cache,target=/cache/gobuild,sharing=locked env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -c -cover -covermode=atomic ${EXTRA_BUILD_FLAGS} -o tests/ $(go list ${EXTRA_BUILD_FLAGS} -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' -coverpkg=$(shell go list ./... | paste -sd, -) ./...)
 
 FROM debian:stable-slim
 

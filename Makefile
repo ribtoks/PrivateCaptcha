@@ -7,7 +7,10 @@ SQLC_MIGRATION_FIX = pkg/db/migrations/postgres/000000_sqlc_fix.sql
 EXTRA_BUILD_FLAGS ?=
 
 test-unit:
-	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short -coverprofile=coverage_unit.out ./...
+	@env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short
+
+test-unit-cover:
+	@env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short -coverprofile=coverage_unit.out -coverpkg=$(shell go list ./... | paste -sd, -) ./...
 
 bench-unit:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -bench=. -benchtime=20s -short ./...
@@ -25,7 +28,7 @@ vendors:
 build: build-server build-loadtest build-view-emails build-view-widget build-puzzledbg
 
 build-tests:
-	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -c -cover -covermode=atomic $(EXTRA_BUILD_FLAGS) -o tests/ $(shell go list $(EXTRA_BUILD_FLAGS) -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
+	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -c -cover -covermode=atomic $(EXTRA_BUILD_FLAGS) -o tests/ $(shell go list $(EXTRA_BUILD_FLAGS) -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' -coverpkg=$(shell go list $(EXTRA_BUILD_FLAGS) ./... | paste -sd, -) ./...)
 
 build-tests-ee: EXTRA_BUILD_FLAGS = -tags enterprise
 build-tests-ee: build-tests
