@@ -22,7 +22,7 @@ vendors:
 	go mod tidy
 	go mod vendor
 
-build: build-server build-loadtest
+build: build-server build-loadtest build-view-emails build-view-widget build-puzzledbg
 
 build-tests:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -c -cover -covermode=atomic $(EXTRA_BUILD_FLAGS) -o tests/ $(shell go list $(EXTRA_BUILD_FLAGS) -f '{{if .TestGoFiles}}{{.ImportPath}}{{end}}' ./...)
