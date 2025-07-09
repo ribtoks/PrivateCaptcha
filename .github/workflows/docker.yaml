@@ -12,6 +12,7 @@ concurrency:
 jobs:
   community-build-and-push:
     runs-on: ubuntu-latest
+    environment: Docker release
 
     permissions:
       contents: read
@@ -53,6 +54,7 @@ jobs:
 
   enterprise-build-and-push:
     runs-on: ubuntu-latest
+    environment: Docker release
 
     permissions:
       contents: read
