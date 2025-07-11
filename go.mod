@@ -2,7 +2,7 @@ module github.com/PrivateCaptcha/PrivateCaptcha
 
 go 1.24
 
-toolchain go1.24.4
+toolchain go1.24.5
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.37.2
