@@ -121,7 +121,7 @@ func TestZeroPuzzleMarshalling(t *testing.T) {
 	checkPuzzles(puzzle, &newPuzzle, t)
 }
 
-func TestPuzzlePayloadPrefix(t *testing.T) {
+func TestPuzzlePayloadSuffix(t *testing.T) {
 	t.Parallel()
 
 	ctx := context.TODO()
