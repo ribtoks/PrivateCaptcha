@@ -52,8 +52,6 @@ var (
 	}
 )
 
-type verifyFunc func(w http.ResponseWriter, r *http.Request) (*puzzle.VerifyResult, error)
-
 type Server struct {
 	Stage              string
 	BusinessDB         db.Implementor
@@ -487,33 +485,6 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
-}
-
-func (s *Server) privateCaptchaResponseHandler(vf verifyFunc) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		result, err := vf(w, r)
-		if err != nil {
-			return
-		}
-
-		vr2 := &VerifyResponseRecaptchaV2{
-			Success:     result.Success(),
-			ErrorCodes:  result.ErrorsToStrings(),
-			ChallengeTS: common.JSONTime(result.CreatedAt),
-			Hostname:    result.Domain,
-		}
-
-		var response interface{} = vr2
-		if recaptchaCompatVersion := r.Header.Get(common.HeaderCaptchaCompat); recaptchaCompatVersion == "rcV3" {
-			response = &VerifyResponseRecaptchaV3{
-				VerifyResponseRecaptchaV2: *vr2,
-				Action:                    "",
-				Score:                     0.5,
-			}
-		}
-
-		common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
-	})
 }
 
 func (s *Server) addVerifyRecord(ctx context.Context, p *puzzle.Puzzle, property *dbgen.Property, verr puzzle.VerifyError) {
