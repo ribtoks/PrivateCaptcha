@@ -63,7 +63,7 @@ func TestMain(m *testing.M) {
 				CookieName:  "pcsid",
 				MaxLifetime: 1 * time.Minute,
 			},
-			PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Errors: []puzzle.VerifyError{puzzle.VerifyNoError}}},
+			PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}},
 			PlanService:  planService,
 		}
 
@@ -113,7 +113,7 @@ func TestMain(m *testing.M) {
 		},
 		Mailer:       &email.StubMailer{},
 		RateLimiter:  &ratelimit.StubRateLimiter{},
-		PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Errors: []puzzle.VerifyError{puzzle.VerifyNoError}}},
+		PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}},
 		Metrics:      monitoring.NewStub(),
 		PlanService:  planService,
 	}

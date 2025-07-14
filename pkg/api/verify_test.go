@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,10 +24,8 @@ import (
 func TestSerializeResponse(t *testing.T) {
 	v := VerifyResponseRecaptchaV3{
 		VerifyResponseRecaptchaV2: VerifyResponseRecaptchaV2{
-			VerifyResponse: VerifyResponse{
-				Success:    false,
-				ErrorCodes: []string{puzzle.VerifyErrorOther.String()},
-			},
+			Success:     false,
+			ErrorCodes:  []string{puzzle.VerifyErrorOther.String()},
 			ChallengeTS: common.JSONTimeNow(),
 			Hostname:    "hostname.com",
 		},
@@ -40,13 +39,13 @@ func TestSerializeResponse(t *testing.T) {
 	}
 }
 
-func verifySuite(response, secret string) (*http.Response, error) {
+func verifySuite(response, secret, endpoint string) (*http.Response, error) {
 	srv := http.NewServeMux()
 	s.Setup(srv, "", true /*verbose*/, common.NoopMiddleware)
 
 	//srv.HandleFunc("/", catchAll)
 
-	req, err := http.NewRequest(http.MethodPost, "/"+common.VerifyEndpoint, strings.NewReader(response))
+	req, err := http.NewRequest(http.MethodPost, "/"+endpoint, strings.NewReader(response))
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +129,7 @@ func TestVerifyPuzzle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := verifySuite(payload, apiKey)
+	resp, err := verifySuite(payload, apiKey, common.VerifyEndpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,13 +139,13 @@ func TestVerifyPuzzle(t *testing.T) {
 	}
 }
 
-func checkVerifyError(resp *http.Response, expected puzzle.VerifyError) error {
+func checkSiteVerifyError(resp *http.Response, expected puzzle.VerifyError) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 
-	response := &VerifyResponse{}
+	response := &VerifyResponseRecaptchaV2{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
 		return err
@@ -154,15 +153,15 @@ func checkVerifyError(resp *http.Response, expected puzzle.VerifyError) error {
 
 	if expected == puzzle.VerifyNoError {
 		if !response.Success {
-			return fmt.Errorf("Expected successful verification")
+			return errors.New("expected successful verification")
 		}
 
 		if len(response.ErrorCodes) > 0 {
-			return fmt.Errorf("Error codes present in response")
+			return errors.New("error code present in response")
 		}
 	} else {
 		if len(response.ErrorCodes) == 0 {
-			return fmt.Errorf("No error codes in response")
+			return errors.New("no error code in response")
 		}
 
 		if response.ErrorCodes[0] != expected.String() {
@@ -183,7 +182,7 @@ func TestVerifyPuzzleReplay(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := verifySuite(payload, apiKey)
+	resp, err := verifySuite(payload, apiKey, common.SiteVerifyEndpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,12 +192,12 @@ func TestVerifyPuzzleReplay(t *testing.T) {
 	}
 
 	// now second time the same
-	resp, err = verifySuite(payload, apiKey)
+	resp, err = verifySuite(payload, apiKey, common.SiteVerifyEndpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := checkVerifyError(resp, puzzle.VerifiedBeforeError); err != nil {
+	if err := checkSiteVerifyError(resp, puzzle.VerifiedBeforeError); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -220,7 +219,7 @@ func TestVerifyPuzzleAllowReplay(t *testing.T) {
 	// this should be still cached so we don't need to actually update DB
 	property.AllowReplay = true
 
-	resp, err := verifySuite(payload, apiKey)
+	resp, err := verifySuite(payload, apiKey, common.SiteVerifyEndpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,12 +229,12 @@ func TestVerifyPuzzleAllowReplay(t *testing.T) {
 	}
 
 	// now second time the same
-	resp, err = verifySuite(payload, apiKey)
+	resp, err = verifySuite(payload, apiKey, common.SiteVerifyEndpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if err := checkVerifyError(resp, puzzle.VerifyNoError); err != nil {
+	if err := checkSiteVerifyError(resp, puzzle.VerifyNoError); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -276,7 +275,7 @@ func TestVerifyCachePriority(t *testing.T) {
 
 	cache.SetMissing(ctx, db.APIKeyCacheKey(secret))
 
-	resp, err := verifySuite(fmt.Sprintf("%s.%s", solutionsStr, puzzleStr), secret)
+	resp, err := verifySuite(fmt.Sprintf("%s.%s", solutionsStr, puzzleStr), secret, common.SiteVerifyEndpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,7 +297,7 @@ func TestVerifyInvalidKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := verifySuite(payload, db.UUIDToSecret(*randomUUID()))
+	resp, err := verifySuite(payload, db.UUIDToSecret(*randomUUID()), common.VerifyEndpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +331,7 @@ func TestVerifyExpiredKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := verifySuite("a.b.c", db.UUIDToSecret(apikey.ExternalID))
+	resp, err := verifySuite("a.b.c", db.UUIDToSecret(apikey.ExternalID), common.SiteVerifyEndpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -361,7 +360,7 @@ func TestVerifyMaintenanceMode(t *testing.T) {
 	store.UpdateConfig(true /*maintenance mode*/)
 	defer store.UpdateConfig(false /*maintenance mode*/)
 
-	resp, err := verifySuite(payload, apiKey)
+	resp, err := verifySuite(payload, apiKey, common.SiteVerifyEndpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -370,7 +369,7 @@ func TestVerifyMaintenanceMode(t *testing.T) {
 		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
 	}
 
-	if err := checkVerifyError(resp, puzzle.MaintenanceModeError); err != nil {
+	if err := checkSiteVerifyError(resp, puzzle.MaintenanceModeError); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -400,7 +399,7 @@ func TestVerifyTestProperty(t *testing.T) {
 
 	secret := db.UUIDToSecret(apikey.ExternalID)
 
-	resp, err := verifySuite(payload, secret)
+	resp, err := verifySuite(payload, secret, common.SiteVerifyEndpoint)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -409,7 +408,7 @@ func TestVerifyTestProperty(t *testing.T) {
 		t.Errorf("Unexpected verify status code %d", resp.StatusCode)
 	}
 
-	if err := checkVerifyError(resp, puzzle.TestPropertyError); err != nil {
+	if err := checkSiteVerifyError(resp, puzzle.TestPropertyError); err != nil {
 		t.Fatal(err)
 	}
 }

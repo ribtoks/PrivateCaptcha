@@ -7,36 +7,38 @@ import (
 )
 
 type VerifyResult struct {
-	Errors    []VerifyError
+	Error     VerifyError
 	CreatedAt time.Time
 	Domain    string
 }
 
 func (vr *VerifyResult) Success() bool {
-	return (len(vr.Errors) == 0) ||
-		((len(vr.Errors) == 1) &&
-			(vr.Errors[0] == VerifyNoError) ||
-			(vr.Errors[0] == MaintenanceModeError) ||
-			(vr.Errors[0] == TestPropertyError))
+	return (vr.Error == VerifyNoError) ||
+		(vr.Error == MaintenanceModeError) ||
+		(vr.Error == TestPropertyError)
 }
 
-func (vr *VerifyResult) AddError(verr VerifyError) {
-	if verr != VerifyNoError {
-		vr.Errors = append(vr.Errors, verr)
+func (vr *VerifyResult) SetError(verr VerifyError) {
+	vr.Error = verr
+}
+
+func (vr *VerifyResult) ErrorString() string {
+	if vr.Error == VerifyNoError {
+		return ""
 	}
+
+	return vr.Error.String()
 }
 
 func (vr *VerifyResult) ErrorsToStrings() []string {
-	if len(vr.Errors) == 0 {
+	if vr.Error == VerifyNoError {
 		return []string{}
 	}
 
-	result := make([]string, 0, len(vr.Errors))
+	result := make([]string, 0, 1)
 
-	for _, err := range vr.Errors {
-		if err != VerifyNoError {
-			result = append(result, err.String())
-		}
+	if vr.Error != VerifyNoError {
+		result = append(result, vr.Error.String())
 	}
 
 	return result

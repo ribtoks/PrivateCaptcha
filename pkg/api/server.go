@@ -45,12 +45,14 @@ var (
 		http.CanonicalHeaderKey(common.HeaderContentType): []string{common.ContentTypePlain},
 	}
 	verifyResultErrorTest = &puzzle.VerifyResult{
-		Errors: []puzzle.VerifyError{puzzle.TestPropertyError},
+		Error: puzzle.TestPropertyError,
 	}
 	verifyResultErrorParse = &puzzle.VerifyResult{
-		Errors: []puzzle.VerifyError{puzzle.ParseResponseError},
+		Error: puzzle.ParseResponseError,
 	}
 )
+
+type verifyFunc func(w http.ResponseWriter, r *http.Request) (*puzzle.VerifyResult, error)
 
 type Server struct {
 	Stage              string
@@ -105,12 +107,15 @@ func (a *apiKeyOwnerSource) OwnerID(ctx context.Context, tnow time.Time) (int32,
 }
 
 type VerifyResponse struct {
-	Success    bool     `json:"success"`
-	ErrorCodes []string `json:"error-codes,omitempty"`
+	Success   bool            `json:"success"`
+	Origin    string          `json:"origin,omitempty"`
+	Timestamp common.JSONTime `json:"timestamp,omitempty"`
+	Error     string          `json:"message,omitempty"`
 }
 
 type VerifyResponseRecaptchaV2 struct {
-	VerifyResponse
+	Success     bool            `json:"success"`
+	ErrorCodes  []string        `json:"error-codes,omitempty"`
 	ChallengeTS common.JSONTime `json:"challenge_ts"`
 	Hostname    string          `json:"hostname"`
 }
@@ -202,7 +207,10 @@ func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandl
 	apiRateLimiter := s.RateLimiter.RateLimitExFunc(apiKeyLeakyBucketCap, apiKeyLeakInterval)
 
 	verifyChain := publicChain.Append(apiRateLimiter, monitoring.Traced, common.TimeoutHandler(5*time.Second), s.Auth.APIKey)
-	router.Handle(http.MethodPost+" "+prefix+common.VerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(http.HandlerFunc(s.verifyHandler), maxSolutionsBodySize)))
+	// reCAPTCHA compatibility
+	router.Handle(http.MethodPost+" "+prefix+common.SiteVerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(s.recaptchaResponseHandler(s.verifyHandler), maxSolutionsBodySize)))
+	// Private Captcha format
+	router.Handle(http.MethodPost+" "+prefix+common.VerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(s.pcResponseHandler(s.verifyHandler), maxSolutionsBodySize)))
 
 	// "root" access
 	router.Handle(prefix+"{$}", publicChain.Then(common.HttpStatus(http.StatusForbidden)))
@@ -340,9 +348,9 @@ func (s *Server) Verify(ctx context.Context, data []byte, expectedOwner puzzle.O
 		return verifyResultErrorParse, nil
 	}
 
-	result := &puzzle.VerifyResult{Errors: make([]puzzle.VerifyError, 0, 1)}
+	result := &puzzle.VerifyResult{}
 	puzzleObject, property, perr := s.verifyPuzzleValid(ctx, verifyPayload, tnow)
-	result.AddError(perr)
+	result.SetError(perr)
 	if puzzleObject != nil && !puzzleObject.IsZero() {
 		result.CreatedAt = puzzleObject.Expiration.Add(-puzzle.DefaultValidityPeriod)
 	}
@@ -360,7 +368,7 @@ func (s *Server) Verify(ctx context.Context, data []byte, expectedOwner puzzle.O
 			if (property.OrgOwnerID.Int32 != ownerID) && (property.CreatorID.Int32 != ownerID) {
 				slog.WarnContext(ctx, "Org owner does not match expected owner", "expectedOwner", ownerID,
 					"orgOwner", property.OrgOwnerID.Int32, "propertyCreator", property.CreatorID.Int32)
-				result.AddError(puzzle.WrongOwnerError)
+				result.SetError(puzzle.WrongOwnerError)
 				return result, nil
 			}
 		} else {
@@ -376,7 +384,7 @@ func (s *Server) Verify(ctx context.Context, data []byte, expectedOwner puzzle.O
 			"propertyID", property.ID)
 
 		s.addVerifyRecord(ctx, puzzleObject, property, verr)
-		result.AddError(verr)
+		result.SetError(verr)
 		return result, nil
 	}
 
@@ -391,14 +399,14 @@ func (s *Server) Verify(ctx context.Context, data []byte, expectedOwner puzzle.O
 	return result, nil
 }
 
-func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) {
+func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) (*puzzle.VerifyResult, error) {
 	ctx := r.Context()
 
 	data, err := io.ReadAll(r.Body)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to read request body", common.ErrAttr(err))
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return
+		return nil, err
 	}
 
 	result, err := s.Verify(ctx, data, &apiKeyOwnerSource{Store: s.BusinessDB}, time.Now().UTC())
@@ -411,7 +419,7 @@ func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) {
 		default:
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		}
-		return
+		return nil, err
 	}
 
 	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok && (apiKey != nil) {
@@ -421,25 +429,79 @@ func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) {
 		s.RateLimiter.UpdateRequestLimits(r, uint32(apiKey.RequestsBurst), time.Duration(interval))
 	}
 
-	vr2 := &VerifyResponseRecaptchaV2{
-		VerifyResponse: VerifyResponse{
-			Success:    result.Success(),
-			ErrorCodes: result.ErrorsToStrings(),
-		},
-		ChallengeTS: common.JSONTime(result.CreatedAt),
-		Hostname:    result.Domain,
-	}
+	return result, nil
+}
 
-	var response interface{} = vr2
-	if recaptchaCompatVersion := r.Header.Get(common.HeaderCaptchaCompat); recaptchaCompatVersion == "rcV3" {
-		response = &VerifyResponseRecaptchaV3{
-			VerifyResponseRecaptchaV2: *vr2,
-			Action:                    "",
-			Score:                     0.5,
+func (s *Server) recaptchaResponseHandler(vf verifyFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		result, err := vf(w, r)
+		if err != nil {
+			return
 		}
-	}
 
-	common.SendJSONResponse(ctx, w, response, common.NoCacheHeaders)
+		vr2 := &VerifyResponseRecaptchaV2{
+			Success:     result.Success(),
+			ErrorCodes:  result.ErrorsToStrings(),
+			ChallengeTS: common.JSONTime(result.CreatedAt),
+			Hostname:    result.Domain,
+		}
+
+		var response interface{} = vr2
+		if recaptchaCompatVersion := r.Header.Get(common.HeaderCaptchaCompat); recaptchaCompatVersion == "rcV3" {
+			response = &VerifyResponseRecaptchaV3{
+				VerifyResponseRecaptchaV2: *vr2,
+				Action:                    "",
+				Score:                     0.5,
+			}
+		}
+
+		common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
+	})
+}
+
+func (s *Server) pcResponseHandler(vf verifyFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		result, err := vf(w, r)
+		if err != nil {
+			return
+		}
+
+		response := &VerifyResponse{
+			Success:   result.Success(),
+			Origin:    result.Domain,
+			Timestamp: common.JSONTime(result.CreatedAt),
+			Error:     result.ErrorString(),
+		}
+
+		common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
+	})
+}
+
+func (s *Server) privateCaptchaResponseHandler(vf verifyFunc) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		result, err := vf(w, r)
+		if err != nil {
+			return
+		}
+
+		vr2 := &VerifyResponseRecaptchaV2{
+			Success:     result.Success(),
+			ErrorCodes:  result.ErrorsToStrings(),
+			ChallengeTS: common.JSONTime(result.CreatedAt),
+			Hostname:    result.Domain,
+		}
+
+		var response interface{} = vr2
+		if recaptchaCompatVersion := r.Header.Get(common.HeaderCaptchaCompat); recaptchaCompatVersion == "rcV3" {
+			response = &VerifyResponseRecaptchaV3{
+				VerifyResponseRecaptchaV2: *vr2,
+				Action:                    "",
+				Score:                     0.5,
+			}
+		}
+
+		common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
+	})
 }
 
 func (s *Server) addVerifyRecord(ctx context.Context, p *puzzle.Puzzle, property *dbgen.Property, verr puzzle.VerifyError) {
