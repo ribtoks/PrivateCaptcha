@@ -110,7 +110,7 @@ type VerifyResponse struct {
 	Success   bool            `json:"success"`
 	Origin    string          `json:"origin,omitempty"`
 	Timestamp common.JSONTime `json:"timestamp,omitempty"`
-	Error     string          `json:"message,omitempty"`
+	Error     string          `json:"error,omitempty"`
 }
 
 type VerifyResponseRecaptchaV2 struct {
