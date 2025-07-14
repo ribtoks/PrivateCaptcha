@@ -143,40 +143,47 @@ func TestPuzzlePayloadPrefix(t *testing.T) {
 
 	salt := NewSalt([]byte("salt"))
 	puzzleData, err := p.Serialize(ctx, salt, nil /*property salt*/)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	var buf bytes.Buffer
-	puzzleData.Write(&buf)
-	buf.Write(dotBytes)
+
 	buf.WriteString(solutions.String())
+	buf.Write(dotBytes)
+	puzzleData.Write(&buf)
 
 	data := buf.Bytes()
-	if puzzleData.IsPrefixFor(data[:puzzleData.Size()-1]) {
-		t.Error("Is prefix for shorter bytes")
+	dlen := len(data)
+
+	if puzzleData.IsSuffixFor(data[dlen-puzzleData.Size()+1:]) {
+		t.Error("Is suffix for shorter bytes")
 	}
 
-	if !puzzleData.IsPrefixFor(data[:puzzleData.Size()]) {
-		t.Error("Not prefix for just enough bytes")
+	if !puzzleData.IsSuffixFor(data[dlen-puzzleData.Size():]) {
+		t.Error("Not suffix for just enough bytes")
 	}
 
-	if !puzzleData.IsPrefixFor(data) {
-		t.Error("Not prefix for full bytes")
+	if !puzzleData.IsSuffixFor(data) {
+		t.Error("Not suffix for full bytes")
 	}
 
-	data[len(puzzleData.puzzleBase64)-1]++
-	if puzzleData.IsPrefixFor(data) {
-		t.Error("Is prefix for modified puzzle")
+	puzzleRef := data[(dlen - puzzleData.Size()):]
+	puzzleRef[len(puzzleData.puzzleBase64)-1]++
+	if puzzleData.IsSuffixFor(data) {
+		t.Error("Is suffix for modified puzzle")
 	}
-	data[len(puzzleData.puzzleBase64)-1]--
+	puzzleRef[len(puzzleData.puzzleBase64)-1]--
 	// ---------------------------------------------
-	data[len(puzzleData.puzzleBase64)]++
-	if puzzleData.IsPrefixFor(data) {
-		t.Error("Is prefix without dot")
+	puzzleRef[len(puzzleData.puzzleBase64)]++
+	if puzzleData.IsSuffixFor(data) {
+		t.Error("Is suffix without dot")
 	}
-	data[len(puzzleData.puzzleBase64)]--
+	puzzleRef[len(puzzleData.puzzleBase64)]--
 	// ---------------------------------------------
-	data[len(puzzleData.puzzleBase64)+1]++
-	if puzzleData.IsPrefixFor(data) {
-		t.Error("Is prefix for modified signature")
+	puzzleRef[len(puzzleData.puzzleBase64)+1]++
+	if puzzleData.IsSuffixFor(data) {
+		t.Error("Is suffix for modified signature")
 	}
-	data[len(puzzleData.puzzleBase64)+1]--
+	puzzleRef[len(puzzleData.puzzleBase64)+1]--
 }

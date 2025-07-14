@@ -323,10 +323,10 @@ func (s *Server) Write(ctx context.Context, p *puzzle.Puzzle, extraSalt []byte, 
 
 func (s *Server) Verify(ctx context.Context, data []byte, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.VerifyResult, error) {
 	// this is faster than doing base64 decoding and parsing of zero puzzle
-	if s.TestPuzzleData.IsPrefixFor(data) {
-		// lazy roughly check solutions
-		solutionsBase64Size := len(data) - s.TestPuzzleData.Size()
-		slog.Log(ctx, common.LevelTrace, "Detected test puzzle prefix in verify payload", "remaining", solutionsBase64Size)
+	if s.TestPuzzleData.IsSuffixFor(data) {
+		// lazy roughly check solutions (without "dot" and puzzle)
+		solutionsBase64Size := len(data) - s.TestPuzzleData.Size() - 1
+		slog.Log(ctx, common.LevelTrace, "Detected test puzzle suffix in verify payload", "remaining", solutionsBase64Size)
 		solutionsMaxSize := base64.StdEncoding.DecodedLen(solutionsBase64Size)
 		if solutionsMaxSize < int(s.TestPuzzle.SolutionsCount)*puzzle.SolutionLength {
 			return verifyResultErrorParse, nil

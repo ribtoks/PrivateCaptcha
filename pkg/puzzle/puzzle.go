@@ -264,23 +264,25 @@ func (pp *PuzzlePayload) Size() int {
 	return len(pp.signatureBase64) + len(pp.puzzleBase64) + len(dotBytes)
 }
 
-func (pp *PuzzlePayload) IsPrefixFor(data []byte) bool {
+func (pp *PuzzlePayload) IsSuffixFor(data []byte) bool {
 	dlen := len(data)
 	plen := len(pp.puzzleBase64)
 	slen := len(pp.signatureBase64)
-	if dlen < (plen + 1 + slen) {
+
+	start := dlen - (plen + 1 + slen)
+	if start < 0 {
 		return false
 	}
 
-	if !bytes.Equal(pp.puzzleBase64, data[:plen]) {
+	if !bytes.Equal(pp.puzzleBase64, data[start:(start+plen)]) {
 		return false
 	}
 
-	if data[plen] != dotBytes[0] {
+	if data[start+plen] != dotBytes[0] {
 		return false
 	}
 
-	if !bytes.Equal(pp.signatureBase64, data[(plen+1):(plen+1+slen)]) {
+	if !bytes.Equal(pp.signatureBase64, data[(start+plen+1):(start+plen+1+slen)]) {
 		return false
 	}
 

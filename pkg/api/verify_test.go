@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -410,5 +411,28 @@ func TestVerifyTestProperty(t *testing.T) {
 
 	if err := checkVerifyError(resp, puzzle.TestPropertyError); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestVerifyTestShortcut(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := context.TODO()
+
+	solver := &puzzle.Solver{}
+	solutions, _ := solver.Solve(s.TestPuzzle)
+
+	var buf bytes.Buffer
+
+	buf.WriteString(solutions.String())
+	buf.Write([]byte("."))
+	s.TestPuzzleData.Write(&buf)
+
+	payload := buf.String()
+
+	if result, _ := s.Verify(ctx, []byte(payload), nil /*expectedOwner*/, time.Now().UTC()); result != verifyResultErrorTest {
+		t.Fatal("verify result is not short circuited")
 	}
 }
