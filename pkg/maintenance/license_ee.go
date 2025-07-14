@@ -36,7 +36,7 @@ const (
 
 var (
 	// NOTE: for testing, replace with host.docker.internal domain
-	licenseURL               = fmt.Sprintf("https://api.privatecaptcha.com/%s/%s/", common.SelfHostedEndpoint, common.ActivationEndpoint)
+	licenseURL               = fmt.Sprintf("https://api.privatecaptcha.com/%s/%s", common.SelfHostedEndpoint, common.ActivationEndpoint)
 	errLicenseRequest        = errors.New("license request error")
 	errLicenseServer         = errors.New("license server error")
 	errEnterpriseConfigError = errors.New("enterprise config error")
