@@ -7,7 +7,7 @@ SQLC_MIGRATION_FIX = pkg/db/migrations/postgres/000000_sqlc_fix.sql
 EXTRA_BUILD_FLAGS ?=
 
 test-unit:
-	@env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short
+	@env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short ./...
 
 test-unit-cover:
 	@env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short -coverprofile=coverage_unit.cov -coverpkg=$(shell go list ./... | paste -sd, -) ./...
