@@ -106,11 +106,20 @@ func (a *apiKeyOwnerSource) OwnerID(ctx context.Context, tnow time.Time) (int32,
 	return apiKey.UserID.Int32, nil
 }
 
-type VerifyResponse struct {
-	Success   bool            `json:"success"`
-	Origin    string          `json:"origin,omitempty"`
-	Timestamp common.JSONTime `json:"timestamp,omitempty"`
-	Error     string          `json:"error,omitempty"`
+type VerificationData struct {
+	Origin    string          `json:"origin"`
+	Timestamp common.JSONTime `json:"timestamp"`
+}
+
+type VerificationError struct {
+	Code    puzzle.VerifyError `json:"code"`
+	Message string             `json:"message"`
+}
+
+type VerificationResponse struct {
+	Success bool               `json:"success"`
+	Data    *VerificationData  `json:"data,omitempty"`
+	Error   *VerificationError `json:"error,omitempty"`
 }
 
 type VerifyResponseRecaptchaV2 struct {
@@ -208,9 +217,9 @@ func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandl
 
 	verifyChain := publicChain.Append(apiRateLimiter, monitoring.Traced, common.TimeoutHandler(5*time.Second), s.Auth.APIKey)
 	// reCAPTCHA compatibility
-	router.Handle(http.MethodPost+" "+prefix+common.SiteVerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(s.recaptchaResponseHandler(s.verifyHandler), maxSolutionsBodySize)))
+	router.Handle(http.MethodPost+" "+prefix+common.SiteVerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(http.HandlerFunc(s.recaptchaVerifyHandler), maxSolutionsBodySize)))
 	// Private Captcha format
-	router.Handle(http.MethodPost+" "+prefix+common.VerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(s.pcResponseHandler(s.verifyHandler), maxSolutionsBodySize)))
+	router.Handle(http.MethodPost+" "+prefix+common.VerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(http.HandlerFunc(s.pcVerifyHandler), maxSolutionsBodySize)))
 
 	// "root" access
 	router.Handle(prefix+"{$}", publicChain.Then(common.HttpStatus(http.StatusForbidden)))
@@ -432,49 +441,52 @@ func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) (*puzzle.
 	return result, nil
 }
 
-func (s *Server) recaptchaResponseHandler(vf verifyFunc) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		result, err := vf(w, r)
-		if err != nil {
-			return
-		}
+func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) {
+	result, err := s.verifyHandler(w, r)
+	if err != nil {
+		return
+	}
 
-		vr2 := &VerifyResponseRecaptchaV2{
-			Success:     result.Success(),
-			ErrorCodes:  result.ErrorsToStrings(),
-			ChallengeTS: common.JSONTime(result.CreatedAt),
-			Hostname:    result.Domain,
-		}
+	vr2 := &VerifyResponseRecaptchaV2{
+		Success:     result.Success(),
+		ErrorCodes:  result.ErrorsToStrings(),
+		ChallengeTS: common.JSONTime(result.CreatedAt),
+		Hostname:    result.Domain,
+	}
 
-		var response interface{} = vr2
-		if recaptchaCompatVersion := r.Header.Get(common.HeaderCaptchaCompat); recaptchaCompatVersion == "rcV3" {
-			response = &VerifyResponseRecaptchaV3{
-				VerifyResponseRecaptchaV2: *vr2,
-				Action:                    "",
-				Score:                     0.5,
-			}
+	var response interface{} = vr2
+	if recaptchaCompatVersion := r.Header.Get(common.HeaderCaptchaCompat); recaptchaCompatVersion == "rcV3" {
+		response = &VerifyResponseRecaptchaV3{
+			VerifyResponseRecaptchaV2: *vr2,
+			Action:                    "",
+			Score:                     0.5,
 		}
+	}
 
-		common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
-	})
+	common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
 }
 
-func (s *Server) pcResponseHandler(vf verifyFunc) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		result, err := vf(w, r)
-		if err != nil {
-			return
-		}
+func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
+	result, err := s.verifyHandler(w, r)
+	if err != nil {
+		return
+	}
 
-		response := &VerifyResponse{
-			Success:   result.Success(),
+	response := &VerificationResponse{Success: result.Success()}
+
+	if response.Success {
+		response.Data = &VerificationData{
 			Origin:    result.Domain,
 			Timestamp: common.JSONTime(result.CreatedAt),
-			Error:     result.ErrorString(),
 		}
+	} else {
+		response.Error = &VerificationError{
+			Code:    result.Error,
+			Message: result.ErrorString(),
+		}
+	}
 
-		common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
-	})
+	common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
 }
 
 func (s *Server) privateCaptchaResponseHandler(vf verifyFunc) http.Handler {

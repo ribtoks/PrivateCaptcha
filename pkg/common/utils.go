@@ -85,7 +85,7 @@ func SendJSONResponse(ctx context.Context, w http.ResponseWriter, data interface
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to send response", ErrAttr(err))
 	} else {
-		slog.DebugContext(ctx, "Sent response", "serialized", len(response), "sent", n)
+		slog.Log(ctx, LevelTrace, "Sent response", "serialized", len(response), "sent", n)
 	}
 }
 
