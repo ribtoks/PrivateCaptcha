@@ -109,7 +109,6 @@ type VerificationResponse struct {
 	Code      puzzle.VerifyError `json:"status"`
 	Origin    string             `json:"origin,omitempty"`
 	Timestamp common.JSONTime    `json:"timestamp,omitempty"`
-	Error     string             `json:"error,omitempty"`
 }
 
 type VerifyResponseRecaptchaV2 struct {
@@ -467,10 +466,6 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		Code:      result.Error,
 		Origin:    result.Domain,
 		Timestamp: common.JSONTime(result.CreatedAt),
-	}
-
-	if response.Code != puzzle.VerifyNoError {
-		response.Error = result.Error.String()
 	}
 
 	common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
