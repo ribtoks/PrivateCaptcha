@@ -13,6 +13,10 @@ const PUZZLE_ENDPOINT_URL = 'https://api.privatecaptcha.com/puzzle';
 const PUZZLE_EU_ENDPOINT_URL = 'https://api.eu.privatecaptcha.com/puzzle';
 
 
+/**
+ * @param {HTMLElement} element
+ * @returns {HTMLFormElement | null}
+ */
 function findParentFormElement(element) {
     while (element && element.tagName !== 'FORM') {
         element = element.parentElement;
@@ -21,6 +25,10 @@ function findParentFormElement(element) {
 }
 
 export class CaptchaWidget {
+    /**
+     * @param {HTMLElement} element
+     * @param {Object} options
+     */
     constructor(element, options = {}) {
         this._element = element;
         this._puzzle = null;
@@ -69,6 +77,9 @@ export class CaptchaWidget {
         }
     }
 
+    /**
+     * @param {Object} options
+     */
     setOptions(options) {
         const euOnly = this._element.dataset["eu"] || null;
         const defaultEndpoint = euOnly ? PUZZLE_EU_ENDPOINT_URL : PUZZLE_ENDPOINT_URL;
@@ -91,7 +102,10 @@ export class CaptchaWidget {
         }, options);
     }
 
-    // fetches puzzle from the server and setup workers
+    /**
+     * Fetches puzzle from the server and sets up workers.
+     * @param {boolean} autoStart
+     */
     async init(autoStart) {
         this.trace(`init() was called. state=${this._state}`);
 
@@ -138,6 +152,10 @@ export class CaptchaWidget {
         }
     }
 
+    /**
+     * Ensures that we have a sitekey available (defined or passed through options)
+     * @returns {string | null}
+     */
     checkConfigured() {
         const sitekey = this._options.sitekey || this._element.dataset["sitekey"];
         if (!sitekey) {
@@ -238,6 +256,10 @@ export class CaptchaWidget {
         }
     }
 
+    /**
+     * Resets widget to a state when `start()` or `execute()` can be called again
+     * @param {Object} options
+     */
     reset(options = {}) {
         this.trace('reset captcha')
 
@@ -264,10 +286,16 @@ export class CaptchaWidget {
         this.init(this._userStarted);
     }
 
+    /**
+     * @returns {string} value of the puzzle solution that needs to be sent for verification
+     */
     solution() {
         return this._solution;
     }
 
+    /**
+     * @param {FocusEvent} event
+     */
     onFocusIn(event) {
         this.trace('onFocusIn event handler');
         const pcElement = this._element.querySelector('private-captcha');
@@ -280,9 +308,12 @@ export class CaptchaWidget {
         this.setProgressState(this._state);
     }
 
+    /**
+     * A programmatic way of starting solving the puzzle (as opposed to user input way)
+     * @returns {Promise<never>} promise intentionally does not resolve so that the form can be submitted via the callbacks
+     */
     execute() {
         this.onChecked();
-        // this promise intentionally does not resolve so that the form can be submitted via the callbacks
         return new Promise(() => { });
     }
 
@@ -323,6 +354,9 @@ export class CaptchaWidget {
         if (finished) { this.signalFinished(); }
     }
 
+    /**
+     * @param {boolean} autoStart
+     */
     onWorkersReady(autoStart) {
         this.trace(`workers are ready. autostart=${autoStart}`);
 
@@ -336,6 +370,9 @@ export class CaptchaWidget {
         }
     }
 
+    /**
+     * @param {Error} error
+     */
     onWorkerError(error) {
         console.error('[privatecaptcha] error in worker:', error)
         this._errorCode = errors.ERROR_SOLVE_PUZZLE;
@@ -365,6 +402,9 @@ export class CaptchaWidget {
         }
     }
 
+    /**
+     * @param {number} percent
+     */
     onWorkProgress(percent) {
         if (this._state !== STATE_IN_PROGRESS) {
             console.warn(`[privatecaptcha] skipping progress update. state=${this._state}`);
@@ -387,7 +427,10 @@ export class CaptchaWidget {
         this.trace(`saved solutions. payload=${payload}`);
     }
 
-    // this updates the "UI" state of the widget
+    /**
+     * Updates the "UI" state of the widget.
+     * @param {string} state
+     */
     setProgressState(state) {
         // NOTE: hidden display mode is taken care of inside setState() even when (_userStarted == true)
         const canShow = this._userStarted || (DISPLAY_WIDGET === this._options.displayMode);
@@ -401,7 +444,10 @@ export class CaptchaWidget {
         }
     }
 
-    // this updates the "internal" (actual) state
+    /**
+     * Updates the "internal" (actual) state.
+     * @param {string} state
+     */
     setState(state) {
         this.trace(`change state. old=${this._state} new=${state}`);
         this._state = state;
@@ -414,6 +460,9 @@ export class CaptchaWidget {
         }
     }
 
+    /**
+     * @param {number} progress
+     */
     setProgress(progress) {
         this._lastProgress = progress;
         if ((STATE_IN_PROGRESS == this._state) || (STATE_VERIFIED == this._state)) {
@@ -423,6 +472,9 @@ export class CaptchaWidget {
         }
     }
 
+    /**
+     * @param {string} str
+     */
     trace(str) {
         if (this._options.debug) {
             console.debug('[privatecaptcha]', str)

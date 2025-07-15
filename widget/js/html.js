@@ -37,14 +37,28 @@ const verifiedSVG = `<svg class="verified" xmlns="http://www.w3.org/2000/svg" vi
 </svg>
 `;
 
+/**
+ * @param {string} cls
+ * @returns {string} checkbox input definition string
+ */
 function checkbox(cls) {
     return `<input type="checkbox" id="${CHECKBOX_ID}" class="${cls}" required>`
 }
 
+/**
+ * @param {string} text
+ * @param {string} forElement
+ * @returns {string} checkbox label definition string
+ */
 function label(text, forElement) {
     return `<label for="${forElement}">${text}</label>`;
 }
 
+/**
+ * @param {number} code
+ * @param {Object<string, string>} strings
+ * @returns {string} error message
+ */
 function errorDescription(code, strings) {
     switch (code) {
         case errors.ERROR_NO_ERROR:
@@ -95,6 +109,10 @@ export class CaptchaElement extends SafeHTMLElement {
         this.setState(STATE_EMPTY, canShow);
     }
 
+    /**
+     * @param {string} state
+     * @param {boolean} canShow
+     */
     setState(state, canShow) {
         if (state == this._state) {
             console.debug('[privatecaptcha][progress] already in this state: ' + state);
@@ -181,6 +199,9 @@ export class CaptchaElement extends SafeHTMLElement {
         }
     }
 
+    /**
+     * @param {Event} event
+     */
     onCheckboxClicked(event) {
         event.preventDefault();
         if (this._debug) {
@@ -193,6 +214,9 @@ export class CaptchaElement extends SafeHTMLElement {
         }
     }
 
+    /**
+     * @param {number} percent
+     */
     setProgress(percent) {
         if (STATE_IN_PROGRESS == this._state) {
             const progressBar = this._root.getElementById(PROGRESS_ID);
@@ -208,10 +232,17 @@ export class CaptchaElement extends SafeHTMLElement {
         }
     }
 
+    /**
+     * @param {number} value
+     */
     setError(value) {
         this._error = value;
     }
 
+    /**
+     * @param {string} text
+     * @param {boolean} error
+     */
     setDebugText(text, error) {
         const debugElement = this._root.getElementById(DEBUG_ID);
         if (debugElement) {
@@ -235,6 +266,11 @@ export class CaptchaElement extends SafeHTMLElement {
         return ['state', 'progress'];
     }
 
+    /**
+     * @param {string} name
+     * @param {string} oldValue
+     * @param {string} newValue
+     */
     attributeChangedCallback(name, oldValue, newValue) {
         if ('progress' === name) {
             this.setProgress(newValue);
