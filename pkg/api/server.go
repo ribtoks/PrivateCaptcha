@@ -106,7 +106,7 @@ func (a *apiKeyOwnerSource) OwnerID(ctx context.Context, tnow time.Time) (int32,
 
 type VerificationResponse struct {
 	Success   bool               `json:"success"`
-	Code      puzzle.VerifyError `json:"status"`
+	Code      puzzle.VerifyError `json:"code"`
 	Origin    string             `json:"origin,omitempty"`
 	Timestamp common.JSONTime    `json:"timestamp,omitempty"`
 }
