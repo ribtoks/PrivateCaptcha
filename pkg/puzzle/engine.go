@@ -22,14 +22,6 @@ func (vr *VerifyResult) SetError(verr VerifyError) {
 	vr.Error = verr
 }
 
-func (vr *VerifyResult) ErrorString() string {
-	if vr.Error == VerifyNoError {
-		return ""
-	}
-
-	return vr.Error.String()
-}
-
 func (vr *VerifyResult) ErrorsToStrings() []string {
 	if vr.Error == VerifyNoError {
 		return []string{}

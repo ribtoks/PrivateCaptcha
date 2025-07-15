@@ -104,20 +104,12 @@ func (a *apiKeyOwnerSource) OwnerID(ctx context.Context, tnow time.Time) (int32,
 	return apiKey.UserID.Int32, nil
 }
 
-type VerificationData struct {
-	Origin    string          `json:"origin"`
-	Timestamp common.JSONTime `json:"timestamp"`
-}
-
-type VerificationError struct {
-	Code    puzzle.VerifyError `json:"code"`
-	Message string             `json:"message"`
-}
-
 type VerificationResponse struct {
-	Success bool               `json:"success"`
-	Data    *VerificationData  `json:"data,omitempty"`
-	Error   *VerificationError `json:"error,omitempty"`
+	Success   bool               `json:"success"`
+	Code      puzzle.VerifyError `json:"status"`
+	Origin    string             `json:"origin,omitempty"`
+	Timestamp common.JSONTime    `json:"timestamp,omitempty"`
+	Error     string             `json:"error,omitempty"`
 }
 
 type VerifyResponseRecaptchaV2 struct {
@@ -470,18 +462,15 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := &VerificationResponse{Success: result.Success()}
+	response := &VerificationResponse{
+		Success:   result.Success(),
+		Code:      result.Error,
+		Origin:    result.Domain,
+		Timestamp: common.JSONTime(result.CreatedAt),
+	}
 
-	if response.Success {
-		response.Data = &VerificationData{
-			Origin:    result.Domain,
-			Timestamp: common.JSONTime(result.CreatedAt),
-		}
-	} else {
-		response.Error = &VerificationError{
-			Code:    result.Error,
-			Message: result.ErrorString(),
-		}
+	if response.Code != puzzle.VerifyNoError {
+		response.Error = result.Error.String()
 	}
 
 	common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
