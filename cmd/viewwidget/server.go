@@ -126,6 +126,11 @@ func (s *server) submit(w http.ResponseWriter, r *http.Request) {
 
 	p := verifyPayload.Puzzle()
 
+	if p.IsStub() {
+		fmt.Fprintln(w, greenPage)
+		return
+	}
+
 	tnow := time.Now().UTC()
 	if !tnow.Before(p.Expiration) {
 		slog.WarnContext(ctx, "Puzzle is expired", "expiration", p.Expiration, "now", tnow)
