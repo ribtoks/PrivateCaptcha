@@ -1,5 +1,8 @@
 <a name="top"></a>
-<img src="/web/static/img/pc-logo-dark.svg" height="50" />
+<picture>
+    <source media="(prefers-color-scheme: dark)" srcset="/web/static/img/pc-logo-light.png">
+    <img alt="Private Captcha Logo" src="/web/static/img/pc-logo-dark.svg" height="50">
+</picture>
 ---
 
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/PrivateCaptcha/PrivateCaptcha)
