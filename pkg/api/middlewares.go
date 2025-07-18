@@ -315,48 +315,60 @@ func isAPIKeyValid(ctx context.Context, key *dbgen.APIKey, tnow time.Time) bool 
 	return true
 }
 
-func (am *AuthMiddleware) APIKey(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		secret := r.Header.Get(common.HeaderAPIKey)
-		if len(secret) != db.SecretLen {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-			return
-		}
+func headerAPIKey(r *http.Request) string {
+	return r.Header.Get(common.HeaderAPIKey)
+}
 
-		// security assumptions here are that API keys of all legitimate users should be already cached via
-		// the backfill routine for puzzles (legitimate verification assumes a previously issued puzzle if on the same server)
-		// for everybody else, we rely on rate limiting and delaying DB access to check API key as long as possible.
-		// The only exception is when due to routing and/or horizontally scaled servers verify request lands on another node
-		apiKey, err := am.Store.Impl().GetCachedAPIKey(ctx, secret)
-		if err != nil {
-			switch err {
-			case db.ErrNegativeCacheHit, db.ErrRecordNotFound, db.ErrSoftDeleted:
-				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-				return
-			case db.ErrInvalidInput:
+func formSecretAPIKey(r *http.Request) string {
+	return r.PostFormValue(common.ParamSecret)
+}
+
+func (am *AuthMiddleware) APIKey(keyFunc func(r *http.Request) string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			secret := keyFunc(r)
+			if len(secret) != db.SecretLen {
+				slog.Log(ctx, common.LevelTrace, "Invalid secret length", "length", len(secret))
 				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 				return
-			case db.ErrCacheMiss:
-				// do nothing - we postpone accessing DB to after we verify parts of the payload itself
-				// we do not backfill API keys like puzzles as we have to check API key validity synchronously
-			default:
-				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-				return
 			}
-		}
 
-		if apiKey != nil {
-			now := time.Now().UTC()
-			if !isAPIKeyValid(ctx, apiKey, now) {
-				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-				return
+			// security assumptions here are that API keys of all legitimate users should be already cached via
+			// the backfill routine for puzzles (legitimate verification assumes a previously issued puzzle if on the same server)
+			// for everybody else, we rely on rate limiting and delaying DB access to check API key as long as possible.
+			// The only exception is when due to routing and/or horizontally scaled servers verify request lands on another node
+			apiKey, err := am.Store.Impl().GetCachedAPIKey(ctx, secret)
+			if err != nil {
+				slog.Log(ctx, common.LevelTrace, "Failed to get cached API key", common.ErrAttr(err))
+				switch err {
+				case db.ErrNegativeCacheHit, db.ErrRecordNotFound, db.ErrSoftDeleted:
+					http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+					return
+				case db.ErrInvalidInput:
+					http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+					return
+				case db.ErrCacheMiss:
+					// do nothing - we postpone accessing DB to after we verify parts of the payload itself
+					// we do not backfill API keys like puzzles as we have to check API key validity synchronously
+				default:
+					http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+					return
+				}
 			}
-			ctx = context.WithValue(ctx, common.APIKeyContextKey, apiKey)
-		} else {
-			ctx = context.WithValue(ctx, common.SecretContextKey, secret)
-		}
 
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+			if apiKey != nil {
+				now := time.Now().UTC()
+				if !isAPIKeyValid(ctx, apiKey, now) {
+					http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+					return
+				}
+				ctx = context.WithValue(ctx, common.APIKeyContextKey, apiKey)
+			} else {
+				ctx = context.WithValue(ctx, common.SecretContextKey, secret)
+			}
+
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }

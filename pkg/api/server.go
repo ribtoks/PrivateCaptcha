@@ -204,11 +204,14 @@ func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandl
 	)
 	apiRateLimiter := s.RateLimiter.RateLimitExFunc(apiKeyLeakyBucketCap, apiKeyLeakInterval)
 
-	verifyChain := publicChain.Append(apiRateLimiter, monitoring.Traced, common.TimeoutHandler(5*time.Second), s.Auth.APIKey)
+	verifyChain := publicChain.Append(apiRateLimiter, monitoring.Traced, common.TimeoutHandler(5*time.Second))
 	// reCAPTCHA compatibility
-	router.Handle(http.MethodPost+" "+prefix+common.SiteVerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(http.HandlerFunc(s.recaptchaVerifyHandler), maxSolutionsBodySize)))
+	// the difference from our side is _when_ we fetch API key: for reCAPTCHA it comes in form field "secret" and
+	// we want to put it _behind_ the MaxBytesHandler, while for Private Captcha format (header) it can be before
+	formAPIAuth := s.Auth.APIKey(formSecretAPIKey)
+	router.Handle(http.MethodPost+" "+prefix+common.SiteVerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(formAPIAuth(http.HandlerFunc(s.recaptchaVerifyHandler)), maxSolutionsBodySize)))
 	// Private Captcha format
-	router.Handle(http.MethodPost+" "+prefix+common.VerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(http.HandlerFunc(s.pcVerifyHandler), maxSolutionsBodySize)))
+	router.Handle(http.MethodPost+" "+prefix+common.VerifyEndpoint, verifyChain.Append(s.Auth.APIKey(headerAPIKey)).Then(http.MaxBytesHandler(http.HandlerFunc(s.pcVerifyHandler), maxSolutionsBodySize)))
 
 	// "root" access
 	router.Handle(prefix+"{$}", publicChain.Then(common.HttpStatus(http.StatusForbidden)))
@@ -397,17 +400,19 @@ func (s *Server) Verify(ctx context.Context, data []byte, expectedOwner puzzle.O
 	return result, nil
 }
 
-func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) (*puzzle.VerifyResult, error) {
+// reCAPTCHA format: puzzle response is in form field "response", API key is in form field "secret"
+// https://developers.google.com/recaptcha/docs/verify
+func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	data, err := io.ReadAll(r.Body)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to read request body", common.ErrAttr(err))
+	data := r.FormValue(common.ParamResponse)
+	if len(data) == 0 {
+		slog.ErrorContext(ctx, "Empty captcha response")
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
-		return nil, err
+		return
 	}
 
-	result, err := s.Verify(ctx, data, &apiKeyOwnerSource{Store: s.BusinessDB}, time.Now().UTC())
+	result, err := s.Verify(ctx, []byte(data), &apiKeyOwnerSource{Store: s.BusinessDB}, time.Now().UTC())
 	if err != nil {
 		switch err {
 		case errPuzzleOwner:
@@ -417,7 +422,7 @@ func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) (*puzzle.
 		default:
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		}
-		return nil, err
+		return
 	}
 
 	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok && (apiKey != nil) {
@@ -425,15 +430,6 @@ func (s *Server) verifyHandler(w http.ResponseWriter, r *http.Request) (*puzzle.
 		// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
 		interval := float64(time.Second) / apiKey.RequestsPerSecond
 		s.RateLimiter.UpdateRequestLimits(r, uint32(apiKey.RequestsBurst), time.Duration(interval))
-	}
-
-	return result, nil
-}
-
-func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) {
-	result, err := s.verifyHandler(w, r)
-	if err != nil {
-		return
 	}
 
 	vr2 := &VerifyResponseRecaptchaV2{
@@ -455,10 +451,35 @@ func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) 
 	common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
 }
 
+// Private Captcha format: puzzle response is the whole body, API key is in header
 func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
-	result, err := s.verifyHandler(w, r)
+	ctx := r.Context()
+
+	data, err := io.ReadAll(r.Body)
 	if err != nil {
+		slog.ErrorContext(ctx, "Failed to read request body", common.ErrAttr(err))
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
+	}
+
+	result, err := s.Verify(ctx, data, &apiKeyOwnerSource{Store: s.BusinessDB}, time.Now().UTC())
+	if err != nil {
+		switch err {
+		case errPuzzleOwner:
+			// "late" auth check (we postpone API key check in case it's not cached in Auth)
+			// in this case we also automatically set "API key" (or whatever is passed) as missing in cache
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+		default:
+			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok && (apiKey != nil) {
+		// if we are not cached, then we will recheck via "delayed" mechanism of OwnerIDSource
+		// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
+		interval := float64(time.Second) / apiKey.RequestsPerSecond
+		s.RateLimiter.UpdateRequestLimits(r, uint32(apiKey.RequestsBurst), time.Duration(interval))
 	}
 
 	response := &VerificationResponse{

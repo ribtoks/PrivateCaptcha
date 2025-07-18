@@ -13,6 +13,7 @@ const (
 	ContentTypeJSON       = "application/json"
 	ContentTypeURLEncoded = "application/x-www-form-urlencoded"
 	ParamSiteKey          = "sitekey"
+	ParamSecret           = "secret"
 	ParamResponse         = "response"
 	ParamEmail            = "email"
 	ParamName             = "name"

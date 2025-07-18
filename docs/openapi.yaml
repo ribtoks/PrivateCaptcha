@@ -20,6 +20,7 @@ externalDocs:
   url: https://privatecaptcha.com
 servers:
   - url: https://api.privatecaptcha.com
+  - url: https://api.eu.privatecaptcha.com
 tags:
   - name: puzzle
     description: Fetch Puzzle for client widget
@@ -87,13 +88,13 @@ paths:
           description: Rate limited
         "500":
           description: Unexpected internal error
-  /siteverify:
+  /verify:
     post:
       tags:
         - verify
-      summary: Verify puzzle solution
-      description: Verify form field with client solution
-      operationId: post-siteverify
+      summary: Verify puzzle solution (official API)
+      description: API to verify form field with client solution used by SDKs and API clients
+      operationId: post-verify
       requestBody:
         description: Solution
         content:
@@ -137,10 +138,64 @@ paths:
           description: API key rate limited
       security:
         - ApiKeyAuth: []
+  /siteverify:
+    post:
+      tags:
+        - verify
+      summary: Verify puzzle solution (reCAPCHA-compatible)
+      description: reCAPCHA-compatible API to verify form field with client solution
+      operationId: post-siteverify
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                secret:
+                  description: API key (auth)
+                  type: string
+                response:
+                  description: Solution of the solved captcha
+                  type: string
+        required: true
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SiteVerifyResponse"
+          headers:
+            X-Rate-Limit:
+              description: calls per second allowed to the API key
+              schema:
+                type: integer
+                format: int32
+            X-RateLimit-Remaining:
+              description: number of operations remaining in the given time slot
+              schema:
+                type: integer
+                format: int32
+            X-RateLimit-Reset:
+              description: number of seconds until rate limit is reset
+              schema:
+                type: integer
+                format: int32
+            Retry-After:
+              description: recommended number of seconds to wait until retrying
+              schema:
+                type: integer
+                format: int32
+        "400":
+          description: Invalid API key format
+        "403":
+          description: API key not found
+        "429":
+          description: API key rate limited
 
 components:
   schemas:
-    VerifyResponse:
+    SiteVerifyResponse:
       type: object
       required:
         - success
@@ -180,6 +235,25 @@ components:
         - property-test
         - maintenance-mode
         - integrity-error
+    VerifyResponse:
+      type: object
+      required:
+        - success
+        - code
+        - timestamp
+        - origin
+      properties:
+        success:
+          type: boolean
+        code:
+          type: number
+        origin:
+          type: string
+          example: example.com
+        timestamp:
+          type: string
+          format: date-time
+          example: "2009-11-10T23:00:00Z"
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
