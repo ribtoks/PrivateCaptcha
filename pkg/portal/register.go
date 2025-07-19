@@ -121,7 +121,11 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 }
 
 func createInternalTrial(plan billing.Plan, status string) *dbgen.CreateSubscriptionParams {
-	priceIDMonthly, _ := plan.PriceIDs()
+	priceIDMonthly, priceIDYearly := plan.PriceIDs()
+	priceID := priceIDMonthly
+	if len(priceID) == 0 {
+		priceID = priceIDYearly
+	}
 	return &dbgen.CreateSubscriptionParams{
 		ExternalProductID:      plan.ProductID(),
 		ExternalPriceID:        priceIDMonthly,
