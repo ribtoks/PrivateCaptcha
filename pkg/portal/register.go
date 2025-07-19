@@ -128,7 +128,7 @@ func createInternalTrial(plan billing.Plan, status string) *dbgen.CreateSubscrip
 	}
 	return &dbgen.CreateSubscriptionParams{
 		ExternalProductID:      plan.ProductID(),
-		ExternalPriceID:        priceIDMonthly,
+		ExternalPriceID:        priceID,
 		ExternalSubscriptionID: pgtype.Text{},
 		ExternalCustomerID:     pgtype.Text{},
 		Status:                 status,
