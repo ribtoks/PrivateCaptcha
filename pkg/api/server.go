@@ -74,18 +74,32 @@ var _ puzzle.Engine = (*Server)(nil)
 
 type apiKeyOwnerSource struct {
 	Store db.Implementor
+	key   *dbgen.APIKey
 }
 
 var _ puzzle.OwnerIDSource = (*apiKeyOwnerSource)(nil)
 
+func (a *apiKeyOwnerSource) cachedApiKey(ctx context.Context) (*dbgen.APIKey, bool) {
+	if a.key != nil {
+		return a.key, true
+	}
+
+	return nil, false
+}
+
 func (a *apiKeyOwnerSource) apiKey(ctx context.Context) (*dbgen.APIKey, error) {
 	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok {
+		a.key = apiKey
 		return apiKey, nil
 	}
 
 	if secret, ok := ctx.Value(common.SecretContextKey).(string); ok {
 		// this is the "postponed" DB access mentioned in APIKey() middleware
-		return a.Store.Impl().RetrieveAPIKey(ctx, secret)
+		key, err := a.Store.Impl().RetrieveAPIKey(ctx, secret)
+		if err != nil {
+			a.key = key
+		}
+		return key, err
 	}
 
 	return nil, errAPIKeyNotSet
@@ -412,7 +426,8 @@ func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result, err := s.Verify(ctx, []byte(data), &apiKeyOwnerSource{Store: s.BusinessDB}, time.Now().UTC())
+	ownerSource := &apiKeyOwnerSource{Store: s.BusinessDB}
+	result, err := s.Verify(ctx, []byte(data), ownerSource, time.Now().UTC())
 	if err != nil {
 		switch err {
 		case errPuzzleOwner:
@@ -425,7 +440,7 @@ func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok && (apiKey != nil) {
+	if apiKey, ok := ownerSource.cachedApiKey(ctx); ok {
 		// if we are not cached, then we will recheck via "delayed" mechanism of OwnerIDSource
 		// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
 		interval := float64(time.Second) / apiKey.RequestsPerSecond
@@ -462,7 +477,8 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := s.Verify(ctx, data, &apiKeyOwnerSource{Store: s.BusinessDB}, time.Now().UTC())
+	ownerSource := &apiKeyOwnerSource{Store: s.BusinessDB}
+	result, err := s.Verify(ctx, data, ownerSource, time.Now().UTC())
 	if err != nil {
 		switch err {
 		case errPuzzleOwner:
@@ -475,7 +491,7 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok && (apiKey != nil) {
+	if apiKey, ok := ownerSource.cachedApiKey(ctx); ok {
 		// if we are not cached, then we will recheck via "delayed" mechanism of OwnerIDSource
 		// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
 		interval := float64(time.Second) / apiKey.RequestsPerSecond
