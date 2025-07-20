@@ -73,23 +73,15 @@ type Server struct {
 var _ puzzle.Engine = (*Server)(nil)
 
 type apiKeyOwnerSource struct {
-	Store db.Implementor
-	key   *dbgen.APIKey
+	Store     db.Implementor
+	cachedKey *dbgen.APIKey
 }
 
 var _ puzzle.OwnerIDSource = (*apiKeyOwnerSource)(nil)
 
-func (a *apiKeyOwnerSource) cachedApiKey(ctx context.Context) (*dbgen.APIKey, bool) {
-	if a.key != nil {
-		return a.key, true
-	}
-
-	return nil, false
-}
-
 func (a *apiKeyOwnerSource) apiKey(ctx context.Context) (*dbgen.APIKey, error) {
 	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok {
-		a.key = apiKey
+		a.cachedKey = apiKey
 		return apiKey, nil
 	}
 
@@ -97,7 +89,7 @@ func (a *apiKeyOwnerSource) apiKey(ctx context.Context) (*dbgen.APIKey, error) {
 		// this is the "postponed" DB access mentioned in APIKey() middleware
 		key, err := a.Store.Impl().RetrieveAPIKey(ctx, secret)
 		if err != nil {
-			a.key = key
+			a.cachedKey = key
 		}
 		return key, err
 	}
@@ -440,7 +432,7 @@ func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if apiKey, ok := ownerSource.cachedApiKey(ctx); ok {
+	if apiKey := ownerSource.cachedKey; apiKey != nil {
 		// if we are not cached, then we will recheck via "delayed" mechanism of OwnerIDSource
 		// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
 		interval := float64(time.Second) / apiKey.RequestsPerSecond
@@ -491,7 +483,7 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if apiKey, ok := ownerSource.cachedApiKey(ctx); ok {
+	if apiKey := ownerSource.cachedKey; apiKey != nil {
 		// if we are not cached, then we will recheck via "delayed" mechanism of OwnerIDSource
 		// when rate limiting is cleaned up (due to inactivity) we should still be able to access on defaults
 		interval := float64(time.Second) / apiKey.RequestsPerSecond
