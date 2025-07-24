@@ -40,7 +40,8 @@ func connectClickhouse(ctx context.Context, opts ClickHouseConnectOpts) *sql.DB 
 		Settings: clickhouse.Settings{
 			"max_execution_time": 60,
 		},
-		DialTimeout: time.Second * 30,
+		ReadTimeout: 15 * time.Second,
+		DialTimeout: 30 * time.Second,
 		//Compression: &clickhouse.Compression{
 		//	Method: clickhouse.CompressionLZ4,
 		//},
