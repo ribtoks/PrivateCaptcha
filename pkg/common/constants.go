@@ -40,6 +40,7 @@ const (
 	ParamLicenseKey       = "lid"
 	ParamHardwareID       = "hwid"
 	ParamVersion          = "version"
+	ParamPortalSolution   = "pc_portal_solution"
 )
 
 var (

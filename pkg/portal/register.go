@@ -70,8 +70,9 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 		CaptchaRenderContext: s.CreateCaptchaRenderContext(db.PortalRegisterSitekey),
 	}
 
-	captchaSolution := r.FormValue(captchaSolutionField)
+	captchaSolution := r.FormValue(common.ParamPortalSolution)
 	if len(captchaSolution) == 0 {
+		slog.WarnContext(ctx, "Captcha solution field is empty")
 		data.CaptchaError = "You need to solve captcha to register."
 		s.render(w, r, registerFormTemplate, data)
 		return

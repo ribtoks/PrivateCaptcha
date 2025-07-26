@@ -13,10 +13,6 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 )
 
-const (
-	captchaSolutionField = "plSolution"
-)
-
 // NOTE: this will eventually be replaced by proper OTP
 func twoFactorCode() int {
 	return randv2.IntN(900000) + 100000
@@ -157,7 +153,7 @@ func (s *Server) CreateCaptchaRenderContext(sitekey string) CaptchaRenderContext
 	return CaptchaRenderContext{
 		CaptchaEndpoint:      s.APIURL + "/" + common.PuzzleEndpoint,
 		CaptchaDebug:         (s.Stage == common.StageDev) || (s.Stage == common.StageStaging),
-		CaptchaSolutionField: captchaSolutionField,
+		CaptchaSolutionField: common.ParamPortalSolution,
 		CaptchaSitekey:       sitekey,
 	}
 }
@@ -166,7 +162,7 @@ func (s *Server) createDemoCaptchaRenderContext(sitekey string) CaptchaRenderCon
 	return CaptchaRenderContext{
 		CaptchaEndpoint:      "/" + common.EchoPuzzleEndpoint,
 		CaptchaDebug:         (s.Stage == common.StageDev) || (s.Stage == common.StageStaging),
-		CaptchaSolutionField: captchaSolutionField,
+		CaptchaSolutionField: common.ParamPortalSolution,
 		CaptchaSitekey:       sitekey,
 	}
 }

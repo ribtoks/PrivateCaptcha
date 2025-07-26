@@ -78,7 +78,7 @@ func TestMain(m *testing.M) {
 		Stage:              common.StageTest,
 		BusinessDB:         store,
 		TimeSeries:         timeSeries,
-		RateLimiter:        &ratelimit.StubRateLimiter{},
+		RateLimiter:        &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
 		Auth:               NewAuthMiddleware(store, NewUserLimiter(store), planService),
 		VerifyLogChan:      make(chan *common.VerifyRecord, 10*VerifyBatchSize),
 		Salt:               NewPuzzleSalt(cfg.Get(common.APISaltKey)),

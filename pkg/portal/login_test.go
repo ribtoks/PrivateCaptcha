@@ -131,6 +131,7 @@ func TestPostLogin(t *testing.T) {
 	form := url.Values{}
 	form.Add(common.ParamCSRFToken, csrfToken)
 	form.Add(common.ParamEmail, user.Email)
+	form.Add(common.ParamPortalSolution, "captcha solution")
 
 	// Send the POST request
 	req = httptest.NewRequest("POST", "/"+common.LoginEndpoint, bytes.NewBufferString(form.Encode()))

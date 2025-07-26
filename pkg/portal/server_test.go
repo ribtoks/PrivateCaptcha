@@ -112,7 +112,7 @@ func TestMain(m *testing.M) {
 			MaxLifetime: sessionStore.MaxLifetime(),
 		},
 		Mailer:       &email.StubMailer{},
-		RateLimiter:  &ratelimit.StubRateLimiter{},
+		RateLimiter:  &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
 		PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}},
 		Metrics:      monitoring.NewStub(),
 		PlanService:  planService,

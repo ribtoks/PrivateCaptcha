@@ -79,8 +79,9 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 		CanRegister:          s.canRegister.Load(),
 	}
 
-	captchaSolution := r.FormValue(captchaSolutionField)
+	captchaSolution := r.FormValue(common.ParamPortalSolution)
 	if len(captchaSolution) == 0 {
+		slog.WarnContext(ctx, "Captcha solution field is empty")
 		data.CaptchaError = "You need to solve captcha to login."
 		s.render(w, r, loginFormTemplate, data)
 		return

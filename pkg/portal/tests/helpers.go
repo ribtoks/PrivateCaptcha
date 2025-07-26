@@ -68,6 +68,7 @@ func AuthenticateSuite(ctx context.Context, email string, srv *http.ServeMux, xs
 	form := url.Values{}
 	form.Add(common.ParamCSRFToken, xsrf.Token(""))
 	form.Add(common.ParamEmail, email)
+	form.Add(common.ParamPortalSolution, "captchaSolution")
 
 	// Send the POST request
 	req := httptest.NewRequest("POST", "/"+common.LoginEndpoint, bytes.NewBufferString(form.Encode()))
