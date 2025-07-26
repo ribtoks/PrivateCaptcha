@@ -121,12 +121,15 @@ func (s *Server) Property(orgID int32, r *http.Request) (*dbgen.Property, error)
 
 func (s *Server) Session(w http.ResponseWriter, r *http.Request) *common.Session {
 	ctx := r.Context()
-	sess, ok := ctx.Value(common.SessionContextKey).(*common.Session)
-	if !ok {
-		slog.ErrorContext(ctx, "Failed to get session from context")
-		sess = s.Sessions.SessionStart(w, r)
+	if contextSession := ctx.Value(common.SessionContextKey); contextSession != nil {
+		if sess, ok := contextSession.(*common.Session); ok {
+			return sess
+		}
 	}
-	return sess
+
+	slog.ErrorContext(ctx, "Failed to get session from context")
+
+	return s.Sessions.SessionStart(w, r)
 }
 
 func (s *Server) SessionUser(ctx context.Context, sess *common.Session) (*dbgen.User, error) {

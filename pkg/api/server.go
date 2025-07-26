@@ -80,9 +80,11 @@ type apiKeyOwnerSource struct {
 var _ puzzle.OwnerIDSource = (*apiKeyOwnerSource)(nil)
 
 func (a *apiKeyOwnerSource) apiKey(ctx context.Context) (*dbgen.APIKey, error) {
-	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok {
-		a.cachedKey = apiKey
-		return apiKey, nil
+	if contextAPIKey := ctx.Value(common.APIKeyContextKey); contextAPIKey != nil {
+		if apiKey, ok := contextAPIKey.(*dbgen.APIKey); ok {
+			a.cachedKey = apiKey
+			return apiKey, nil
+		}
 	}
 
 	if secret, ok := ctx.Value(common.SecretContextKey).(string); ok {
@@ -225,12 +227,17 @@ func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandl
 
 func (s *Server) puzzleForRequest(r *http.Request) (*puzzle.Puzzle, *dbgen.Property, error) {
 	ctx := r.Context()
-	property, ok := ctx.Value(common.PropertyContextKey).(*dbgen.Property)
+	contextProperty := ctx.Value(common.PropertyContextKey)
+	property, isProperty := contextProperty.(*dbgen.Property)
+	contextIP := ctx.Value(common.RateLimitKeyContextKey)
+
 	// property will not be cached for auth.backfillDelay and we return an "average" puzzle instead
 	// this is done in order to not check the DB on the hot path (decrease attack surface)
-	if !ok {
-		sitekey := ctx.Value(common.SitekeyContextKey).(string)
-		if sitekey == db.TestPropertySitekey {
+	// and if IP address is missing from context, something is fishy
+	if (contextProperty == nil) || !isProperty || (contextIP == nil) {
+		sitekey, ok := ctx.Value(common.SitekeyContextKey).(string)
+
+		if !ok || (sitekey == db.TestPropertySitekey) {
 			return nil, nil, db.ErrTestProperty
 		}
 
@@ -255,9 +262,11 @@ func (s *Server) puzzleForRequest(r *http.Request) (*puzzle.Puzzle, *dbgen.Prope
 		// TODO: Check if we really need to take user agent into account here
 		// or it should be accounted on the anomaly detection side (user-agent is trivial to spoof)
 		// hash.Write([]byte(r.UserAgent()))
-		if ip, ok := ctx.Value(common.RateLimitKeyContextKey).(netip.Addr); ok && ip.IsValid() {
+		if ip, ok := contextIP.(netip.Addr); ok {
+			// if IP is not valid (empty), we do want for fingerprint to be the same as ths is fishy enough
 			hash.Write(ip.AsSlice())
 		} else {
+			// this stays as "Error" because we shouldn't even end up here
 			slog.ErrorContext(ctx, "Rate limit context key type mismatch", "ip", ip)
 			hash.Write([]byte(r.RemoteAddr))
 		}
