@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"io"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -24,7 +25,8 @@ const (
 	testPropertyDomain = "example.com"
 )
 
-func puzzleSuite(sitekey, domain string) (*http.Response, error) {
+func puzzleSuite(ctx context.Context, sitekey, domain string) (*http.Response, error) {
+	slog.Log(ctx, common.LevelTrace, "Running puzzle suite", "domain", domain, "sitekey", sitekey)
 	srv := http.NewServeMux()
 	s.Setup(srv, "", true /*verbose*/, common.NoopMiddleware)
 
@@ -59,8 +61,8 @@ func randomUUID() *pgtype.UUID {
 	return eid
 }
 
-func puzzleSuiteWithBackfillWait(t *testing.T, sitekey, domain string) {
-	resp, err := puzzleSuite(sitekey, domain)
+func puzzleSuiteWithBackfillWait(t *testing.T, ctx context.Context, sitekey, domain string) {
+	resp, err := puzzleSuite(ctx, sitekey, domain)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,7 +74,7 @@ func puzzleSuiteWithBackfillWait(t *testing.T, sitekey, domain string) {
 
 	time.Sleep(3 * authBackfillDelay)
 
-	resp, err = puzzleSuite(sitekey, domain)
+	resp, err = puzzleSuite(ctx, sitekey, domain)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +93,7 @@ func TestGetPuzzleWithoutAccount(t *testing.T) {
 
 	sitekey := db.UUIDToSiteKey(*randomUUID())
 
-	puzzleSuiteWithBackfillWait(t, sitekey, testPropertyDomain)
+	puzzleSuiteWithBackfillWait(t, context.TODO(), sitekey, testPropertyDomain)
 }
 
 func TestGetPuzzleWithoutSubscription(t *testing.T) {
@@ -126,7 +128,7 @@ func TestGetPuzzleWithoutSubscription(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	puzzleSuiteWithBackfillWait(t, sitekey, property.Domain)
+	puzzleSuiteWithBackfillWait(t, ctx, sitekey, property.Domain)
 }
 
 func parsePuzzle(resp *http.Response) (*puzzle.Puzzle, string, error) {
@@ -175,7 +177,7 @@ func TestGetPuzzle(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := puzzleSuite(db.UUIDToSiteKey(property.ExternalID), property.Domain)
+	resp, err := puzzleSuite(ctx, db.UUIDToSiteKey(property.ExternalID), property.Domain)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -199,7 +201,9 @@ func TestGetTestPuzzle(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	resp, err := puzzleSuite(db.TestPropertySitekey, "localhost" /*domain*/)
+	ctx := context.TODO()
+
+	resp, err := puzzleSuite(ctx, db.TestPropertySitekey, "localhost" /*domain*/)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -251,7 +255,7 @@ func TestPuzzleCachePriority(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := puzzleSuite(sitekey, property.Domain)
+	resp, err := puzzleSuite(ctx, sitekey, property.Domain)
 	if err != nil {
 		t.Fatal(err)
 	}

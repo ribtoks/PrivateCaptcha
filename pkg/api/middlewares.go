@@ -98,7 +98,7 @@ func NewUserLimiter(store db.Implementor) *baseUserLimiter {
 	var userLimits common.Cache[int32, bool]
 	var err error
 	// missing TTL should be equal to "usual" TTL here because it has the same meaning (we mark user has no violation)
-	userLimits, err = db.NewMemoryCache[int32, bool](maxLimitedUsers, false /*missing value*/, userLimitTTL, userLimitRefresh, userLimitTTL)
+	userLimits, err = db.NewMemoryCache[int32, bool]("user_limits", maxLimitedUsers, false /*missing value*/, userLimitTTL, userLimitRefresh, userLimitTTL)
 	if err != nil {
 		slog.Error("Failed to create memory cache for user limits", common.ErrAttr(err))
 		userLimits = db.NewStaticCache[int32, bool](maxLimitedUsers, false /*missing data*/)
@@ -251,7 +251,7 @@ func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				return
 			case db.ErrInvalidInput:
-				slog.Log(ctx, common.LevelTrace, "Sitekey is not valid", "method", r.Method)
+				slog.Log(ctx, common.LevelTrace, "Sitekey is not valid", "sitekey", len(sitekey), "origin", origin)
 				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 				return
 			case db.ErrTestProperty:

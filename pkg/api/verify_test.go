@@ -89,7 +89,7 @@ func siteVerifySuite(response, secret string) (*http.Response, error) {
 }
 
 func solutionsSuite(ctx context.Context, sitekey, domain string) (string, string, error) {
-	resp, err := puzzleSuite(sitekey, domain)
+	resp, err := puzzleSuite(ctx, sitekey, domain)
 	if err != nil {
 		return "", "", err
 	}

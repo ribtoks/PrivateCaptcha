@@ -22,6 +22,7 @@ var (
 )
 
 type memcache[TKey comparable, TValue comparable] struct {
+	name    string
 	store   *otter.Cache[TKey, TValue]
 	counter *stats.Counter
 	// TODO: Evaluate storing negative cache separately from the main one
@@ -30,7 +31,7 @@ type memcache[TKey comparable, TValue comparable] struct {
 	missingTTL   time.Duration
 }
 
-func NewMemoryCache[TKey comparable, TValue comparable](maxCacheSize int, missingValue TValue, expiryTTL, refreshTTL, missingTTL time.Duration) (*memcache[TKey, TValue], error) {
+func NewMemoryCache[TKey comparable, TValue comparable](name string, maxCacheSize int, missingValue TValue, expiryTTL, refreshTTL, missingTTL time.Duration) (*memcache[TKey, TValue], error) {
 	counter := stats.NewCounter()
 	store, err := otter.New(&otter.Options[TKey, TValue]{
 		MaximumSize:       maxCacheSize,
@@ -44,6 +45,7 @@ func NewMemoryCache[TKey comparable, TValue comparable](maxCacheSize int, missin
 	}
 
 	return &memcache[TKey, TValue]{
+		name:         name,
 		store:        store,
 		counter:      counter,
 		missingValue: missingValue,
@@ -64,18 +66,18 @@ func (c *memcache[TKey, TValue]) HitRatio() float64 {
 func (c *memcache[TKey, TValue]) Get(ctx context.Context, key TKey) (TValue, error) {
 	data, found := c.store.GetIfPresent(key)
 	if !found {
-		slog.Log(ctx, common.LevelTrace, "Item not found in memory cache", "key", key)
+		slog.Log(ctx, common.LevelTrace, "Item not found in memory cache", "cache", c.name, "key", key)
 		var zero TValue
 		return zero, ErrCacheMiss
 	}
 
 	if data == c.missingValue {
-		slog.Log(ctx, common.LevelTrace, "Item set as missing in memory cache", "key", key)
+		slog.Log(ctx, common.LevelTrace, "Item set as missing in memory cache", "cache", c.name, "key", key)
 		var zero TValue
 		return zero, ErrNegativeCacheHit
 	}
 
-	slog.Log(ctx, common.LevelTrace, "Found item in memory cache", "key", key)
+	slog.Log(ctx, common.LevelTrace, "Found item in memory cache", "cache", c.name, "key", key)
 
 	return data, nil
 }
@@ -84,13 +86,13 @@ func (c *memcache[TKey, TValue]) GetEx(ctx context.Context, key TKey, loader com
 	data, err := c.store.Get(ctx, key, loader)
 	if err != nil {
 		if errors.Is(err, otter.ErrNotFound) {
-			slog.Log(ctx, common.LevelTrace, "Item not found in memory cache", "key", key)
+			slog.Log(ctx, common.LevelTrace, "Item not found in memory cache", "cache", c.name, "key", key)
 
 			var zero TValue
 			return zero, ErrCacheMiss
 		}
 
-		slog.ErrorContext(ctx, "Failed to get item from memory cache", "key", key, common.ErrAttr(err))
+		slog.ErrorContext(ctx, "Failed to get item from memory cache", "cache", c.name, "key", key, common.ErrAttr(err))
 
 		return data, err
 	}
@@ -98,12 +100,12 @@ func (c *memcache[TKey, TValue]) GetEx(ctx context.Context, key TKey, loader com
 	if data == c.missingValue {
 		// we force-set TTL as it means loader function returned missing value, in contrast to using function SetMission()
 		c.store.SetExpiresAfter(key, c.missingTTL)
-		slog.Log(ctx, common.LevelTrace, "Item set as missing in memory cache", "key", key)
+		slog.Log(ctx, common.LevelTrace, "Item set as missing in memory cache", "cache", c.name, "key", key)
 		var zero TValue
 		return zero, ErrNegativeCacheHit
 	}
 
-	slog.Log(ctx, common.LevelTrace, "Found item in memory cache", "key", key)
+	slog.Log(ctx, common.LevelTrace, "Found item in memory cache", "cache", c.name, "key", key)
 
 	return data, nil
 }
@@ -112,7 +114,7 @@ func (c *memcache[TKey, TValue]) SetMissing(ctx context.Context, key TKey) error
 	c.store.Set(key, c.missingValue)
 	c.store.SetExpiresAfter(key, c.missingTTL)
 
-	slog.Log(ctx, common.LevelTrace, "Set item as missing in memory cache", "key", key)
+	slog.Log(ctx, common.LevelTrace, "Set item as missing in memory cache", "cache", c.name, "key", key)
 
 	return nil
 }
@@ -124,7 +126,7 @@ func (c *memcache[TKey, TValue]) Set(ctx context.Context, key TKey, t TValue) er
 
 	c.store.Set(key, t)
 
-	slog.Log(ctx, common.LevelTrace, "Saved item to memory cache", "key", key)
+	slog.Log(ctx, common.LevelTrace, "Saved item to memory cache", "cache", c.name, "key", key)
 
 	return nil
 }
@@ -137,7 +139,7 @@ func (c *memcache[TKey, TValue]) SetWithTTL(ctx context.Context, key TKey, t TVa
 	c.store.Set(key, t)
 	c.store.SetExpiresAfter(key, ttl)
 
-	slog.Log(ctx, common.LevelTrace, "Saved item to memory cache", "key", key, "ttl", ttl)
+	slog.Log(ctx, common.LevelTrace, "Saved item to memory cache", "cache", c.name, "key", key, "ttl", ttl)
 
 	return nil
 }
@@ -145,7 +147,7 @@ func (c *memcache[TKey, TValue]) SetWithTTL(ctx context.Context, key TKey, t TVa
 func (c *memcache[TKey, TValue]) Delete(ctx context.Context, key TKey) error {
 	_, found := c.store.Invalidate(key)
 
-	slog.Log(ctx, common.LevelTrace, "Deleted item from memory cache", "key", key, "found", found)
+	slog.Log(ctx, common.LevelTrace, "Deleted item from memory cache", "cache", c.name, "key", key, "found", found)
 
 	return nil
 }

@@ -37,6 +37,7 @@ var (
 	errAPIKeyNotSet  = errors.New("API key is not set in context")
 	errInvalidAPIKey = errors.New("API key is not valid")
 	errPuzzleOwner   = errors.New("error fetching puzzle owner")
+	errInvalidArg    = errors.New("invalid arguments")
 	headersAnyOrigin = map[string][]string{
 		http.CanonicalHeaderKey(common.HeaderAccessControlOrigin): []string{"*"},
 		http.CanonicalHeaderKey(common.HeaderAccessControlAge):    []string{"86400"},
@@ -80,14 +81,12 @@ type apiKeyOwnerSource struct {
 var _ puzzle.OwnerIDSource = (*apiKeyOwnerSource)(nil)
 
 func (a *apiKeyOwnerSource) apiKey(ctx context.Context) (*dbgen.APIKey, error) {
-	if contextAPIKey := ctx.Value(common.APIKeyContextKey); contextAPIKey != nil {
-		if apiKey, ok := contextAPIKey.(*dbgen.APIKey); ok {
-			a.cachedKey = apiKey
-			return apiKey, nil
-		}
+	if apiKey, ok := ctx.Value(common.APIKeyContextKey).(*dbgen.APIKey); ok && (apiKey != nil) {
+		a.cachedKey = apiKey
+		return apiKey, nil
 	}
 
-	if secret, ok := ctx.Value(common.SecretContextKey).(string); ok {
+	if secret, ok := ctx.Value(common.SecretContextKey).(string); ok && (len(secret) > 0) {
 		// this is the "postponed" DB access mentioned in APIKey() middleware
 		key, err := a.Store.Impl().RetrieveAPIKey(ctx, secret)
 		if err != nil {
@@ -227,17 +226,20 @@ func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandl
 
 func (s *Server) puzzleForRequest(r *http.Request) (*puzzle.Puzzle, *dbgen.Property, error) {
 	ctx := r.Context()
-	contextProperty := ctx.Value(common.PropertyContextKey)
-	property, isProperty := contextProperty.(*dbgen.Property)
+	property, isProperty := ctx.Value(common.PropertyContextKey).(*dbgen.Property)
 	contextIP := ctx.Value(common.RateLimitKeyContextKey)
 
 	// property will not be cached for auth.backfillDelay and we return an "average" puzzle instead
 	// this is done in order to not check the DB on the hot path (decrease attack surface)
 	// and if IP address is missing from context, something is fishy
-	if (contextProperty == nil) || !isProperty || (contextIP == nil) {
+	if !isProperty || (property == nil) || (contextIP == nil) {
 		sitekey, ok := ctx.Value(common.SitekeyContextKey).(string)
+		if !ok || len(sitekey) == 0 {
+			// this shouldn't happen as we sort this in Sitekey() auth middleware, but just in case
+			return nil, nil, errInvalidArg
+		}
 
-		if !ok || (sitekey == db.TestPropertySitekey) {
+		if sitekey == db.TestPropertySitekey {
 			return nil, nil, db.ErrTestProperty
 		}
 
@@ -314,8 +316,14 @@ func (s *Server) puzzleHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		slog.ErrorContext(ctx, "Failed to create puzzle", common.ErrAttr(err))
-		http.Error(w, "", http.StatusInternalServerError)
+		status := http.StatusInternalServerError
+		if err == errInvalidArg {
+			status = http.StatusBadRequest
+		} else {
+			slog.ErrorContext(ctx, "Failed to create puzzle", common.ErrAttr(err))
+		}
+
+		http.Error(w, "", status)
 		return
 	}
 

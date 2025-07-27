@@ -64,7 +64,7 @@ func NewBusiness(pool *pgxpool.Pool) *BusinessStore {
 	const maxCacheSize = 1_000_000
 	var cache common.Cache[CacheKey, any]
 	var err error
-	cache, err = NewMemoryCache[CacheKey, any](maxCacheSize, &struct{}{}, defaultCacheTTL, defaultCacheRefresh, negativeCacheTTL)
+	cache, err = NewMemoryCache[CacheKey, any]("default", maxCacheSize, &struct{}{}, defaultCacheTTL, defaultCacheRefresh, negativeCacheTTL)
 	if err != nil {
 		slog.Error("Failed to create memory cache", common.ErrAttr(err))
 		cache = NewStaticCache[CacheKey, any](maxCacheSize, &struct{}{})
@@ -77,7 +77,7 @@ func NewBusinessEx(pool *pgxpool.Pool, cache common.Cache[CacheKey, any]) *Busin
 	const maxPuzzleCacheSize = 100_000
 	var puzzleCache common.Cache[uint32, uint32]
 	var err error
-	puzzleCache, err = NewMemoryCache[uint32, uint32](maxPuzzleCacheSize, 0 /*missing value*/, defaultCacheTTL, defaultCacheRefresh, negativeCacheTTL)
+	puzzleCache, err = NewMemoryCache[uint32, uint32]("puzzle", maxPuzzleCacheSize, 0 /*missing value*/, defaultCacheTTL, defaultCacheRefresh, negativeCacheTTL)
 	if err != nil {
 		slog.Error("Failed to create puzzle memory cache", common.ErrAttr(err))
 		puzzleCache = NewStaticCache[uint32, uint32](maxPuzzleCacheSize, 0 /*missing value*/)
