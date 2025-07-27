@@ -67,18 +67,27 @@ func CopyTraceID(from context.Context, to context.Context) context.Context {
 	return to
 }
 
-func SetupLogs(stage string, verbose bool) {
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}
+func SetLogLevel(levelVar *slog.LevelVar, verbose bool) {
+	level := slog.LevelDebug
 	if verbose {
-		opts.Level = LevelTrace
-		// opts.AddSource = true
+		level = LevelTrace
+	}
+
+	levelVar.Set(level)
+}
+
+func SetupLogs(stage string, verbose bool) *slog.LevelVar {
+	levelVar := &slog.LevelVar{}
+	SetLogLevel(levelVar, verbose)
+
+	opts := &slog.HandlerOptions{
+		Level: levelVar,
 	}
 	handler := slog.NewJSONHandler(os.Stdout, opts)
 	ctxHandler := &contextHandler{handler}
 	logger := slog.New(ctxHandler)
 	slog.SetDefault(logger)
+	return levelVar
 }
 
 func SetupTraceLogs() {

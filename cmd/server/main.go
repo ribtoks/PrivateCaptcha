@@ -130,7 +130,7 @@ func updateIPBuckets(cfg common.ConfigStore, rateLimiter ratelimit.HTTPRateLimit
 func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener net.Listener) error {
 	stage := cfg.Get(common.StageKey).Value()
 	verbose := config.AsBool(cfg.Get(common.VerboseKey))
-	common.SetupLogs(stage, verbose)
+	logLevel := common.SetupLogs(stage, verbose)
 
 	planService := billing.NewPlanService(nil)
 
@@ -219,6 +219,8 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		businessDB.UpdateConfig(maintenanceMode)
 		timeSeriesDB.UpdateConfig(maintenanceMode)
 		portalServer.UpdateConfig(ctx, cfg)
+		verboseLogs := config.AsBool(cfg.Get(common.VerboseKey))
+		common.SetLogLevel(logLevel, verboseLogs)
 	}
 	updateConfigFunc(ctx)
 
