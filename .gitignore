@@ -23,6 +23,7 @@ secrets.yml
 node_modules
 
 web/static/
+!web/static/img
 widget/static/
 widget/lib/*.js
 widget/lib/*.js.map
