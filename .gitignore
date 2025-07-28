@@ -22,7 +22,7 @@ bin
 secrets.yml
 node_modules
 
-web/static/
+web/static/*
 !web/static/img
 widget/static/
 widget/lib/*.js
