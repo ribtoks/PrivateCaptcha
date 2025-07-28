@@ -24,7 +24,7 @@
         "ready": true
     },
     {
-        "name": "Javacript",
+        "name": "Javascript",
         "icon": "img/integrations/javascript.svg",
         "link": "https://docs.privatecaptcha.com/docs/integrations/javascript/",
         "ready": true
