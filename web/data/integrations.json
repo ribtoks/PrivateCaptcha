@@ -1,0 +1,38 @@
+[
+    {
+        "name": "Wordpress",
+        "icon": "img/integrations/wordpress.svg",
+        "link": "",
+        "ready": false
+    },
+    {
+        "name": "React",
+        "icon": "img/integrations/reactjs.svg",
+        "link": "https://docs.privatecaptcha.com/docs/integrations/react/",
+        "ready": true
+    },
+    {
+        "name": "Go",
+        "icon": "img/integrations/golang.svg",
+        "link": "https://docs.privatecaptcha.com/docs/integrations/go/",
+        "ready": true
+    },
+    {
+        "name": "Python",
+        "icon": "img/integrations/python.svg",
+        "link": "https://docs.privatecaptcha.com/docs/integrations/python/",
+        "ready": true
+    },
+    {
+        "name": "Javacript",
+        "icon": "img/integrations/javascript.svg",
+        "link": "https://docs.privatecaptcha.com/docs/integrations/javascript/",
+        "ready": true
+    },
+    {
+        "name": ".NET",
+        "icon": "img/integrations/dotnet.svg",
+        "link": "",
+        "ready": false
+    }
+]

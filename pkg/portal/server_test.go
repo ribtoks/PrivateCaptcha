@@ -54,6 +54,11 @@ func TestMain(m *testing.M) {
 	planService := billing.NewPlanService(nil)
 	testPlan = planService.GetInternalTrialPlan()
 
+	dataCtx, err := web.LoadData()
+	if err != nil {
+		panic(err)
+	}
+
 	if testing.Short() {
 		server = &Server{
 			Stage:  common.StageTest,
@@ -65,6 +70,7 @@ func TestMain(m *testing.M) {
 			},
 			PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}},
 			PlanService:  planService,
+			DataCtx:      dataCtx,
 		}
 
 		ctx := context.TODO()
@@ -116,6 +122,7 @@ func TestMain(m *testing.M) {
 		PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}},
 		Metrics:      monitoring.NewStub(),
 		PlanService:  planService,
+		DataCtx:      dataCtx,
 	}
 
 	ctx := context.TODO()

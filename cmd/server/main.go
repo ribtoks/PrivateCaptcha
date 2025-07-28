@@ -174,6 +174,11 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		return err
 	}
 
+	dataCtx, err := web.LoadData()
+	if err != nil {
+		return err
+	}
+
 	apiURLConfig := config.AsURL(ctx, cfg.Get(common.APIBaseURLKey))
 	sessionStore := db.NewSessionStore(pool, memory.New(), 1*time.Minute, session.KeyPersistent)
 	portalServer := &portal.Server{
@@ -194,6 +199,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Metrics:      metrics,
 		Mailer:       portalMailer,
 		RateLimiter:  ipRateLimiter,
+		DataCtx:      dataCtx,
 	}
 
 	templatesBuilder := portal.NewTemplatesBuilder()

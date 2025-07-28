@@ -111,6 +111,7 @@ type Server struct {
 	RenderConstants interface{}
 	Jobs            Jobs
 	PlatformCtx     interface{}
+	DataCtx         interface{}
 }
 
 func (s *Server) createSettingsTabs() []*SettingsTab {

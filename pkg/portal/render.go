@@ -110,11 +110,13 @@ func (s *Server) RenderResponse(ctx context.Context, name string, data interface
 		Const    interface{}
 		Ctx      interface{}
 		Platform interface{}
+		Data     interface{}
 	}{
 		Params:   data,
 		Const:    s.RenderConstants,
 		Ctx:      reqCtx,
 		Platform: s.PlatformCtx,
+		Data:     s.DataCtx,
 	}
 
 	var out bytes.Buffer
