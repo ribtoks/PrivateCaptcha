@@ -193,12 +193,16 @@ func (j *checkLicenseJob) fetchActivation(ctx context.Context) ([]byte, error) {
 	var err error
 
 	for i := 0; i < activationAPIAttempts; i++ {
+		if i > 0 {
+			time.Sleep(b.Duration())
+		}
+
 		data, err = doFetchActivation(ctx, j.url, licenseKey, hwid, j.version)
 
 		var rerr common.RetriableError
 		if err != nil && errors.As(err, &rerr) {
-			slog.WarnContext(ctx, "Failed to fetch activation", "attempt", i, common.ErrAttr(rerr.Unwrap()))
-			time.Sleep(b.Duration())
+			err = rerr.Unwrap()
+			slog.WarnContext(ctx, "Failed to fetch activation", "attempt", i, common.ErrAttr(err))
 		} else {
 			break
 		}
