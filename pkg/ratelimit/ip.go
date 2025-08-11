@@ -58,6 +58,7 @@ func NewIPAddrRateLimiter(name, header string, buckets *IPAddrBuckets) *httpRate
 		strategy:        strategy,
 		buckets:         buckets,
 		keyFunc:         func(r *http.Request) netip.Addr { return clientIPAddr(strategy, r) },
+		retryJitter:     0.2, // 20%
 	}
 
 	name = strings.ToLower(name)

@@ -54,6 +54,8 @@ type httpRateLimiter[TKey comparable] struct {
 	strategy        realclientip.Strategy
 	cleanupCancel   context.CancelFunc
 	keyFunc         func(r *http.Request) TKey
+	// prevent stampeding herds problem with random increase to Retry-After
+	retryJitterPercent float64
 }
 
 var _ HTTPRateLimiter = (*httpRateLimiter[string])(nil)
@@ -83,7 +85,7 @@ func (l *httpRateLimiter[TKey]) RateLimitExFunc(initCapacity leakybucket.TLevel,
 
 			addResult := l.buckets.AddEx(key, 1, time.Now(), initCapacity, initLeakInterval)
 
-			setRateLimitHeaders(w, addResult)
+			l.setRateLimitHeaders(w, addResult)
 
 			if addResult.Added > 0 {
 				//slog.Log(r.Context(), common.LevelTrace, "Allowing request", "ratelimiter", l.name,
@@ -110,7 +112,7 @@ func (l *httpRateLimiter[TKey]) RateLimit(next http.Handler) http.Handler {
 
 		addResult := l.buckets.Add(key, 1, time.Now())
 
-		setRateLimitHeaders(w, addResult)
+		l.setRateLimitHeaders(w, addResult)
 
 		if addResult.Added > 0 {
 			//slog.Log(r.Context(), common.LevelTrace, "Allowing request", "ratelimiter", l.name,
@@ -138,7 +140,7 @@ func (l *httpRateLimiter[TKey]) UpdateRequestLimits(r *http.Request, capacity le
 	}
 }
 
-func setRateLimitHeaders(w http.ResponseWriter, addResult leakybucket.AddResult) {
+func (l *httpRateLimiter[TKey]) setRateLimitHeaders(w http.ResponseWriter, addResult leakybucket.AddResult) {
 	headers := w.Header()
 
 	if v := addResult.Capacity; v > 0 {
@@ -155,7 +157,9 @@ func setRateLimitHeaders(w http.ResponseWriter, addResult leakybucket.AddResult)
 	}
 
 	if v := addResult.RetryAfter; v > 0 {
-		vi := int(math.Max(1.0, v.Seconds()+0.5))
+		jitter := randv2.Float64() * l.retryJitterPercent
+		seconds := v.Seconds() * (1.0 + jitter)
+		vi := int(math.Max(1.0, seconds+0.5))
 		headers[retryAfterHeader] = []string{strconv.Itoa(vi)}
 	}
 }
