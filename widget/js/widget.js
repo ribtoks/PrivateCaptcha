@@ -11,6 +11,7 @@ if (typeof window !== "undefined") {
 
 const PUZZLE_ENDPOINT_URL = 'https://api.privatecaptcha.com/puzzle';
 const PUZZLE_EU_ENDPOINT_URL = 'https://api.eu.privatecaptcha.com/puzzle';
+export const RECAPTCHA_COMPAT = 'recaptcha';
 
 
 /**
@@ -84,10 +85,15 @@ export class CaptchaWidget {
         const euOnly = this._element.dataset["eu"] || null;
         const defaultEndpoint = euOnly ? PUZZLE_EU_ENDPOINT_URL : PUZZLE_ENDPOINT_URL;
 
+        let defaultField = "private-captcha-solution";
+        if (options.hasOwnProperty('compat') && options.compat === RECAPTCHA_COMPAT) {
+            defaultField = "g-recaptcha-response";
+        }
+
         this._options = Object.assign({
             startMode: this._element.dataset["startMode"] || "click",
             debug: this._element.dataset["debug"],
-            fieldName: this._element.dataset["solutionField"] || "private-captcha-solution",
+            fieldName: this._element.dataset["solutionField"] || defaultField,
             puzzleEndpoint: this._element.dataset["puzzleEndpoint"] || defaultEndpoint,
             sitekey: this._element.dataset["sitekey"] || "",
             displayMode: this._element.dataset["displayMode"] || "widget",
@@ -424,7 +430,7 @@ export class CaptchaWidget {
 
         this._solution = payload;
 
-        this.trace(`saved solutions. payload=${payload}`);
+        this.trace(`saved solutions. field=${this._options.fieldName} payload=${payload}`);
     }
 
     /**

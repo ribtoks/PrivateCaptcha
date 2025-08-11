@@ -1,33 +1,122 @@
 'use strict';
 
-import { CaptchaWidget } from './widget.js';
+import { CaptchaWidget, RECAPTCHA_COMPAT } from './widget.js';
 
 window.privateCaptcha = {
     setup: setupPrivateCaptcha,
-    // just a class declaration
-    //CaptchaWidget: CaptchaWidget,
+    render: renderCaptchaWidget,
+    getResponse: getCaptchaResponse,
+    reset: resetCaptchaWidget,
 };
 
-function findCaptchaElements() {
-    const elements = document.querySelectorAll('.private-captcha');
+const RENDER_EXPLICIT = "explicit";
+
+/**
+ * Finds all captcha elements on the page
+ * @param {string} compatMode
+ */
+function findCaptchaElements(compatMode) {
+    const selector = (compatMode === RECAPTCHA_COMPAT) ? '.g-recaptcha' : '.private-captcha';
+    const elements = document.querySelectorAll(selector);
     if (elements.length === 0) {
-        console.warn('PrivateCaptcha: No div was found with .private-captcha class');
+        console.warn(`'PrivateCaptcha: No element was found with ${selector} class`);
     }
     return elements;
 }
 
-function setupPrivateCaptcha() {
-    let autoWidget = window.privateCaptcha.autoWidget;
-
-    const elements = findCaptchaElements();
-    for (let htmlElement of elements) {
-        if (htmlElement && !htmlElement.dataset['attached']) {
-            autoWidget = new CaptchaWidget(htmlElement);
-            // We set the "data-attached" attribute so we don't attach to the same element twice.
-            htmlElement.dataset['attached'] = '1';
+function getBaseOptions() {
+    let scriptTag;
+    const scripts = document.getElementsByTagName('script');
+    for (let script of scripts) {
+        if (script.src.includes('widget/js/privatecaptcha.js')) {
+            scriptTag = script;
+            break;
         }
     }
-    window.privateCaptcha.autoWidget = autoWidget;
+
+    let options = {
+        compat: null,
+        render: null,
+    };
+
+    if (scriptTag) {
+        const scriptUrl = new URL(scriptTag.src);
+        const params = scriptUrl.searchParams;
+
+        const compatMode = params.get('compat');
+        if (compatMode && (typeof compatMode === 'string') && (compatMode.length > 0)) {
+            options.compat = compatMode;
+        }
+
+        const renderMode = params.get('render');
+        if (renderMode && (typeof renderMode === 'string') && (renderMode.length > 0)) {
+            options.render = renderMode;
+        }
+    }
+
+    return options;
+}
+
+function setupPrivateCaptcha() {
+    let options = getBaseOptions();
+
+    if (options.render !== RENDER_EXPLICIT) {
+        let autoWidget = window.privateCaptcha.autoWidget;
+
+        const elements = findCaptchaElements(options.compat);
+        for (let htmlElement of elements) {
+            autoWidget = renderCaptchaWidget(htmlElement, options);
+        }
+
+        window.privateCaptcha.autoWidget = autoWidget;
+    }
+
+    if (options.compat === RECAPTCHA_COMPAT) {
+        window.grecaptcha = window.privateCaptcha;
+    }
+}
+
+/**
+ * Google reCAPTCHA (and hCAPTCHA) compatibility layer: render
+ * @param {HTMLElement} element
+ * @param {Object} options
+ * @returns {CaptchaWidget} instance or null if already attached
+ */
+function renderCaptchaWidget(element, options) {
+    let widget = null;
+
+    if (element && !element.dataset['attached']) {
+        widget = new CaptchaWidget(element, options);
+        // We set the "data-attached" attribute so we don't attach to the same element twice.
+        element.dataset['attached'] = '1';
+    }
+
+    return widget;
+}
+
+/**
+ * Google reCAPTCHA compatibility layer: reset
+ * @param {CaptchaWidget} widget created with renderCaptchaWidget()
+ */
+function resetCaptchaWidget(widget) {
+    if (widget) {
+        widget.reset();
+    } else {
+        window.privateCaptcha.autoWidget.reset();
+    }
+}
+
+/**
+ * Google reCAPTCHA compatibility layer: getResponse
+ * @param {CaptchaWidget} widget created with renderCaptchaWidget()
+ * @returns {string} the response for the Private Captcha widget
+ */
+function getCaptchaResponse(widget) {
+    if (widget) {
+        return widget.solution();
+    } else {
+        return window.privateCaptcha.autoWidget.solution();
+    }
 }
 
 if (document.readyState !== 'loading') {

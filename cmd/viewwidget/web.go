@@ -40,13 +40,15 @@ func staticHandler() http.Handler {
 			}
 
 			data := struct {
-				Echo  bool
-				Debug bool
-				Mode  string
+				Echo   bool
+				Debug  bool
+				Mode   string
+				Compat string
 			}{
-				Echo:  r.URL.Query().Get("echo") == "true",
-				Debug: r.URL.Query().Get("debug") == "true",
-				Mode:  r.URL.Query().Get("mode"),
+				Echo:   r.URL.Query().Get("echo") == "true",
+				Debug:  r.URL.Query().Get("debug") == "true",
+				Mode:   r.URL.Query().Get("mode"),
+				Compat: r.URL.Query().Get("compat"),
 			}
 
 			err = tmpl.Execute(w, &data)

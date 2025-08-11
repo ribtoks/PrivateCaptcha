@@ -7,7 +7,7 @@
     <title>Private Captcha</title>
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="shortcut icon" type="image/png" href="/assets/img/favicon.png">
-    <script src="/widget/js/privatecaptcha.js"></script>
+    <script src="/widget/js/privatecaptcha.js{{if .Compat }}?compat={{.Compat}}{{end}}"></script>
     <script type="text/javascript">
         function onCaptchaSolved() {
             var submitButton = document.querySelector('#formSubmit');
@@ -40,7 +40,7 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="private-captcha mt-8"
+                            <div class="private-captcha g-recaptcha mt-8"
                                 data-sitekey="your-sitekey"
                                 data-puzzle-endpoint="/{{if .Echo}}echo{{end}}puzzle"
                                 data-started-callback="onCaptchaStarted" 
