@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -25,6 +26,7 @@ type jobs struct {
 	oneOffJobs        []common.OneOffJob
 	maintenanceCancel context.CancelFunc
 	maintenanceCtx    context.Context
+	mux               sync.Mutex
 }
 
 // Implicit logic is that lockDuration is the actual job Interval, but it is defined by the SQL lock.
@@ -51,12 +53,15 @@ func (j *jobs) Run() {
 
 	slog.DebugContext(j.maintenanceCtx, "Starting maintenance jobs", "periodic", len(j.periodicJobs), "oneoff", len(j.oneOffJobs))
 
+	// NOTE: we run jobs mutually exclusive to preserve resources for main server (those are _maintenance_ jobs anyways)
+	// NOTE 2: this does not apply for on-demand ones below
+
 	for _, job := range j.periodicJobs {
-		go common.RunPeriodicJob(j.maintenanceCtx, job)
+		go common.RunPeriodicJob(j.maintenanceCtx, &mutexPeriodicJob{job: job, mux: &j.mux})
 	}
 
 	for _, job := range j.oneOffJobs {
-		go common.RunOneOffJob(j.maintenanceCtx, job)
+		go common.RunOneOffJob(j.maintenanceCtx, &mutexOneOffJob{job: job, mux: &j.mux})
 	}
 }
 
