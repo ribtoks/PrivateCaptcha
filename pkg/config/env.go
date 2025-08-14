@@ -71,7 +71,7 @@ func init() {
 	configKeyToEnvName[common.UserFingerprintIVKey] = "PC_USER_FINGERPRINT_KEY"
 	configKeyToEnvName[common.APISaltKey] = "PC_API_SALT"
 	configKeyToEnvName[common.EnterpriseLicenseKeyKey] = "EE_LICENSE_KEY"
-	configKeyToEnvName[common.NotificationsChunkSizeKey] = "NOTIFICATIONS_CHUNK_SIZE"
+	configKeyToEnvName[common.NotificationsChunkSizeKey] = "PC_NOTIFICATIONS_CHUNK_SIZE"
 
 	for i, v := range configKeyToEnvName {
 		if len(v) == 0 {
