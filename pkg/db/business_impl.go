@@ -1610,9 +1610,11 @@ func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, userID i
 		return nil, ErrMaintenance
 	}
 
+	rlog := slog.With("userID", userID, "refID", referenceID)
+
 	payload, err := json.Marshal(data)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to serialize payload for notification", common.ErrAttr(err))
+		rlog.ErrorContext(ctx, "Failed to serialize payload for notification", common.ErrAttr(err))
 		return nil, err
 	}
 
@@ -1626,11 +1628,11 @@ func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, userID i
 	})
 
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to create user notification", "userID", userID, common.ErrAttr(err))
+		rlog.ErrorContext(ctx, "Failed to create user notification", common.ErrAttr(err))
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, "Created user notification", "userID", userID, "notifID", notif.ID)
+	rlog.DebugContext(ctx, "Created user notification", "notifID", notif.ID)
 
 	return notif, nil
 }
@@ -1693,6 +1695,7 @@ func (s *BusinessStoreImpl) DeleteUnusedNotificationTemplates(ctx context.Contex
 
 	if err := s.querier.DeleteUnusedNotificationTemplates(ctx, Timestampz(before)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete unused notification templates", common.ErrAttr(err))
+		return err
 	}
 
 	slog.DebugContext(ctx, "Deleted unused notification templates", "before", before)
@@ -1707,6 +1710,7 @@ func (s *BusinessStoreImpl) DeleteSentUserNotifications(ctx context.Context, bef
 
 	if err := s.querier.DeleteSentUserNotifications(ctx, Timestampz(before)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete sent user notifications", common.ErrAttr(err))
+		return err
 	}
 
 	slog.DebugContext(ctx, "Deleted sent user notifications", "before", before)
@@ -1721,6 +1725,7 @@ func (s *BusinessStoreImpl) DeleteUnsentUserNotifications(ctx context.Context, b
 
 	if err := s.querier.DeleteUnsentUserNotifications(ctx, Timestampz(before)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete UNsent user notifications", common.ErrAttr(err))
+		return err
 	}
 
 	slog.DebugContext(ctx, "Deleted UNsent user notifications", "before", before)

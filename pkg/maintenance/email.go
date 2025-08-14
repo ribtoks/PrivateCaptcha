@@ -215,7 +215,7 @@ func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Contex
 		if currSentCount := len(sentNotificationIDs); currSentCount > lastSentCount {
 			// backoff a little not to overwhelm transactional email provider
 			time.Sleep(b.Duration())
-			currSentCount = lastSentCount
+			lastSentCount = currSentCount
 		}
 
 		un := &n.UserNotification
@@ -282,11 +282,13 @@ func (j *CleanupUserNotificationsJob) RunOnce(ctx context.Context) error {
 		anyError = err
 	}
 
-	if err := j.Store.Impl().DeleteUnsentUserNotifications(ctx, tnow.AddDate(0, -6 /*months*/, 0)); err != nil {
+	if err := j.Store.Impl().DeleteUnsentUserNotifications(ctx, tnow.AddDate(0, -3 /*months*/, 0)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete UNsent user notifications", common.ErrAttr(err))
 		anyError = err
 	}
 
+	// we delete notification templates only if there're no dangling references in
+	// user_notifications table so the date should be smaller than the other two
 	if err := j.Store.Impl().DeleteUnusedNotificationTemplates(ctx, tnow.AddDate(0, -6 /*months*/, 0)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete unused notification templates", common.ErrAttr(err))
 		anyError = err
