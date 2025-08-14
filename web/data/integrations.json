@@ -32,7 +32,7 @@
     {
         "name": ".NET",
         "icon": "img/integrations/dotnet.svg",
-        "link": "",
-        "ready": false
+        "link": "https://docs.privatecaptcha.com/docs/integrations/dotnet/",
+        "ready": true
     }
 ]
