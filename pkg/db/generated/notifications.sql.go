@@ -109,6 +109,20 @@ func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNot
 	return &i, err
 }
 
+const deletePendingUserNotification = `-- name: DeletePendingUserNotification :exec
+DELETE FROM backend.user_notifications WHERE delivered_at IS NULL AND user_id = $1 AND reference_id = $2
+`
+
+type DeletePendingUserNotificationParams struct {
+	UserID      pgtype.Int4 `db:"user_id" json:"user_id"`
+	ReferenceID string      `db:"reference_id" json:"reference_id"`
+}
+
+func (q *Queries) DeletePendingUserNotification(ctx context.Context, arg *DeletePendingUserNotificationParams) error {
+	_, err := q.db.Exec(ctx, deletePendingUserNotification, arg.UserID, arg.ReferenceID)
+	return err
+}
+
 const deleteSentUserNotifications = `-- name: DeleteSentUserNotifications :exec
 DELETE FROM backend.user_notifications
 WHERE delivered_at IS NOT NULL

@@ -27,6 +27,7 @@ type Querier interface {
 	DeleteExpiredCache(ctx context.Context) error
 	DeleteLock(ctx context.Context, name string) error
 	DeleteOrganizations(ctx context.Context, dollar_1 []int32) error
+	DeletePendingUserNotification(ctx context.Context, arg *DeletePendingUserNotificationParams) error
 	DeleteProperties(ctx context.Context, dollar_1 []int32) error
 	DeleteSentUserNotifications(ctx context.Context, deliveredAt pgtype.Timestamptz) error
 	DeleteUnsentUserNotifications(ctx context.Context, scheduledAt pgtype.Timestamptz) error

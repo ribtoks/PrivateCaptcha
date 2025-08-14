@@ -108,6 +108,7 @@ type Server struct {
 	canRegister     atomic.Bool
 	SettingsTabs    []*SettingsTab
 	RateLimiter     ratelimit.HTTPRateLimiter
+	Notifications   common.ScheduledNotifications
 	RenderConstants interface{}
 	Jobs            Jobs
 	PlatformCtx     interface{}

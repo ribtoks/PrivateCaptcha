@@ -58,6 +58,10 @@ func serveExecute(templateBody string, w http.ResponseWriter) error {
 		CDNURL             string
 		Message            string
 		TicketID           string
+		APIKeyName         string
+		APIKeyPrefix       string
+		ExpireDays         int
+		APIKeySettingsPath string
 	}{
 		Code:               123456,
 		CDNURL:             "https://cdn.privatecaptcha.com",
@@ -65,6 +69,10 @@ func serveExecute(templateBody string, w http.ResponseWriter) error {
 		CurrentYear:        time.Now().Year(),
 		Message:            "This is a support request message. Nothing works!",
 		TicketID:           "qwerty12345",
+		APIKeyName:         "My API Key",
+		APIKeyPrefix:       "abcde",
+		ExpireDays:         7,
+		APIKeySettingsPath: "settings?tab=apikeys",
 	}
 
 	var htmlBodyTpl bytes.Buffer

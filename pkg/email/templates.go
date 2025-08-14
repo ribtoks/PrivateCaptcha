@@ -4,8 +4,10 @@ import "strings"
 
 func Templates() map[string]string {
 	return map[string]string{
-		"welcome":   WelcomeHTMLTemplate,
-		"twofactor": TwoFactorHTMLTemplate,
+		WelcomeTemplateName:          WelcomeHTMLTemplate,
+		TwoFactorTemplateName:        TwoFactorHTMLTemplate,
+		APIKeyExpirationTemplateName: APIKeyExpirationHTML,
+		APIKeyExpiredTemplateName:    APIKeyExpiredHTML,
 	}
 }
 

@@ -3,6 +3,7 @@ package portal
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 	"github.com/badoux/checkmail"
 )
@@ -25,6 +27,9 @@ const (
 	// Other templates
 	settingsGeneralFormTemplate    = "settings-general/form.html"
 	settingsAPIKeysContentTemplate = "settings-apikeys/content.html"
+
+	// notifications
+	apiKeyExpirationNotificationDays = 14
 )
 
 var (
@@ -102,7 +107,7 @@ func apiKeyToUserAPIKey(key *dbgen.APIKey, tnow time.Time) *userAPIKey {
 		ID:                strconv.Itoa(int(key.ID)),
 		Name:              key.Name,
 		ExpiresAt:         key.ExpiresAt.Time.Format("02 Jan 2006"),
-		ExpiresSoon:       key.ExpiresAt.Time.Sub(tnow) < 31*24*time.Hour,
+		ExpiresSoon:       key.ExpiresAt.Time.Sub(tnow) <= apiKeyExpirationNotificationDays*24*time.Hour,
 		RequestsPerMinute: int(requestsPerMinute),
 	}
 }
@@ -409,6 +414,49 @@ func daysFromParam(ctx context.Context, param string) int {
 	}
 }
 
+// NOTE: ReferenceID logic should stay the same forever for correct deduplication in DB
+func apiKeyExpirationReference(id int32) string {
+	return fmt.Sprintf("apikey/%v/expiration", id)
+}
+
+func createAPIKeyExpirationNotification(key *dbgen.APIKey, userKey *userAPIKey) *common.ScheduledNotification {
+	return &common.ScheduledNotification{
+		ReferenceID: apiKeyExpirationReference(key.ID),
+		UserID:      key.UserID.Int32,
+		Subject:     fmt.Sprintf("[%s] Your API key will expire soon", common.PrivateCaptcha),
+		Data: &email.APIKeyExpirationContext{
+			APIKeyContext: email.APIKeyContext{
+				APIKeyName:         key.Name,
+				APIKeyPrefix:       userKey.Secret[0:min(4, len(userKey.Secret))],
+				APIKeySettingsPath: fmt.Sprintf("%s?%s=%s", common.SettingsEndpoint, common.ParamTab, common.APIKeysEndpoint),
+			},
+			ExpireDays: apiKeyExpirationNotificationDays,
+		},
+		DateTime:     key.ExpiresAt.Time.AddDate(0, 0, -apiKeyExpirationNotificationDays),
+		TemplateName: email.APIKeyExpirationTemplateName,
+	}
+}
+
+// NOTE: ReferenceID logic should stay the same forever for correct deduplication in DB
+func apiKeyExpiredReference(id int32) string {
+	return fmt.Sprintf("apikey/%v/expired", id)
+}
+
+func createAPIKeyExpiredNotification(key *dbgen.APIKey, userKey *userAPIKey) *common.ScheduledNotification {
+	return &common.ScheduledNotification{
+		ReferenceID: apiKeyExpiredReference(key.ID),
+		UserID:      key.UserID.Int32,
+		Subject:     fmt.Sprintf("[%s] Your API key has expired", common.PrivateCaptcha),
+		Data: email.APIKeyContext{
+			APIKeyName:         key.Name,
+			APIKeyPrefix:       userKey.Secret[0:min(4, len(userKey.Secret))],
+			APIKeySettingsPath: fmt.Sprintf("%s?%s=%s", common.SettingsEndpoint, common.ParamTab, common.APIKeysEndpoint),
+		},
+		DateTime:     key.ExpiresAt.Time,
+		TemplateName: email.APIKeyExpiredTemplateName,
+	}
+}
+
 func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Model, string, error) {
 	ctx := r.Context()
 	user, err := s.SessionUser(ctx, s.Session(w, r))
@@ -450,6 +498,14 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Mod
 		userKey.Secret = db.UUIDToSecret(newKey.ExternalID)
 		renderCtx.Keys = append(renderCtx.Keys, userKey)
 		renderCtx.SuccessMessage = "API Key created successfully."
+
+		if days > apiKeyExpirationNotificationDays {
+			go s.Notifications.Add(common.CopyTraceID(ctx, context.Background()),
+				createAPIKeyExpirationNotification(newKey, userKey))
+		}
+
+		go s.Notifications.Add(common.CopyTraceID(ctx, context.Background()),
+			createAPIKeyExpiredNotification(newKey, userKey))
 	} else {
 		slog.ErrorContext(ctx, "Failed to create API key", common.ErrAttr(err))
 		renderCtx.ErrorMessage = "Failed to create API key. Please try again."
@@ -475,9 +531,12 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.Store.Impl().DeleteAPIKey(ctx, user.ID, int32(keyID)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete the API key", "keyID", keyID, common.ErrAttr(err))
-		http.Error(w, "", http.StatusUnauthorized)
+		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
+
+	go s.Notifications.Remove(common.CopyTraceID(ctx, context.Background()), user.ID, apiKeyExpirationReference(int32(keyID)))
+	go s.Notifications.Remove(common.CopyTraceID(ctx, context.Background()), user.ID, apiKeyExpiredReference(int32(keyID)))
 
 	w.WriteHeader(http.StatusOK)
 }

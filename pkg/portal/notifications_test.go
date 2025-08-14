@@ -13,6 +13,13 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/maintenance"
 )
 
+func TestDifferentReferenceIDs(t *testing.T) {
+	const keyID = 123
+	if apiKeyExpiredReference(keyID) == apiKeyExpirationReference(keyID) {
+		t.Fatal("references should be different")
+	}
+}
+
 func TestUserNotificationsJob(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -82,15 +89,23 @@ func TestDeleteSentNotifications(t *testing.T) {
 
 	tnow := time.Now().UTC()
 
-	const referenceID = "referenceID"
+	sn := &common.ScheduledNotification{
+		ReferenceID:  "referenceID",
+		UserID:       user.ID,
+		Subject:      "subject",
+		Data:         map[string]int{},
+		DateTime:     tnow.Add(-10 * time.Minute),
+		TemplateName: email.TwoFactorTemplateName,
+	}
 
-	hash := db.EmailTemplateHash(email.TwoFactorHTMLTemplate)
-	notif, err := store.Impl().CreateUserNotification(ctx, user.ID, referenceID, map[string]int{}, "subject", hash, tnow.Add(-10*time.Minute))
+	scheduler := &NotificationScheduler{Store: store}
+
+	notif, err := scheduler.AddEx(ctx, sn)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := store.Impl().CreateUserNotification(ctx, user.ID, referenceID, map[string]int{}, "subject", hash, tnow.Add(-10*time.Minute)); err == nil {
+	if _, err := scheduler.AddEx(ctx, sn); err == nil {
 		t.Fatal("Shouldn't create a notification with the same referenceID")
 	}
 
@@ -103,7 +118,52 @@ func TestDeleteSentNotifications(t *testing.T) {
 	}
 
 	// should be able to create again (unlike before)
-	if _, err := store.Impl().CreateUserNotification(ctx, user.ID, referenceID, map[string]int{}, "subject", hash, tnow.Add(-10*time.Minute)); err != nil {
+	if _, err := scheduler.AddEx(ctx, sn); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeleteScheduledNotification(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	t.Parallel()
+
+	ctx := common.TraceContext(context.TODO(), t.Name())
+
+	user, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	if err != nil {
+		t.Fatalf("failed to create new account: %v", err)
+	}
+
+	tnow := time.Now().UTC()
+
+	sn := &common.ScheduledNotification{
+		ReferenceID:  "referenceID",
+		UserID:       user.ID,
+		Subject:      "subject",
+		Data:         map[string]int{},
+		DateTime:     tnow.Add(-10 * time.Minute),
+		TemplateName: email.TwoFactorTemplateName,
+	}
+
+	scheduler := &NotificationScheduler{Store: store}
+
+	if _, err := scheduler.AddEx(ctx, sn); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := scheduler.AddEx(ctx, sn); err == nil {
+		t.Fatal("Shouldn't create a notification with the same referenceID")
+	}
+
+	if err := scheduler.RemoveEx(ctx, user.ID, sn.ReferenceID); err != nil {
+		t.Fatal(err)
+	}
+
+	// should be able to create again (unlike before)
+	if _, err := scheduler.AddEx(ctx, sn); err != nil {
 		t.Fatal(err)
 	}
 }

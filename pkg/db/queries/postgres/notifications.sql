@@ -31,6 +31,9 @@ INSERT INTO backend.user_notifications (user_id, reference_id, template_hash, su
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
+-- name: DeletePendingUserNotification :exec
+DELETE FROM backend.user_notifications WHERE delivered_at IS NULL AND user_id = $1 AND reference_id = $2;
+
 -- name: UpdateSentUserNotifications :exec
 UPDATE backend.user_notifications SET delivered_at = $1 WHERE id = ANY($2::INT[]);
 

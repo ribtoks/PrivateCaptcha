@@ -1732,3 +1732,21 @@ func (s *BusinessStoreImpl) DeleteUnsentUserNotifications(ctx context.Context, b
 
 	return nil
 }
+
+func (s *BusinessStoreImpl) DeletePendingUserNotification(ctx context.Context, userID int32, referenceID string) error {
+	if s.querier == nil {
+		return ErrMaintenance
+	}
+
+	if err := s.querier.DeletePendingUserNotification(ctx, &dbgen.DeletePendingUserNotificationParams{
+		UserID:      Int(userID),
+		ReferenceID: referenceID,
+	}); err != nil {
+		slog.ErrorContext(ctx, "Failed to delete pending user notification", "userID", userID, "refID", referenceID, common.ErrAttr(err))
+		return err
+	}
+
+	slog.DebugContext(ctx, "Deleted pending user notification", "userID", userID, "refID", referenceID)
+
+	return nil
+}

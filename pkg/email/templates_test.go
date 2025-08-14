@@ -16,6 +16,8 @@ func TestCanBeHTML(t *testing.T) {
 		{TwoFactorHTMLTemplate, true},
 		{welcomeTextTemplate, false},
 		{twoFactorTextTemplate, false},
+		{APIKeyExpirationHTML, true},
+		{APIKeyExpiredHTML, true},
 	}
 
 	for i, tc := range testCases {

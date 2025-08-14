@@ -52,6 +52,8 @@ type UserEmailNotificationsJob struct {
 	ChunkSize    common.ConfigItem
 	EmailFrom    common.ConfigItem
 	ReplyToEmail common.ConfigItem
+	CDNURL       string
+	PortalURL    string
 }
 
 var _ common.PeriodicJob = (*UserEmailNotificationsJob)(nil)
@@ -230,6 +232,10 @@ func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Contex
 			nlog.ErrorContext(ctx, "Failed to parse notification context", common.ErrAttr(err))
 			continue
 		}
+		// "common" context
+		data["CDNURL"] = j.CDNURL
+		data["PortalURL"] = j.PortalURL
+		data["CurrentYear"] = time.Now().Year()
 
 		var bodyTpl bytes.Buffer
 		if err := tpl.tpl.Execute(&bodyTpl, data); err != nil {

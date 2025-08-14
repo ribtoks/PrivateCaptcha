@@ -192,14 +192,15 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 			MaxLifetime:  sessionStore.MaxLifetime(),
 			SecureCookie: (*certFileFlag != "") && (*keyFileFlag != ""),
 		},
-		PlanService:  planService,
-		APIURL:       apiURLConfig.URL(),
-		CDNURL:       cdnURLConfig.URL(),
-		PuzzleEngine: apiServer,
-		Metrics:      metrics,
-		Mailer:       mailer,
-		RateLimiter:  ipRateLimiter,
-		DataCtx:      dataCtx,
+		PlanService:   planService,
+		APIURL:        apiURLConfig.URL(),
+		CDNURL:        cdnURLConfig.URL(),
+		PuzzleEngine:  apiServer,
+		Metrics:       metrics,
+		Mailer:        mailer,
+		Notifications: &portal.NotificationScheduler{Store: businessDB},
+		RateLimiter:   ipRateLimiter,
+		DataCtx:       dataCtx,
 	}
 
 	templatesBuilder := portal.NewTemplatesBuilder()
@@ -343,6 +344,8 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		ChunkSize:    cfg.Get(common.NotificationsChunkSizeKey),
 		EmailFrom:    cfg.Get(common.EmailFromKey),
 		ReplyToEmail: cfg.Get(common.ReplyToEmailKey),
+		CDNURL:       mailer.CDNURL,
+		PortalURL:    mailer.PortalURL,
 	})
 	jobs.AddLocked(24*time.Hour, &maintenance.CleanupUserNotificationsJob{
 		Store: businessDB,
