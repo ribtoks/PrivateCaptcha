@@ -55,6 +55,7 @@ type RenderConstants struct {
 	AllowLocalhost       string
 	AllowReplay          string
 	IgnoreError          string
+	Terms                string
 }
 
 func NewRenderConstants() *RenderConstants {
@@ -101,6 +102,7 @@ func NewRenderConstants() *RenderConstants {
 		AllowLocalhost:       common.ParamAllowLocalhost,
 		AllowReplay:          common.ParamAllowReplay,
 		IgnoreError:          common.ParamIgnoreError,
+		Terms:                common.ParamTerms,
 	}
 }
 

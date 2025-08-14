@@ -41,6 +41,7 @@ const (
 	ParamHardwareID       = "hwid"
 	ParamVersion          = "version"
 	ParamPortalSolution   = "pc_portal_solution"
+	ParamTerms            = "terms"
 )
 
 var (

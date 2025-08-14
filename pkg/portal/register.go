@@ -70,6 +70,13 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 		CaptchaRenderContext: s.CreateCaptchaRenderContext(db.PortalRegisterSitekey),
 	}
 
+	if _, termsAndConditions := r.Form[common.ParamTerms]; !termsAndConditions {
+		// it's error because they are marked 'required' on the frontend, so something went terribly wrong
+		slog.ErrorContext(ctx, "Terms and conditions were not accepted")
+		s.RedirectError(http.StatusBadRequest, w, r)
+		return
+	}
+
 	captchaSolution := r.FormValue(common.ParamPortalSolution)
 	if len(captchaSolution) == 0 {
 		slog.WarnContext(ctx, "Captcha solution field is empty")
