@@ -151,7 +151,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	portalURLConfig := config.AsURL(ctx, cfg.Get(common.PortalBaseURLKey))
 
 	sender := email.NewMailSender(cfg)
-	mailer := email.NewPortalMailer("https:"+cdnURLConfig.URL(), portalURLConfig.Domain(), sender, cfg)
+	mailer := email.NewPortalMailer("https:"+cdnURLConfig.URL(), "https:"+portalURLConfig.URL(), sender, cfg)
 
 	rateLimitHeader := cfg.Get(common.RateLimitHeaderKey).Value()
 	ipRateLimiter := ratelimit.NewIPAddrRateLimiter("general", rateLimitHeader, newIPAddrBuckets(cfg))

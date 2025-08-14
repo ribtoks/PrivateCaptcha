@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"text/template"
 	"time"
 
@@ -13,8 +14,8 @@ import (
 
 type PortalMailer struct {
 	Mailer                Sender
-	CDN                   string
-	Domain                string
+	CDNURL                string
+	PortalURL             string
 	EmailFrom             common.ConfigItem
 	AdminEmail            common.ConfigItem
 	ReplyToEmail          common.ConfigItem
@@ -24,14 +25,14 @@ type PortalMailer struct {
 	welcomeTextTemplate   *template.Template
 }
 
-func NewPortalMailer(cdn, domain string, mailer Sender, cfg common.ConfigStore) *PortalMailer {
+func NewPortalMailer(cdnURL, portalURL string, mailer Sender, cfg common.ConfigStore) *PortalMailer {
 	return &PortalMailer{
 		Mailer:                mailer,
 		EmailFrom:             cfg.Get(common.EmailFromKey),
 		AdminEmail:            cfg.Get(common.AdminEmailKey),
 		ReplyToEmail:          cfg.Get(common.ReplyToEmailKey),
-		CDN:                   cdn,
-		Domain:                domain,
+		CDNURL:                strings.TrimSuffix(cdnURL, "/"),
+		PortalURL:             strings.TrimSuffix(portalURL, "/"),
 		twofactorHTMLTemplate: template.Must(template.New("HtmlBody").Parse(TwoFactorHTMLTemplate)),
 		twofactorTextTemplate: template.Must(template.New("TextBody").Parse(twoFactorTextTemplate)),
 		welcomeHTMLTemplate:   template.Must(template.New("HtmlBody").Parse(WelcomeHTMLTemplate)),
@@ -48,13 +49,13 @@ func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code in
 
 	data := struct {
 		Code        string
-		Domain      string
+		PortalURL   string
 		CurrentYear int
-		CDN         string
+		CDNURL      string
 	}{
 		Code:        fmt.Sprintf("%06d", code),
-		CDN:         pm.CDN,
-		Domain:      fmt.Sprintf("https://%s/", pm.Domain),
+		CDNURL:      pm.CDNURL,
+		PortalURL:   pm.PortalURL,
 		CurrentYear: time.Now().Year(),
 	}
 
@@ -99,12 +100,12 @@ func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code in
 
 func (pm *PortalMailer) SendWelcome(ctx context.Context, email string) error {
 	data := struct {
-		Domain      string
+		PortalURL   string
 		CurrentYear int
-		CDN         string
+		CDNURL      string
 	}{
-		CDN:         pm.CDN,
-		Domain:      pm.Domain,
+		CDNURL:      pm.CDNURL,
+		PortalURL:   pm.PortalURL,
 		CurrentYear: time.Now().Year(),
 	}
 

@@ -52,19 +52,19 @@ func serveExecute(templateBody string, w http.ResponseWriter) error {
 	}
 
 	data := struct {
-		Code        int
-		Domain      string
-		CurrentYear int
-		CDN         string
-		Message     string
-		TicketID    string
+		Code               int
+		PortalURL          string
+		CurrentYear        int
+		CDNURL             string
+		Message            string
+		TicketID           string
 	}{
-		Code:        123456,
-		CDN:         "https://cdn.staging.privatecaptcha.com",
-		Domain:      "https://staging.privatecaptcha.com",
-		CurrentYear: time.Now().Year(),
-		Message:     "This is a support request message. Nothing works!",
-		TicketID:    "qwerty12345",
+		Code:               123456,
+		CDNURL:             "https://cdn.privatecaptcha.com",
+		PortalURL:          "https://portal.privatecaptcha.com",
+		CurrentYear:        time.Now().Year(),
+		Message:            "This is a support request message. Nothing works!",
+		TicketID:           "qwerty12345",
 	}
 
 	var htmlBodyTpl bytes.Buffer

@@ -4,7 +4,7 @@ const (
 	WelcomeHTMLTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>
-    <link rel="preload" as="image" href="{{.CDN}}/portal/img/pc-logo-dark.png" />
+    <link rel="preload" as="image" href="{{.CDNURL}}/portal/img/pc-logo-dark.png" />
     <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
     <meta name="x-apple-disable-message-reformatting" />
   </head>
@@ -23,7 +23,7 @@ const (
       <tbody>
         <tr style="width:100%">
           <td>
-            <img alt="Private Captcha" height="50" src="{{.CDN}}/portal/img/pc-logo-dark.png" style="display:block;outline:none;border:none;text-decoration:none" />
+            <img alt="Private Captcha" height="50" src="{{.CDNURL}}/portal/img/pc-logo-dark.png" style="display:block;outline:none;border:none;text-decoration:none" />
             <p style="font-size:16px;line-height:26px;margin:16px 0">
               Hello,
             </p>
@@ -34,7 +34,7 @@ const (
               <tbody>
                 <tr>
                   <td>
-                      <a href="{{.Domain}}" style="line-height:1.5rem;text-decoration:none;display:block;max-width:300px;mso-padding-alt:0px;background-color:#111827;border-radius:0.75rem;color:#fff;font-size:1rem;text-align:center;padding:1rem 2rem;font-weight: 700;"
+                      <a href="{{.PortalURL}}" style="line-height:1.5rem;text-decoration:none;display:block;max-width:300px;mso-padding-alt:0px;background-color:#111827;border-radius:0.75rem;color:#fff;font-size:1rem;text-align:center;padding:1rem 2rem;font-weight: 700;"
                       target="_blank"
                       ><span
                         ><!--[if mso
@@ -64,7 +64,7 @@ const (
             </p>
             <hr style="width:100%;border:none;border-top:1px solid #eaeaea;border-color:#cccccc;margin:20px 0" />
             <p style="font-size:14px;line-height:24px;margin:16px 0;color:#9ca299;margin-bottom:10px">
-                <a href="{{.Domain}}" style="text-decoration:underline;color:#9ca299;">PrivateCaptcha</a> © {{.CurrentYear}} Intmaker OÜ
+            <a href="https://privatecaptcha.com" style="text-decoration:underline;color:#9ca299;">PrivateCaptcha</a> © {{.CurrentYear}} Intmaker OÜ
             </p>
           </td>
         </tr>
@@ -78,7 +78,7 @@ Hello,
 
 Welcome to Private Captcha, a privacy- and user-friendly protection from bots and spam.
 
-Get started {{.Domain}}
+Get started at {{.PortalURL}}
 
 Warmly,
 The Private Captcha team

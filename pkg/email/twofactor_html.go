@@ -4,7 +4,7 @@ const (
 	TwoFactorHTMLTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>
-    <link rel="preload" as="image" href="{{.CDN}}/portal/img/pc-logo-light.png" />
+    <link rel="preload" as="image" href="{{.CDNURL}}/portal/img/pc-logo-light.png" />
     <meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
     <meta name="x-apple-disable-message-reformatting" />
   </head>
@@ -23,7 +23,7 @@ const (
                       <tbody>
                         <tr>
                           <td>
-                            <img alt="PrivateCaptcha's Logo" height="50" src="{{.CDN}}/portal/img/pc-logo-light.png"
+                            <img alt="PrivateCaptcha's Logo" height="50" src="{{.CDNURL}}/portal/img/pc-logo-light.png"
                               style="display:block;outline:none;border:none;text-decoration:none;color:#fff" />
                           </td>
                         </tr>
@@ -65,7 +65,7 @@ const (
             <p style="font-size:12px;margin:24px 0 0 0;color:#072929;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;padding:0 20px">
               Your are receiving this message because the action you are taking requires a verification.
             </p>
-            <p style="font-size:12px;color:#072929;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;padding:0 20px"><a href="{{.Domain}}" style="text-decoration:underline;color:#072929;">PrivateCaptcha</a> © {{.CurrentYear}} Intmaker OÜ</p>
+            <p style="font-size:12px;color:#072929;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;padding:0 20px"><a href="https://privatecaptcha.com" style="text-decoration:underline;color:#072929;">PrivateCaptcha</a> © {{.CurrentYear}} Intmaker OÜ</p>
           </td>
         </tr>
       </tbody>
@@ -88,6 +88,6 @@ Your are receiving this message because the action you are taking requires a ver
 
 PrivateCaptcha © {{.CurrentYear}} Intmaker OÜ
 
-{{.Domain}}
+{{.PortalURL}}
 `
 )
