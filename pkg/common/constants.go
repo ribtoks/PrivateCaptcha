@@ -24,7 +24,7 @@ const (
 	ParamGrowth           = "growth"
 	ParamTab              = "tab"
 	ParamNew              = "new"
-	ParamMonths           = "months"
+	ParamDays             = "days"
 	ParamOrg              = "org"
 	ParamUser             = "user"
 	ParamPeriod           = "period"

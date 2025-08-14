@@ -394,18 +394,18 @@ func (s *Server) getAPIKeysSettings(w http.ResponseWriter, r *http.Request) (Mod
 	return renderCtx, "", nil
 }
 
-func monthsFromParam(ctx context.Context, param string) int {
+func daysFromParam(ctx context.Context, param string) int {
 	i, err := strconv.Atoi(param)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to convert months", "value", param, common.ErrAttr(err))
-		return 12
+		slog.ErrorContext(ctx, "Failed to convert days", "value", param, common.ErrAttr(err))
+		return 30
 	}
 
 	switch i {
-	case 3, 6, 12:
+	case 1, 30, 90, 180, 365:
 		return i
 	default:
-		return 12
+		return 30
 	}
 }
 
@@ -441,9 +441,9 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Mod
 		}
 	}
 
-	months := monthsFromParam(ctx, r.FormValue(common.ParamMonths))
+	days := daysFromParam(ctx, r.FormValue(common.ParamDays))
 	tnow := time.Now().UTC()
-	expiration := tnow.AddDate(0, months, 0)
+	expiration := tnow.AddDate(0, 0, days)
 	newKey, err := s.Store.Impl().CreateAPIKey(ctx, user.ID, formName, expiration, apiKeyRequestsPerSecond)
 	if err == nil {
 		userKey := apiKeyToUserAPIKey(newKey, tnow)
