@@ -11,21 +11,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createNotification = `-- name: CreateNotification :one
+const createNotificationTemplate = `-- name: CreateNotificationTemplate :one
+INSERT INTO backend.notification_templates (name, content, content_hash)
+VALUES ($1, $2, $3)
+ON CONFLICT (content_hash) DO UPDATE SET updated_at = NOW()
+RETURNING id, name, content, content_hash, created_at, updated_at
+`
+
+type CreateNotificationTemplateParams struct {
+	Name        string `db:"name" json:"name"`
+	Content     string `db:"content" json:"content"`
+	ContentHash string `db:"content_hash" json:"content_hash"`
+}
+
+func (q *Queries) CreateNotificationTemplate(ctx context.Context, arg *CreateNotificationTemplateParams) (*NotificationTemplate, error) {
+	row := q.db.QueryRow(ctx, createNotificationTemplate, arg.Name, arg.Content, arg.ContentHash)
+	var i NotificationTemplate
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Content,
+		&i.ContentHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const createSystemNotification = `-- name: CreateSystemNotification :one
 INSERT INTO backend.system_notifications (message, start_date, end_date, user_id)
 VALUES ($1, $2, $3, $4)
 RETURNING id, message, start_date, end_date, user_id, is_active
 `
 
-type CreateNotificationParams struct {
+type CreateSystemNotificationParams struct {
 	Message   string             `db:"message" json:"message"`
 	StartDate pgtype.Timestamptz `db:"start_date" json:"start_date"`
 	EndDate   pgtype.Timestamptz `db:"end_date" json:"end_date"`
 	UserID    pgtype.Int4        `db:"user_id" json:"user_id"`
 }
 
-func (q *Queries) CreateNotification(ctx context.Context, arg *CreateNotificationParams) (*SystemNotification, error) {
-	row := q.db.QueryRow(ctx, createNotification,
+func (q *Queries) CreateSystemNotification(ctx context.Context, arg *CreateSystemNotificationParams) (*SystemNotification, error) {
+	row := q.db.QueryRow(ctx, createSystemNotification,
 		arg.Message,
 		arg.StartDate,
 		arg.EndDate,
@@ -43,7 +70,84 @@ func (q *Queries) CreateNotification(ctx context.Context, arg *CreateNotificatio
 	return &i, err
 }
 
-const getLastActiveNotification = `-- name: GetLastActiveNotification :one
+const createUserNotification = `-- name: CreateUserNotification :one
+INSERT INTO backend.user_notifications (user_id, reference_id, template_hash, subject, payload, scheduled_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, user_id, template_hash, payload, subject, reference_id, created_at, scheduled_at, delivered_at
+`
+
+type CreateUserNotificationParams struct {
+	UserID       pgtype.Int4        `db:"user_id" json:"user_id"`
+	ReferenceID  string             `db:"reference_id" json:"reference_id"`
+	TemplateHash pgtype.Text        `db:"template_hash" json:"template_hash"`
+	Subject      string             `db:"subject" json:"subject"`
+	Payload      []byte             `db:"payload" json:"payload"`
+	ScheduledAt  pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
+}
+
+func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNotificationParams) (*UserNotification, error) {
+	row := q.db.QueryRow(ctx, createUserNotification,
+		arg.UserID,
+		arg.ReferenceID,
+		arg.TemplateHash,
+		arg.Subject,
+		arg.Payload,
+		arg.ScheduledAt,
+	)
+	var i UserNotification
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TemplateHash,
+		&i.Payload,
+		&i.Subject,
+		&i.ReferenceID,
+		&i.CreatedAt,
+		&i.ScheduledAt,
+		&i.DeliveredAt,
+	)
+	return &i, err
+}
+
+const deleteSentUserNotifications = `-- name: DeleteSentUserNotifications :exec
+DELETE FROM backend.user_notifications
+WHERE delivered_at IS NOT NULL
+AND delivered_at < $1
+`
+
+func (q *Queries) DeleteSentUserNotifications(ctx context.Context, deliveredAt pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, deleteSentUserNotifications, deliveredAt)
+	return err
+}
+
+const deleteUnsentUserNotifications = `-- name: DeleteUnsentUserNotifications :exec
+DELETE FROM backend.user_notifications
+WHERE delivered_at IS NULL
+AND scheduled_at < $1
+`
+
+func (q *Queries) DeleteUnsentUserNotifications(ctx context.Context, scheduledAt pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, deleteUnsentUserNotifications, scheduledAt)
+	return err
+}
+
+const deleteUnusedNotificationTemplates = `-- name: DeleteUnusedNotificationTemplates :exec
+DELETE FROM backend.notification_templates nt
+WHERE nt.id IN (
+    SELECT nt2.id
+    FROM backend.notification_templates nt2
+    LEFT JOIN backend.user_notifications un ON un.template_hash = nt2.content_hash
+    WHERE un.template_hash IS NULL
+    AND nt2.updated_at < $1
+)
+`
+
+func (q *Queries) DeleteUnusedNotificationTemplates(ctx context.Context, updatedAt pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, deleteUnusedNotificationTemplates, updatedAt)
+	return err
+}
+
+const getLastActiveSystemNotification = `-- name: GetLastActiveSystemNotification :one
 SELECT id, message, start_date, end_date, user_id, is_active FROM backend.system_notifications
  WHERE is_active = TRUE AND
    start_date <= $1::timestamptz AND
@@ -55,13 +159,13 @@ SELECT id, message, start_date, end_date, user_id, is_active FROM backend.system
  LIMIT 1
 `
 
-type GetLastActiveNotificationParams struct {
+type GetLastActiveSystemNotificationParams struct {
 	Column1 pgtype.Timestamptz `db:"column_1" json:"column_1"`
 	UserID  pgtype.Int4        `db:"user_id" json:"user_id"`
 }
 
-func (q *Queries) GetLastActiveNotification(ctx context.Context, arg *GetLastActiveNotificationParams) (*SystemNotification, error) {
-	row := q.db.QueryRow(ctx, getLastActiveNotification, arg.Column1, arg.UserID)
+func (q *Queries) GetLastActiveSystemNotification(ctx context.Context, arg *GetLastActiveSystemNotificationParams) (*SystemNotification, error) {
+	row := q.db.QueryRow(ctx, getLastActiveSystemNotification, arg.Column1, arg.UserID)
 	var i SystemNotification
 	err := row.Scan(
 		&i.ID,
@@ -74,12 +178,79 @@ func (q *Queries) GetLastActiveNotification(ctx context.Context, arg *GetLastAct
 	return &i, err
 }
 
-const getNotificationById = `-- name: GetNotificationById :one
+const getNotificationTemplateByHash = `-- name: GetNotificationTemplateByHash :one
+SELECT id, name, content, content_hash, created_at, updated_at FROM backend.notification_templates WHERE content_hash = $1
+`
+
+func (q *Queries) GetNotificationTemplateByHash(ctx context.Context, contentHash string) (*NotificationTemplate, error) {
+	row := q.db.QueryRow(ctx, getNotificationTemplateByHash, contentHash)
+	var i NotificationTemplate
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Content,
+		&i.ContentHash,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
+}
+
+const getPendingUserNotifications = `-- name: GetPendingUserNotifications :many
+SELECT un.id, un.user_id, un.template_hash, un.payload, un.subject, un.reference_id, un.created_at, un.scheduled_at, un.delivered_at, u.email
+FROM backend.user_notifications un
+JOIN backend.users u ON un.user_id = u.id
+WHERE delivered_at IS NULL AND scheduled_at >= $1 AND scheduled_at <= NOW() ORDER BY scheduled_at ASC
+LIMIT $2
+`
+
+type GetPendingUserNotificationsParams struct {
+	ScheduledAt pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
+	Limit       int32              `db:"limit" json:"limit"`
+}
+
+type GetPendingUserNotificationsRow struct {
+	UserNotification UserNotification `db:"user_notification" json:"user_notification"`
+	Email            string           `db:"email" json:"email"`
+}
+
+func (q *Queries) GetPendingUserNotifications(ctx context.Context, arg *GetPendingUserNotificationsParams) ([]*GetPendingUserNotificationsRow, error) {
+	rows, err := q.db.Query(ctx, getPendingUserNotifications, arg.ScheduledAt, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*GetPendingUserNotificationsRow
+	for rows.Next() {
+		var i GetPendingUserNotificationsRow
+		if err := rows.Scan(
+			&i.UserNotification.ID,
+			&i.UserNotification.UserID,
+			&i.UserNotification.TemplateHash,
+			&i.UserNotification.Payload,
+			&i.UserNotification.Subject,
+			&i.UserNotification.ReferenceID,
+			&i.UserNotification.CreatedAt,
+			&i.UserNotification.ScheduledAt,
+			&i.UserNotification.DeliveredAt,
+			&i.Email,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getSystemNotificationById = `-- name: GetSystemNotificationById :one
 SELECT id, message, start_date, end_date, user_id, is_active FROM backend.system_notifications WHERE id = $1
 `
 
-func (q *Queries) GetNotificationById(ctx context.Context, id int32) (*SystemNotification, error) {
-	row := q.db.QueryRow(ctx, getNotificationById, id)
+func (q *Queries) GetSystemNotificationById(ctx context.Context, id int32) (*SystemNotification, error) {
+	row := q.db.QueryRow(ctx, getSystemNotificationById, id)
 	var i SystemNotification
 	err := row.Scan(
 		&i.ID,
@@ -90,4 +261,18 @@ func (q *Queries) GetNotificationById(ctx context.Context, id int32) (*SystemNot
 		&i.IsActive,
 	)
 	return &i, err
+}
+
+const updateSentUserNotifications = `-- name: UpdateSentUserNotifications :exec
+UPDATE backend.user_notifications SET delivered_at = $1 WHERE id = ANY($2::INT[])
+`
+
+type UpdateSentUserNotificationsParams struct {
+	DeliveredAt pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
+	Column2     []int32            `db:"column_2" json:"column_2"`
+}
+
+func (q *Queries) UpdateSentUserNotifications(ctx context.Context, arg *UpdateSentUserNotificationsParams) error {
+	_, err := q.db.Exec(ctx, updateSentUserNotifications, arg.DeliveredAt, arg.Column2)
+	return err
 }

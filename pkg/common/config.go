@@ -33,11 +33,13 @@ const (
 	SmtpUsernameKey
 	SmtpPasswordKey
 	EmailFromKey
+	ReplyToEmailKey
 	HostKey
 	PortKey
 	UserFingerprintIVKey
 	APISaltKey
 	EnterpriseLicenseKeyKey
+	NotificationsChunkSizeKey
 	// Add new fields _above_
 	COMMON_CONFIG_KEYS_COUNT
 )

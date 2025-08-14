@@ -14,11 +14,13 @@ type Querier interface {
 	CreateAPIKey(ctx context.Context, arg *CreateAPIKeyParams) (*APIKey, error)
 	CreateCache(ctx context.Context, arg *CreateCacheParams) error
 	CreateCacheMany(ctx context.Context, arg *CreateCacheManyParams) error
-	CreateNotification(ctx context.Context, arg *CreateNotificationParams) (*SystemNotification, error)
+	CreateNotificationTemplate(ctx context.Context, arg *CreateNotificationTemplateParams) (*NotificationTemplate, error)
 	CreateOrganization(ctx context.Context, arg *CreateOrganizationParams) (*Organization, error)
 	CreateProperty(ctx context.Context, arg *CreatePropertyParams) (*Property, error)
 	CreateSubscription(ctx context.Context, arg *CreateSubscriptionParams) (*Subscription, error)
+	CreateSystemNotification(ctx context.Context, arg *CreateSystemNotificationParams) (*SystemNotification, error)
 	CreateUser(ctx context.Context, arg *CreateUserParams) (*User, error)
+	CreateUserNotification(ctx context.Context, arg *CreateUserNotificationParams) (*UserNotification, error)
 	DeleteAPIKey(ctx context.Context, arg *DeleteAPIKeyParams) (*APIKey, error)
 	DeleteCachedByKey(ctx context.Context, key string) error
 	DeleteDeletedRecords(ctx context.Context, deletedAt pgtype.Timestamptz) error
@@ -26,17 +28,21 @@ type Querier interface {
 	DeleteLock(ctx context.Context, name string) error
 	DeleteOrganizations(ctx context.Context, dollar_1 []int32) error
 	DeleteProperties(ctx context.Context, dollar_1 []int32) error
+	DeleteSentUserNotifications(ctx context.Context, deliveredAt pgtype.Timestamptz) error
+	DeleteUnsentUserNotifications(ctx context.Context, scheduledAt pgtype.Timestamptz) error
+	DeleteUnusedNotificationTemplates(ctx context.Context, updatedAt pgtype.Timestamptz) error
 	DeleteUserAPIKeys(ctx context.Context, userID pgtype.Int4) error
 	DeleteUsers(ctx context.Context, dollar_1 []int32) error
 	FindUserOrgByName(ctx context.Context, arg *FindUserOrgByNameParams) (*Organization, error)
 	GetAPIKeyByExternalID(ctx context.Context, externalID pgtype.UUID) (*APIKey, error)
 	GetCachedByKey(ctx context.Context, key string) ([]byte, error)
-	GetLastActiveNotification(ctx context.Context, arg *GetLastActiveNotificationParams) (*SystemNotification, error)
-	GetNotificationById(ctx context.Context, id int32) (*SystemNotification, error)
+	GetLastActiveSystemNotification(ctx context.Context, arg *GetLastActiveSystemNotificationParams) (*SystemNotification, error)
+	GetNotificationTemplateByHash(ctx context.Context, contentHash string) (*NotificationTemplate, error)
 	GetOrgProperties(ctx context.Context, orgID pgtype.Int4) ([]*Property, error)
 	GetOrgPropertyByName(ctx context.Context, arg *GetOrgPropertyByNameParams) (*Property, error)
 	GetOrganizationUsers(ctx context.Context, orgID int32) ([]*GetOrganizationUsersRow, error)
 	GetOrganizationWithAccess(ctx context.Context, arg *GetOrganizationWithAccessParams) (*GetOrganizationWithAccessRow, error)
+	GetPendingUserNotifications(ctx context.Context, arg *GetPendingUserNotificationsParams) ([]*GetPendingUserNotificationsRow, error)
 	GetProperties(ctx context.Context, limit int32) ([]*Property, error)
 	GetPropertiesByExternalID(ctx context.Context, dollar_1 []pgtype.UUID) ([]*Property, error)
 	GetPropertiesByID(ctx context.Context, dollar_1 []int32) ([]*Property, error)
@@ -47,6 +53,7 @@ type Querier interface {
 	GetSoftDeletedUsers(ctx context.Context, arg *GetSoftDeletedUsersParams) ([]*GetSoftDeletedUsersRow, error)
 	GetSubscriptionByID(ctx context.Context, id int32) (*Subscription, error)
 	GetSubscriptionsByUserIDs(ctx context.Context, dollar_1 []int32) ([]*GetSubscriptionsByUserIDsRow, error)
+	GetSystemNotificationById(ctx context.Context, id int32) (*SystemNotification, error)
 	GetUserAPIKeys(ctx context.Context, userID pgtype.Int4) ([]*APIKey, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, id int32) (*User, error)
@@ -67,6 +74,7 @@ type Querier interface {
 	UpdateOrgMembershipLevel(ctx context.Context, arg *UpdateOrgMembershipLevelParams) error
 	UpdateOrganization(ctx context.Context, arg *UpdateOrganizationParams) (*Organization, error)
 	UpdateProperty(ctx context.Context, arg *UpdatePropertyParams) (*Property, error)
+	UpdateSentUserNotifications(ctx context.Context, arg *UpdateSentUserNotificationsParams) error
 	UpdateSubscription(ctx context.Context, arg *UpdateSubscriptionParams) (*Subscription, error)
 	UpdateUserAPIKeysRateLimits(ctx context.Context, arg *UpdateUserAPIKeysRateLimitsParams) error
 	UpdateUserData(ctx context.Context, arg *UpdateUserDataParams) (*User, error)

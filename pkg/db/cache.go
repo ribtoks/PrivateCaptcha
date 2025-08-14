@@ -166,6 +166,7 @@ const (
 	userAPIKeysCacheKeyPrefix
 	subscriptionCacheKeyPrefix
 	notificationCacheKeyPrefix
+	templateCacheKeyPrefix
 	// Add new fields _above_
 	CACHE_KEY_PREFIXES_COUNT
 )
@@ -194,6 +195,7 @@ func init() {
 	cachePrefixToStrings[userAPIKeysCacheKeyPrefix] = "userApiKeys/"
 	cachePrefixToStrings[subscriptionCacheKeyPrefix] = "subscr/"
 	cachePrefixToStrings[notificationCacheKeyPrefix] = "notif/"
+	cachePrefixToStrings[templateCacheKeyPrefix] = "template/"
 
 	for i, v := range cachePrefixToStrings {
 		if len(v) == 0 {
@@ -283,3 +285,4 @@ func userAPIKeysCacheKey(userID int32) CacheKey {
 }
 func subscriptionCacheKey(sID int32) CacheKey { return Int32CacheKey(subscriptionCacheKeyPrefix, sID) }
 func notificationCacheKey(ID int32) CacheKey  { return Int32CacheKey(notificationCacheKeyPrefix, ID) }
+func templateCacheKey(str string) CacheKey    { return StringCacheKey(templateCacheKeyPrefix, str) }

@@ -44,6 +44,8 @@ sql:
           backend_subscription_source: SubscriptionSource
           backend_subscription_source_external: SubscriptionSourceExternal
           backend_subscription_source_internal: SubscriptionSourceInternal
+          backend_notification_template: NotificationTemplate
+          backend_user_notification: UserNotification
         overrides:
           - db_type: "pg_catalog.interval"
             go_type: "time.Duration"

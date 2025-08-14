@@ -25,6 +25,7 @@ type Message struct {
 var (
 	errInvalidMessage = errors.New("mail message is not valid")
 	errInvalidEmail   = errors.New("email is not valid")
+	errNoEmailBody    = errors.New("no email body was generated")
 )
 
 func (m *Message) Valid() bool {
@@ -58,28 +59,29 @@ func smtpDialer(smtpURL, user, pass string) (*gomail.Dialer, error) {
 	return d, nil
 }
 
-func NewMailer(cfg common.ConfigStore) *SimpleMailer {
-	return &SimpleMailer{
+func NewMailSender(cfg common.ConfigStore) *simpleMailer {
+	return &simpleMailer{
 		endpoint: cfg.Get(common.SmtpEndpointKey),
 		username: cfg.Get(common.SmtpUsernameKey),
 		password: cfg.Get(common.SmtpPasswordKey),
 	}
 }
 
-type SimpleMailer struct {
+type Sender interface {
+	SendEmail(ctx context.Context, msg *Message) error
+}
+
+type simpleMailer struct {
 	endpoint common.ConfigItem
 	username common.ConfigItem
 	password common.ConfigItem
 }
 
-func (sm *SimpleMailer) SendEmail(ctx context.Context, msg *Message) error {
+var _ Sender = (*simpleMailer)(nil)
+
+func (sm *simpleMailer) SendEmail(ctx context.Context, msg *Message) error {
 	if !msg.Valid() {
 		return errInvalidMessage
-	}
-
-	dialer, err := smtpDialer(sm.endpoint.Value(), sm.username.Value(), sm.password.Value())
-	if err != nil {
-		return err
 	}
 
 	m := gomail.NewMessage()
@@ -103,7 +105,12 @@ func (sm *SimpleMailer) SendEmail(ctx context.Context, msg *Message) error {
 		hasBody = true
 	}
 	if !hasBody {
-		return errors.New("no email body was generated")
+		return errNoEmailBody
+	}
+
+	dialer, err := smtpDialer(sm.endpoint.Value(), sm.username.Value(), sm.password.Value())
+	if err != nil {
+		return err
 	}
 
 	err = dialer.DialAndSend(m)

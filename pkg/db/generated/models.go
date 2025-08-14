@@ -175,6 +175,15 @@ type Lock struct {
 	ExpiresAt pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 }
 
+type NotificationTemplate struct {
+	ID          int32              `db:"id" json:"id"`
+	Name        string             `db:"name" json:"name"`
+	Content     string             `db:"content" json:"content"`
+	ContentHash string             `db:"content_hash" json:"content_hash"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type Organization struct {
 	ID        int32              `db:"id" json:"id"`
 	Name      string             `db:"name" json:"name"`
@@ -244,4 +253,16 @@ type User struct {
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	DeletedAt      pgtype.Timestamptz `db:"deleted_at" json:"deleted_at"`
+}
+
+type UserNotification struct {
+	ID           int32              `db:"id" json:"id"`
+	UserID       pgtype.Int4        `db:"user_id" json:"user_id"`
+	TemplateHash pgtype.Text        `db:"template_hash" json:"template_hash"`
+	Payload      []byte             `db:"payload" json:"payload"`
+	Subject      string             `db:"subject" json:"subject"`
+	ReferenceID  string             `db:"reference_id" json:"reference_id"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ScheduledAt  pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
+	DeliveredAt  pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
 }

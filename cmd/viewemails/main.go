@@ -25,10 +25,7 @@ const (
 )
 
 var (
-	templates = map[string]string{
-		"two-factor": email.TwoFactorHTMLTemplate,
-		"welcome":    email.WelcomeHTMLTemplate,
-	}
+	templates = email.Templates()
 )
 
 func homepage(w http.ResponseWriter, r *http.Request) {

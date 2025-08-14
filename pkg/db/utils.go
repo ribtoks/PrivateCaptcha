@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"crypto/sha1"
 	"encoding/hex"
 	"log/slog"
 	"strings"
@@ -176,6 +177,10 @@ func FetchCachedArray[T any](ctx context.Context, cache common.Cache[CacheKey, a
 
 func queryKeyInt(ck CacheKey) (int32, error) {
 	return ck.IntValue, nil
+}
+
+func queryKeyString(ck CacheKey) (string, error) {
+	return ck.StrValue, nil
 }
 
 func queryKeySecretUUID(key CacheKey) (pgtype.UUID, error) {
@@ -437,4 +442,10 @@ func (br *StoreBulkReader[TArg, TKey, T]) Read(ctx context.Context, args map[TAr
 	}
 
 	return cached, items, nil
+}
+
+func EmailTemplateHash(content string) string {
+	h := sha1.New()
+	h.Write([]byte(content))
+	return hex.EncodeToString(h.Sum(nil))
 }

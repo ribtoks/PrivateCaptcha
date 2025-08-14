@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"slices"
@@ -1337,7 +1338,7 @@ func (impl *BusinessStoreImpl) DeleteUsers(ctx context.Context, ids []int32) err
 	return err
 }
 
-func (impl *BusinessStoreImpl) RetrieveNotification(ctx context.Context, id int32) (*dbgen.SystemNotification, error) {
+func (impl *BusinessStoreImpl) RetrieveSystemNotification(ctx context.Context, id int32) (*dbgen.SystemNotification, error) {
 	reader := &StoreOneReader[int32, dbgen.SystemNotification]{
 		CacheKey: notificationCacheKey(id),
 		Cache:    impl.cache,
@@ -1345,18 +1346,18 @@ func (impl *BusinessStoreImpl) RetrieveNotification(ctx context.Context, id int3
 
 	if impl.querier != nil {
 		reader.QueryKeyFunc = queryKeyInt
-		reader.QueryFunc = impl.querier.GetNotificationById
+		reader.QueryFunc = impl.querier.GetSystemNotificationById
 	}
 
 	return reader.Read(ctx)
 }
 
-func (impl *BusinessStoreImpl) RetrieveUserNotification(ctx context.Context, tnow time.Time, userID int32) (*dbgen.SystemNotification, error) {
+func (impl *BusinessStoreImpl) RetrieveSystemUserNotification(ctx context.Context, tnow time.Time, userID int32) (*dbgen.SystemNotification, error) {
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
 
-	n, err := impl.querier.GetLastActiveNotification(ctx, &dbgen.GetLastActiveNotificationParams{
+	n, err := impl.querier.GetLastActiveSystemNotification(ctx, &dbgen.GetLastActiveSystemNotificationParams{
 		Column1: Timestampz(tnow),
 		UserID:  Int(userID),
 	})
@@ -1377,12 +1378,12 @@ func (impl *BusinessStoreImpl) RetrieveUserNotification(ctx context.Context, tno
 	return n, err
 }
 
-func (impl *BusinessStoreImpl) CreateNotification(ctx context.Context, message string, tnow time.Time, duration *time.Duration, userID *int32) (*dbgen.SystemNotification, error) {
+func (impl *BusinessStoreImpl) CreateSystemNotification(ctx context.Context, message string, tnow time.Time, duration *time.Duration, userID *int32) (*dbgen.SystemNotification, error) {
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
 
-	arg := &dbgen.CreateNotificationParams{
+	arg := &dbgen.CreateSystemNotificationParams{
 		Message:   message,
 		StartDate: Timestampz(tnow),
 		EndDate:   pgtype.Timestamptz{Valid: false},
@@ -1397,7 +1398,7 @@ func (impl *BusinessStoreImpl) CreateNotification(ctx context.Context, message s
 		arg.UserID = Int(*userID)
 	}
 
-	n, err := impl.querier.CreateNotification(ctx, arg)
+	n, err := impl.querier.CreateSystemNotification(ctx, arg)
 
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to create a system notification", common.ErrAttr(err))
@@ -1561,4 +1562,168 @@ func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.
 	}
 
 	return user, org, nil
+}
+
+func (s *BusinessStoreImpl) CreateNotificationTemplate(ctx context.Context, name, tpl string) (*dbgen.NotificationTemplate, error) {
+	if s.querier == nil {
+		return nil, ErrMaintenance
+	}
+
+	hash := EmailTemplateHash(tpl)
+
+	t, err := s.querier.CreateNotificationTemplate(ctx, &dbgen.CreateNotificationTemplateParams{
+		Name:        name,
+		Content:     tpl,
+		ContentHash: hash,
+	})
+
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to create notification template", "name", name, "hash", hash, common.ErrAttr(err))
+		return nil, err
+	}
+
+	slog.DebugContext(ctx, "Upserted notification template", "name", name, "hash", hash)
+
+	return t, nil
+}
+
+func (s *BusinessStoreImpl) RetrieveNotificationTemplate(ctx context.Context, templateHash string) (*dbgen.NotificationTemplate, error) {
+	reader := &StoreOneReader[string, dbgen.NotificationTemplate]{
+		CacheKey: templateCacheKey(templateHash),
+		Cache:    s.cache,
+	}
+
+	if s.querier != nil {
+		reader.QueryKeyFunc = queryKeyString
+		reader.QueryFunc = s.querier.GetNotificationTemplateByHash
+	}
+
+	return reader.Read(ctx)
+}
+
+func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, userID int32, referenceID string, data interface{}, subject string, templateHash string, t time.Time) (*dbgen.UserNotification, error) {
+	if (data == nil) || (len(templateHash) == 0) || (len(referenceID) == 0) {
+		return nil, ErrInvalidInput
+	}
+
+	if s.querier == nil {
+		return nil, ErrMaintenance
+	}
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to serialize payload for notification", common.ErrAttr(err))
+		return nil, err
+	}
+
+	notif, err := s.querier.CreateUserNotification(ctx, &dbgen.CreateUserNotificationParams{
+		UserID:       Int(userID),
+		ReferenceID:  referenceID,
+		Subject:      subject,
+		TemplateHash: Text(templateHash),
+		Payload:      payload,
+		ScheduledAt:  Timestampz(t),
+	})
+
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to create user notification", "userID", userID, common.ErrAttr(err))
+		return nil, err
+	}
+
+	slog.DebugContext(ctx, "Created user notification", "userID", userID, "notifID", notif.ID)
+
+	return notif, nil
+}
+
+func (s *BusinessStoreImpl) RetrievePendingUserNotifications(ctx context.Context, since time.Time, maxCount int) ([]*dbgen.GetPendingUserNotificationsRow, error) {
+	if maxCount <= 0 {
+		return nil, ErrInvalidInput
+	}
+
+	if s.querier == nil {
+		return nil, ErrMaintenance
+	}
+
+	result, err := s.querier.GetPendingUserNotifications(ctx, &dbgen.GetPendingUserNotificationsParams{
+		ScheduledAt: Timestampz(since),
+		Limit:       int32(maxCount),
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			slog.DebugContext(ctx, "No pending notifications found", "since", since)
+			return []*dbgen.GetPendingUserNotificationsRow{}, nil
+		}
+
+		slog.ErrorContext(ctx, "Failed to retrieve pending user notifications", common.ErrAttr(err))
+
+		return nil, err
+	}
+
+	slog.DebugContext(ctx, "Retrieved pending user notifications", "count", len(result), "since", since)
+
+	return result, nil
+}
+
+func (s *BusinessStoreImpl) MarkUserNotificationsSent(ctx context.Context, ids []int32, t time.Time) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	if s.querier == nil {
+		return ErrMaintenance
+	}
+
+	if err := s.querier.UpdateSentUserNotifications(ctx, &dbgen.UpdateSentUserNotificationsParams{
+		DeliveredAt: Timestampz(t),
+		Column2:     ids,
+	}); err != nil {
+		slog.ErrorContext(ctx, "Failed to update user notifications sent time", "count", len(ids), common.ErrAttr(err))
+		return err
+	}
+
+	slog.DebugContext(ctx, "Updated user notifications sent time", "count", len(ids), "delivered_at", t)
+
+	return nil
+}
+
+func (s *BusinessStoreImpl) DeleteUnusedNotificationTemplates(ctx context.Context, before time.Time) error {
+	if s.querier == nil {
+		return ErrMaintenance
+	}
+
+	if err := s.querier.DeleteUnusedNotificationTemplates(ctx, Timestampz(before)); err != nil {
+		slog.ErrorContext(ctx, "Failed to delete unused notification templates", common.ErrAttr(err))
+	}
+
+	slog.DebugContext(ctx, "Deleted unused notification templates", "before", before)
+
+	return nil
+}
+
+func (s *BusinessStoreImpl) DeleteSentUserNotifications(ctx context.Context, before time.Time) error {
+	if s.querier == nil {
+		return ErrMaintenance
+	}
+
+	if err := s.querier.DeleteSentUserNotifications(ctx, Timestampz(before)); err != nil {
+		slog.ErrorContext(ctx, "Failed to delete sent user notifications", common.ErrAttr(err))
+	}
+
+	slog.DebugContext(ctx, "Deleted sent user notifications", "before", before)
+
+	return nil
+}
+
+func (s *BusinessStoreImpl) DeleteUnsentUserNotifications(ctx context.Context, before time.Time) error {
+	if s.querier == nil {
+		return ErrMaintenance
+	}
+
+	if err := s.querier.DeleteUnsentUserNotifications(ctx, Timestampz(before)); err != nil {
+		slog.ErrorContext(ctx, "Failed to delete UNsent user notifications", common.ErrAttr(err))
+	}
+
+	slog.DebugContext(ctx, "Deleted UNsent user notifications", "before", before)
+
+	return nil
 }

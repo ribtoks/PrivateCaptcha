@@ -263,7 +263,7 @@ func (j *checkLicenseJob) checkLicense(ctx context.Context) error {
 				notifTime := tnow.Truncate(24 * time.Hour)
 				notifDuration := 7 * 24 * time.Hour
 				text := fmt.Sprintf("Failed to renew EE license (%s): <i>%s</i>", tnow.Format(time.DateOnly), err.Error())
-				_, _ = j.store.Impl().CreateNotification(ctx, text, notifTime, &notifDuration, &admin.ID)
+				_, _ = j.store.Impl().CreateSystemNotification(ctx, text, notifTime, &notifDuration, &admin.ID)
 			} else {
 				slog.ErrorContext(ctx, "Failed to find admin user by email", "email", adminEmail, common.ErrAttr(aerr))
 			}

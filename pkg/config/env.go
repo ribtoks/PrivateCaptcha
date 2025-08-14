@@ -58,6 +58,7 @@ func init() {
 	configKeyToEnvName[common.PostgresPasswordKey] = "PC_POSTGRES_PASSWORD"
 	configKeyToEnvName[common.AdminEmailKey] = "PC_ADMIN_EMAIL"
 	configKeyToEnvName[common.EmailFromKey] = "PC_EMAIL_FROM"
+	configKeyToEnvName[common.ReplyToEmailKey] = "PC_REPLY_TO_EMAIL"
 	configKeyToEnvName[common.LocalAddressKey] = "PC_LOCAL_ADDRESS"
 	configKeyToEnvName[common.MaintenanceModeKey] = "PC_MAINTENANCE_MODE"
 	configKeyToEnvName[common.RegistrationAllowedKey] = "PC_REGISTRATION_ALLOWED"
@@ -70,6 +71,7 @@ func init() {
 	configKeyToEnvName[common.UserFingerprintIVKey] = "PC_USER_FINGERPRINT_KEY"
 	configKeyToEnvName[common.APISaltKey] = "PC_API_SALT"
 	configKeyToEnvName[common.EnterpriseLicenseKeyKey] = "EE_LICENSE_KEY"
+	configKeyToEnvName[common.NotificationsChunkSizeKey] = "NOTIFICATIONS_CHUNK_SIZE"
 
 	for i, v := range configKeyToEnvName {
 		if len(v) == 0 {

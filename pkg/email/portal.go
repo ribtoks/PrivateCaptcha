@@ -12,22 +12,24 @@ import (
 )
 
 type PortalMailer struct {
-	Mailer                *SimpleMailer
+	Mailer                Sender
 	CDN                   string
 	Domain                string
 	EmailFrom             common.ConfigItem
 	AdminEmail            common.ConfigItem
+	ReplyToEmail          common.ConfigItem
 	twofactorHTMLTemplate *template.Template
 	twofactorTextTemplate *template.Template
 	welcomeHTMLTemplate   *template.Template
 	welcomeTextTemplate   *template.Template
 }
 
-func NewPortalMailer(cdn, domain string, mailer *SimpleMailer, cfg common.ConfigStore) *PortalMailer {
+func NewPortalMailer(cdn, domain string, mailer Sender, cfg common.ConfigStore) *PortalMailer {
 	return &PortalMailer{
 		Mailer:                mailer,
 		EmailFrom:             cfg.Get(common.EmailFromKey),
 		AdminEmail:            cfg.Get(common.AdminEmailKey),
+		ReplyToEmail:          cfg.Get(common.ReplyToEmailKey),
 		CDN:                   cdn,
 		Domain:                domain,
 		twofactorHTMLTemplate: template.Must(template.New("HtmlBody").Parse(TwoFactorHTMLTemplate)),
@@ -123,7 +125,7 @@ func (pm *PortalMailer) SendWelcome(ctx context.Context, email string) error {
 		EmailTo:   email,
 		EmailFrom: pm.EmailFrom.Value(),
 		NameFrom:  common.PrivateCaptcha,
-		ReplyTo:   email,
+		ReplyTo:   pm.ReplyToEmail.Value(),
 	}
 
 	if err := pm.Mailer.SendEmail(ctx, msg); err != nil {

@@ -15,6 +15,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/difficulty"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/maintenance"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/monitoring"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
@@ -135,7 +136,10 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	// TODO: seed data
+	(&maintenance.RegisterEmailTemplatesJob{
+		Templates: email.Templates(),
+		Store:     store,
+	}).RunOnce(ctx)
 
 	os.Exit(m.Run())
 }

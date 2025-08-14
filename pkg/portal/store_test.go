@@ -207,26 +207,26 @@ func TestSystemNotification(t *testing.T) {
 		t.Fatalf("Failed to create new account: %v", err)
 	}
 
-	if _, err := store.Impl().RetrieveUserNotification(ctx, tnow, user.ID); err != db.ErrRecordNotFound {
+	if _, err := store.Impl().RetrieveSystemUserNotification(ctx, tnow, user.ID); err != db.ErrRecordNotFound {
 		t.Errorf("Unexpected result for user notification: %v", err)
 	}
 
-	generalNotification, err := store.Impl().CreateNotification(ctx, "message", tnow, nil /*duration*/, nil /*userID*/)
+	generalNotification, err := store.Impl().CreateSystemNotification(ctx, "message", tnow, nil /*duration*/, nil /*userID*/)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if n, err := store.Impl().RetrieveUserNotification(ctx, tnow, user.ID); (err != nil) || (n.ID != generalNotification.ID) {
+	if n, err := store.Impl().RetrieveSystemUserNotification(ctx, tnow, user.ID); (err != nil) || (n.ID != generalNotification.ID) {
 		t.Errorf("Cannot retrieve generic user notification: %v", err)
 	}
 
-	userNotification, err := store.Impl().CreateNotification(ctx, "message", tnow.Add(-1*time.Minute), nil /*duration*/, &user.ID)
+	userNotification, err := store.Impl().CreateSystemNotification(ctx, "message", tnow.Add(-1*time.Minute), nil /*duration*/, &user.ID)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// specific notification has precedence over general one, even though both are active AND system notification is "fresher"
-	if n, err := store.Impl().RetrieveUserNotification(ctx, tnow, user.ID); (err != nil) || (n.ID != userNotification.ID) {
+	if n, err := store.Impl().RetrieveSystemUserNotification(ctx, tnow, user.ID); (err != nil) || (n.ID != userNotification.ID) {
 		t.Errorf("Cannot retrieve specific user notification: %v", err)
 	}
 }

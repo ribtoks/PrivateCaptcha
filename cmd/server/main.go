@@ -150,8 +150,8 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	cdnURLConfig := config.AsURL(ctx, cfg.Get(common.CDNBaseURLKey))
 	portalURLConfig := config.AsURL(ctx, cfg.Get(common.PortalBaseURLKey))
 
-	mailer := email.NewMailer(cfg)
-	portalMailer := email.NewPortalMailer("https:"+cdnURLConfig.URL(), portalURLConfig.Domain(), mailer, cfg)
+	sender := email.NewMailSender(cfg)
+	mailer := email.NewPortalMailer("https:"+cdnURLConfig.URL(), portalURLConfig.Domain(), sender, cfg)
 
 	rateLimitHeader := cfg.Get(common.RateLimitHeaderKey).Value()
 	ipRateLimiter := ratelimit.NewIPAddrRateLimiter("general", rateLimitHeader, newIPAddrBuckets(cfg))
@@ -166,7 +166,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Salt:               api.NewPuzzleSalt(cfg.Get(common.APISaltKey)),
 		UserFingerprintKey: api.NewUserFingerprintKey(cfg.Get(common.UserFingerprintIVKey)),
 		Metrics:            metrics,
-		Mailer:             portalMailer,
+		Mailer:             mailer,
 		Levels:             difficulty.NewLevels(timeSeriesDB, 100 /*levelsBatchSize*/, api.PropertyBucketSize),
 		VerifyLogCancel:    func() {},
 	}
@@ -197,7 +197,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		CDNURL:       cdnURLConfig.URL(),
 		PuzzleEngine: apiServer,
 		Metrics:      metrics,
-		Mailer:       portalMailer,
+		Mailer:       mailer,
 		RateLimiter:  ipRateLimiter,
 		DataCtx:      dataCtx,
 	}
@@ -331,6 +331,22 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Limit:      50,
 	})
 	jobs.AddLocked(2*time.Hour, checkLicenseJob)
+	jobs.AddOneOff(&maintenance.RegisterEmailTemplatesJob{
+		Templates: email.Templates(),
+		Store:     businessDB,
+	})
+	jobs.AddLocked(1*time.Hour, &maintenance.UserEmailNotificationsJob{
+		RunInterval:  1 * time.Hour,
+		Store:        businessDB,
+		Templates:    email.Templates(),
+		Sender:       sender,
+		ChunkSize:    cfg.Get(common.NotificationsChunkSizeKey),
+		EmailFrom:    cfg.Get(common.EmailFromKey),
+		ReplyToEmail: cfg.Get(common.ReplyToEmailKey),
+	})
+	jobs.AddLocked(24*time.Hour, &maintenance.CleanupUserNotificationsJob{
+		Store: businessDB,
+	})
 	jobs.Run()
 
 	var localServer *http.Server
