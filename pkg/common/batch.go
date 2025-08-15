@@ -2,19 +2,34 @@ package common
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"runtime/debug"
 	"time"
 )
 
-func ProcessBatchArray[T any](ctx context.Context, channel <-chan T, delay time.Duration, triggerSize, maxBatchSize int, processor func(context.Context, []T) error) {
+var (
+	errProcessorPanic = errors.New("processor callback panic")
+)
+
+type safeProcessor[T any, B any] struct {
+	processor func(context.Context, B) error
+}
+
+func (sp *safeProcessor[T, B]) Process(ctx context.Context, batch B) (err error) {
 	defer func() {
 		if rvr := recover(); rvr != nil {
-			slog.ErrorContext(ctx, "ProcessBatchArray crashed", "panic", rvr, "stack", string(debug.Stack()))
+			slog.ErrorContext(ctx, "Processor callback recovered from panic", "panic", rvr, "stack", string(debug.Stack()))
+			err = errProcessorPanic
 		}
 	}()
 
+	return sp.processor(ctx, batch)
+}
+
+func ProcessBatchArray[T any](ctx context.Context, channel <-chan T, delay time.Duration, triggerSize, maxBatchSize int, processor func(context.Context, []T) error) {
 	var batch []T
+	sp := &safeProcessor[T, []T]{processor: processor}
 	slog.DebugContext(ctx, "Processing batch", "interval", delay.String())
 
 	for running := true; running; {
@@ -37,14 +52,14 @@ func ProcessBatchArray[T any](ctx context.Context, channel <-chan T, delay time.
 
 			if len(batch) >= triggerSize {
 				slog.Log(ctx, LevelTrace, "Processing batch", "count", len(batch), "reason", "batch")
-				if err := processor(ctx, batch); err == nil {
+				if err := sp.Process(ctx, batch); err == nil {
 					batch = []T{}
 				}
 			}
 		case <-time.After(delay):
 			if len(batch) > 0 {
 				slog.Log(ctx, LevelTrace, "Processing batch", "count", len(batch), "reason", "timeout")
-				if err := processor(ctx, batch); err == nil {
+				if err := sp.Process(ctx, batch); err == nil {
 					batch = []T{}
 				}
 			}
@@ -63,6 +78,7 @@ func ProcessBatchMap[T comparable](ctx context.Context, channel <-chan T, delay 
 		}
 	}()
 
+	sp := &safeProcessor[T, map[T]uint]{processor: processor}
 	batch := make(map[T]uint)
 	slog.DebugContext(ctx, "Processing batch", "interval", delay.String())
 
@@ -86,14 +102,14 @@ func ProcessBatchMap[T comparable](ctx context.Context, channel <-chan T, delay 
 
 			if len(batch) >= triggerSize {
 				slog.Log(ctx, LevelTrace, "Processing batch", "count", len(batch), "reason", "batch")
-				if err := processor(ctx, batch); err == nil {
+				if err := sp.Process(ctx, batch); err == nil {
 					batch = make(map[T]uint)
 				}
 			}
 		case <-time.After(delay):
 			if len(batch) > 0 {
 				slog.Log(ctx, LevelTrace, "Processing batch", "count", len(batch), "reason", "timeout")
-				if err := processor(ctx, batch); err == nil {
+				if err := sp.Process(ctx, batch); err == nil {
 					batch = make(map[T]uint)
 				}
 			}
