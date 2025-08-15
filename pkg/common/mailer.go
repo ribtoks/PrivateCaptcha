@@ -20,6 +20,6 @@ type ScheduledNotification struct {
 }
 
 type ScheduledNotifications interface {
-	Add(ctx context.Context, notification *ScheduledNotification)
-	Remove(ctx context.Context, userID int32, referenceID string)
+	Add(ctx context.Context, notification *ScheduledNotification) error
+	Remove(ctx context.Context, userID int32, referenceID string) error
 }

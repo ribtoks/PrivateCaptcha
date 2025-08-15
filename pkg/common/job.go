@@ -45,6 +45,23 @@ func RunOneOffJob(ctx context.Context, j OneOffJob) {
 	jlog.DebugContext(ctx, "One-off job finished")
 }
 
+// safe wrapper (with recover()) over `go f()`
+func RunAdHocFunc(ctx context.Context, f func(ctx context.Context) error) {
+	defer func() {
+		if rvr := recover(); rvr != nil {
+			slog.ErrorContext(ctx, "Ad-hoc func crashed", "panic", rvr, "stack", string(debug.Stack()))
+		}
+	}()
+
+	slog.Log(ctx, LevelTrace, "Running ad-hoc func")
+
+	if err := f(ctx); err != nil {
+		slog.ErrorContext(ctx, "Ad-hoc func failed", ErrAttr(err))
+	}
+
+	slog.Log(ctx, LevelTrace, "Ad-hoc func finished")
+}
+
 func RunPeriodicJob(ctx context.Context, j PeriodicJob) {
 	jlog := slog.With("name", j.Name())
 

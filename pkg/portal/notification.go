@@ -61,8 +61,9 @@ type NotificationScheduler struct {
 
 var _ common.ScheduledNotifications = (*NotificationScheduler)(nil)
 
-func (ns *NotificationScheduler) Add(ctx context.Context, n *common.ScheduledNotification) {
-	_, _ = ns.AddEx(ctx, n)
+func (ns *NotificationScheduler) Add(ctx context.Context, n *common.ScheduledNotification) error {
+	_, err := ns.AddEx(ctx, n)
+	return err
 }
 
 func (ns *NotificationScheduler) AddEx(ctx context.Context, n *common.ScheduledNotification) (*dbgen.UserNotification, error) {
@@ -85,15 +86,11 @@ func (ns *NotificationScheduler) AddEx(ctx context.Context, n *common.ScheduledN
 	return notif, nil
 }
 
-func (ns *NotificationScheduler) RemoveEx(ctx context.Context, userID int32, referenceID string) error {
+func (ns *NotificationScheduler) Remove(ctx context.Context, userID int32, referenceID string) error {
 	if err := ns.Store.Impl().DeletePendingUserNotification(ctx, userID, referenceID); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete scheduled notification", common.ErrAttr(err))
 		return err
 	}
 
 	return nil
-}
-
-func (ns *NotificationScheduler) Remove(ctx context.Context, userID int32, referenceID string) {
-	_ = ns.RemoveEx(ctx, userID, referenceID)
 }

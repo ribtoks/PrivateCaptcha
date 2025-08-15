@@ -158,7 +158,7 @@ func TestDeleteScheduledNotification(t *testing.T) {
 		t.Fatal("Shouldn't create a notification with the same referenceID")
 	}
 
-	if err := scheduler.RemoveEx(ctx, user.ID, sn.ReferenceID); err != nil {
+	if err := scheduler.Remove(ctx, user.ID, sn.ReferenceID); err != nil {
 		t.Fatal(err)
 	}
 

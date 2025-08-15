@@ -113,16 +113,20 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	go func(bctx context.Context) {
+	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
 		if userID, ok := sess.Get(session.KeyUserID).(int32); ok {
 			slog.DebugContext(bctx, "Fetching system notification for user", "userID", userID)
 			if n, err := s.Store.Impl().RetrieveSystemUserNotification(bctx, time.Now().UTC(), userID); err == nil {
 				_ = sess.Set(session.KeyNotificationID, n.ID)
+			} else {
+				return err
 			}
 		} else {
 			slog.ErrorContext(bctx, "UserID not found in session")
 		}
-	}(common.CopyTraceID(ctx, context.Background()))
+
+		return nil
+	})
 
 	_ = sess.Set(session.KeyLoginStep, loginStepCompleted)
 	_ = sess.Delete(session.KeyTwoFactorCode)
