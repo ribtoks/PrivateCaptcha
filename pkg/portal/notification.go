@@ -2,6 +2,7 @@ package portal
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -74,10 +75,24 @@ func (ns *NotificationScheduler) AddEx(ctx context.Context, n *common.ScheduledN
 		return nil, errEmailTemplateNotFound
 	}
 
-	// NOTE: we don't add template to DB (again) because it should have been done with RegisterEmailTemplatesJob on startup
+	payload, err := json.Marshal(n.Data)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to serialize payload for notification", common.ErrAttr(err))
+		return nil, err
+	}
 
-	templateHash := db.EmailTemplateHash(template)
-	notif, err := ns.Store.Impl().CreateUserNotification(ctx, n.UserID, n.ReferenceID, n.Data, n.Subject, templateHash, n.DateTime)
+	// NOTE: we don't add template to DB (again) because it should have been done with RegisterEmailTemplatesJob on startup
+	params := &dbgen.CreateUserNotificationParams{
+		UserID:       db.Int(n.UserID),
+		ReferenceID:  n.ReferenceID,
+		TemplateHash: db.Text(db.EmailTemplateHash(template)),
+		Subject:      n.Subject,
+		Payload:      payload,
+		ScheduledAt:  db.Timestampz(n.DateTime),
+		Persistent:   n.Persistent,
+	}
+
+	notif, err := ns.Store.Impl().CreateUserNotification(ctx, params)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to add scheduled notification", common.ErrAttr(err))
 		return nil, err

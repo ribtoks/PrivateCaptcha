@@ -283,19 +283,21 @@ func (j *CleanupUserNotificationsJob) RunOnce(ctx context.Context) error {
 
 	tnow := time.Now().UTC()
 
-	if err := j.Store.Impl().DeleteSentUserNotifications(ctx, tnow.AddDate(0, -3 /*months*/, 0)); err != nil {
+	if err := j.Store.Impl().DeleteSentUserNotifications(ctx, tnow.AddDate(0, -6 /*months*/, 0)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete sent user notifications", common.ErrAttr(err))
 		anyError = err
 	}
 
-	if err := j.Store.Impl().DeleteUnsentUserNotifications(ctx, tnow.AddDate(0, -3 /*months*/, 0)); err != nil {
+	if err := j.Store.Impl().DeleteUnsentUserNotifications(ctx, tnow.AddDate(0, -6 /*months*/, 0)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete UNsent user notifications", common.ErrAttr(err))
 		anyError = err
 	}
 
 	// we delete notification templates only if there're no dangling references in
 	// user_notifications table so the date should be smaller than the other two
-	if err := j.Store.Impl().DeleteUnusedNotificationTemplates(ctx, tnow.AddDate(0, -6 /*months*/, 0)); err != nil {
+	templateUpdatedBefore := tnow.AddDate(0, -7 /*months*/, 0)
+	notifDeliveredBefore := tnow.AddDate(0, -7 /*months*/, 0)
+	if err := j.Store.Impl().DeleteUnusedNotificationTemplates(ctx, notifDeliveredBefore, templateUpdatedBefore); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete unused notification templates", common.ErrAttr(err))
 		anyError = err
 	}

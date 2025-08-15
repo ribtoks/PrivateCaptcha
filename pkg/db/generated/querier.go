@@ -31,7 +31,7 @@ type Querier interface {
 	DeleteProperties(ctx context.Context, dollar_1 []int32) error
 	DeleteSentUserNotifications(ctx context.Context, deliveredAt pgtype.Timestamptz) error
 	DeleteUnsentUserNotifications(ctx context.Context, scheduledAt pgtype.Timestamptz) error
-	DeleteUnusedNotificationTemplates(ctx context.Context, updatedAt pgtype.Timestamptz) error
+	DeleteUnusedNotificationTemplates(ctx context.Context, arg *DeleteUnusedNotificationTemplatesParams) error
 	DeleteUserAPIKeys(ctx context.Context, userID pgtype.Int4) error
 	DeleteUsers(ctx context.Context, dollar_1 []int32) error
 	FindUserOrgByName(ctx context.Context, arg *FindUserOrgByNameParams) (*Organization, error)

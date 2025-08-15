@@ -71,9 +71,9 @@ func (q *Queries) CreateSystemNotification(ctx context.Context, arg *CreateSyste
 }
 
 const createUserNotification = `-- name: CreateUserNotification :one
-INSERT INTO backend.user_notifications (user_id, reference_id, template_hash, subject, payload, scheduled_at)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, template_hash, payload, subject, reference_id, created_at, scheduled_at, delivered_at
+INSERT INTO backend.user_notifications (user_id, reference_id, template_hash, subject, payload, scheduled_at, persistent)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, user_id, template_hash, payload, subject, reference_id, persistent, created_at, scheduled_at, delivered_at
 `
 
 type CreateUserNotificationParams struct {
@@ -83,6 +83,7 @@ type CreateUserNotificationParams struct {
 	Subject      string             `db:"subject" json:"subject"`
 	Payload      []byte             `db:"payload" json:"payload"`
 	ScheduledAt  pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
+	Persistent   bool               `db:"persistent" json:"persistent"`
 }
 
 func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNotificationParams) (*UserNotification, error) {
@@ -93,6 +94,7 @@ func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNot
 		arg.Subject,
 		arg.Payload,
 		arg.ScheduledAt,
+		arg.Persistent,
 	)
 	var i UserNotification
 	err := row.Scan(
@@ -102,6 +104,7 @@ func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNot
 		&i.Payload,
 		&i.Subject,
 		&i.ReferenceID,
+		&i.Persistent,
 		&i.CreatedAt,
 		&i.ScheduledAt,
 		&i.DeliveredAt,
@@ -126,6 +129,7 @@ func (q *Queries) DeletePendingUserNotification(ctx context.Context, arg *Delete
 const deleteSentUserNotifications = `-- name: DeleteSentUserNotifications :exec
 DELETE FROM backend.user_notifications
 WHERE delivered_at IS NOT NULL
+AND persistent = false
 AND delivered_at < $1
 `
 
@@ -137,6 +141,7 @@ func (q *Queries) DeleteSentUserNotifications(ctx context.Context, deliveredAt p
 const deleteUnsentUserNotifications = `-- name: DeleteUnsentUserNotifications :exec
 DELETE FROM backend.user_notifications
 WHERE delivered_at IS NULL
+AND persistent = false
 AND scheduled_at < $1
 `
 
@@ -151,13 +156,18 @@ WHERE nt.id IN (
     SELECT nt2.id
     FROM backend.notification_templates nt2
     LEFT JOIN backend.user_notifications un ON un.template_hash = nt2.content_hash
-    WHERE un.template_hash IS NULL
-    AND nt2.updated_at < $1
+    WHERE ((un.template_hash IS NULL) OR (un.delivered_at < $1))
+    AND (nt2.updated_at < $2)
 )
 `
 
-func (q *Queries) DeleteUnusedNotificationTemplates(ctx context.Context, updatedAt pgtype.Timestamptz) error {
-	_, err := q.db.Exec(ctx, deleteUnusedNotificationTemplates, updatedAt)
+type DeleteUnusedNotificationTemplatesParams struct {
+	DeliveredAt pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) DeleteUnusedNotificationTemplates(ctx context.Context, arg *DeleteUnusedNotificationTemplatesParams) error {
+	_, err := q.db.Exec(ctx, deleteUnusedNotificationTemplates, arg.DeliveredAt, arg.UpdatedAt)
 	return err
 }
 
@@ -211,7 +221,7 @@ func (q *Queries) GetNotificationTemplateByHash(ctx context.Context, contentHash
 }
 
 const getPendingUserNotifications = `-- name: GetPendingUserNotifications :many
-SELECT un.id, un.user_id, un.template_hash, un.payload, un.subject, un.reference_id, un.created_at, un.scheduled_at, un.delivered_at, u.email
+SELECT un.id, un.user_id, un.template_hash, un.payload, un.subject, un.reference_id, un.persistent, un.created_at, un.scheduled_at, un.delivered_at, u.email
 FROM backend.user_notifications un
 JOIN backend.users u ON un.user_id = u.id
 WHERE delivered_at IS NULL AND scheduled_at >= $1 AND scheduled_at <= NOW() ORDER BY scheduled_at ASC
@@ -244,6 +254,7 @@ func (q *Queries) GetPendingUserNotifications(ctx context.Context, arg *GetPendi
 			&i.UserNotification.Payload,
 			&i.UserNotification.Subject,
 			&i.UserNotification.ReferenceID,
+			&i.UserNotification.Persistent,
 			&i.UserNotification.CreatedAt,
 			&i.UserNotification.ScheduledAt,
 			&i.UserNotification.DeliveredAt,

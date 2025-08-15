@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"slices"
@@ -1601,8 +1600,8 @@ func (s *BusinessStoreImpl) RetrieveNotificationTemplate(ctx context.Context, te
 	return reader.Read(ctx)
 }
 
-func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, userID int32, referenceID string, data interface{}, subject string, templateHash string, t time.Time) (*dbgen.UserNotification, error) {
-	if (data == nil) || (len(templateHash) == 0) || (len(referenceID) == 0) {
+func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, params *dbgen.CreateUserNotificationParams) (*dbgen.UserNotification, error) {
+	if (params == nil) || (len(params.TemplateHash.String) == 0) || (len(params.ReferenceID) == 0) {
 		return nil, ErrInvalidInput
 	}
 
@@ -1610,23 +1609,9 @@ func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, userID i
 		return nil, ErrMaintenance
 	}
 
-	rlog := slog.With("userID", userID, "refID", referenceID)
+	rlog := slog.With("userID", params.UserID.Int32, "refID", params.ReferenceID)
 
-	payload, err := json.Marshal(data)
-	if err != nil {
-		rlog.ErrorContext(ctx, "Failed to serialize payload for notification", common.ErrAttr(err))
-		return nil, err
-	}
-
-	notif, err := s.querier.CreateUserNotification(ctx, &dbgen.CreateUserNotificationParams{
-		UserID:       Int(userID),
-		ReferenceID:  referenceID,
-		Subject:      subject,
-		TemplateHash: Text(templateHash),
-		Payload:      payload,
-		ScheduledAt:  Timestampz(t),
-	})
-
+	notif, err := s.querier.CreateUserNotification(ctx, params)
 	if err != nil {
 		rlog.ErrorContext(ctx, "Failed to create user notification", common.ErrAttr(err))
 		return nil, err
@@ -1688,17 +1673,20 @@ func (s *BusinessStoreImpl) MarkUserNotificationsSent(ctx context.Context, ids [
 	return nil
 }
 
-func (s *BusinessStoreImpl) DeleteUnusedNotificationTemplates(ctx context.Context, before time.Time) error {
+func (s *BusinessStoreImpl) DeleteUnusedNotificationTemplates(ctx context.Context, deliveredBefore, updatedBefore time.Time) error {
 	if s.querier == nil {
 		return ErrMaintenance
 	}
 
-	if err := s.querier.DeleteUnusedNotificationTemplates(ctx, Timestampz(before)); err != nil {
+	if err := s.querier.DeleteUnusedNotificationTemplates(ctx, &dbgen.DeleteUnusedNotificationTemplatesParams{
+		DeliveredAt: Timestampz(deliveredBefore),
+		UpdatedAt:   Timestampz(updatedBefore),
+	}); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete unused notification templates", common.ErrAttr(err))
 		return err
 	}
 
-	slog.DebugContext(ctx, "Deleted unused notification templates", "before", before)
+	slog.DebugContext(ctx, "Deleted unused notification templates", "delivered_before", deliveredBefore, "updated_before", updatedBefore)
 
 	return nil
 }

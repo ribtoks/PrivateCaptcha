@@ -262,6 +262,7 @@ type UserNotification struct {
 	Payload      []byte             `db:"payload" json:"payload"`
 	Subject      string             `db:"subject" json:"subject"`
 	ReferenceID  string             `db:"reference_id" json:"reference_id"`
+	Persistent   bool               `db:"persistent" json:"persistent"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ScheduledAt  pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
 	DeliveredAt  pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`

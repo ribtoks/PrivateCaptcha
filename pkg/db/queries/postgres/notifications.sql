@@ -27,8 +27,8 @@ RETURNING *;
 SELECT * FROM backend.notification_templates WHERE content_hash = $1;
 
 -- name: CreateUserNotification :one
-INSERT INTO backend.user_notifications (user_id, reference_id, template_hash, subject, payload, scheduled_at)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO backend.user_notifications (user_id, reference_id, template_hash, subject, payload, scheduled_at, persistent)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: DeletePendingUserNotification :exec
@@ -50,16 +50,18 @@ WHERE nt.id IN (
     SELECT nt2.id
     FROM backend.notification_templates nt2
     LEFT JOIN backend.user_notifications un ON un.template_hash = nt2.content_hash
-    WHERE un.template_hash IS NULL
-    AND nt2.updated_at < $1
+    WHERE ((un.template_hash IS NULL) OR (un.delivered_at < $1))
+    AND (nt2.updated_at < $2)
 );
 
 -- name: DeleteSentUserNotifications :exec
 DELETE FROM backend.user_notifications
 WHERE delivered_at IS NOT NULL
+AND persistent = false
 AND delivered_at < $1;
 
 -- name: DeleteUnsentUserNotifications :exec
 DELETE FROM backend.user_notifications
 WHERE delivered_at IS NULL
+AND persistent = false
 AND scheduled_at < $1;

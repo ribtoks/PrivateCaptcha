@@ -8,6 +8,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/config"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
+	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	db_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/maintenance"
@@ -39,7 +40,16 @@ func TestUserNotificationsJob(t *testing.T) {
 	const referenceID = "referenceID"
 
 	hash := db.EmailTemplateHash(email.TwoFactorHTMLTemplate)
-	if _, err := store.Impl().CreateUserNotification(ctx, user.ID, referenceID, map[string]int{}, "subject", hash, tnow.Add(-10*time.Minute)); err != nil {
+	params := &dbgen.CreateUserNotificationParams{
+		UserID:       db.Int(user.ID),
+		ReferenceID:  referenceID,
+		TemplateHash: db.Text(hash),
+		Subject:      "subject",
+		Payload:      []byte("{}"),
+		ScheduledAt:  db.Timestampz(tnow.Add(-10 * time.Minute)),
+		Persistent:   false,
+	}
+	if _, err := store.Impl().CreateUserNotification(ctx, params); err != nil {
 		t.Fatal(err)
 	}
 

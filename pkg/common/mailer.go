@@ -17,6 +17,7 @@ type ScheduledNotification struct {
 	Data         interface{}
 	DateTime     time.Time
 	TemplateName string
+	Persistent   bool
 }
 
 type ScheduledNotifications interface {
