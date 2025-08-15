@@ -1,5 +1,7 @@
 package email
 
+import "github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
+
 type APIKeyContext struct {
 	APIKeyName         string
 	APIKeyPrefix       string
@@ -11,9 +13,13 @@ type APIKeyExpirationContext struct {
 	ExpireDays int
 }
 
+var (
+	APIKeyExirationTemplate = common.NewEmailTemplate("apikey-expiration", APIKeyExpirationHTMLTemplate)
+	APIKeyExpiredTemplate   = common.NewEmailTemplate("apikey-expired", APIKeyExpiredHTMLTemplate)
+)
+
 const (
-	APIKeyExpirationTemplateName = "apikey-expiration"
-	APIKeyExpirationHTML         = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+	APIKeyExpirationHTMLTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>
     <link rel="preload" as="image" href="{{.CDNURL}}/portal/img/pc-logo-dark.png" />
@@ -56,11 +62,8 @@ const (
     </table>
   </body>
 </html>`
-)
 
-const (
-	APIKeyExpiredTemplateName = "apikey-expired"
-	APIKeyExpiredHTML         = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+	APIKeyExpiredHTMLTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>
     <link rel="preload" as="image" href="{{.CDNURL}}/portal/img/pc-logo-dark.png" />

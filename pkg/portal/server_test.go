@@ -118,13 +118,12 @@ func TestMain(m *testing.M) {
 			Store:       sessionStore,
 			MaxLifetime: sessionStore.MaxLifetime(),
 		},
-		Mailer:        &email.StubMailer{},
-		RateLimiter:   &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
-		PuzzleEngine:  &fakePuzzleEngine{result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}},
-		Notifications: &NotificationScheduler{Store: store},
-		Metrics:       monitoring.NewStub(),
-		PlanService:   planService,
-		DataCtx:       dataCtx,
+		Mailer:       &email.StubMailer{},
+		RateLimiter:  &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
+		PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}},
+		Metrics:      monitoring.NewStub(),
+		PlanService:  planService,
+		DataCtx:      dataCtx,
 	}
 
 	ctx := context.TODO()

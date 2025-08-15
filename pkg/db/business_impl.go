@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"slices"
@@ -1563,12 +1564,10 @@ func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.
 	return user, org, nil
 }
 
-func (s *BusinessStoreImpl) CreateNotificationTemplate(ctx context.Context, name, tpl string) (*dbgen.NotificationTemplate, error) {
+func (s *BusinessStoreImpl) CreateNotificationTemplate(ctx context.Context, name, tpl, hash string) (*dbgen.NotificationTemplate, error) {
 	if s.querier == nil {
 		return nil, ErrMaintenance
 	}
-
-	hash := EmailTemplateHash(tpl)
 
 	t, err := s.querier.CreateNotificationTemplate(ctx, &dbgen.CreateNotificationTemplateParams{
 		Name:        name,
@@ -1600,13 +1599,30 @@ func (s *BusinessStoreImpl) RetrieveNotificationTemplate(ctx context.Context, te
 	return reader.Read(ctx)
 }
 
-func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, params *dbgen.CreateUserNotificationParams) (*dbgen.UserNotification, error) {
-	if (params == nil) || (len(params.TemplateHash.String) == 0) || (len(params.ReferenceID) == 0) {
+func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, n *common.ScheduledNotification) (*dbgen.UserNotification, error) {
+	if (n == nil) || (len(n.TemplateHash) == 0) || (len(n.ReferenceID) == 0) {
 		return nil, ErrInvalidInput
 	}
 
 	if s.querier == nil {
 		return nil, ErrMaintenance
+	}
+
+	payload, err := json.Marshal(n.Data)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to serialize payload for notification", common.ErrAttr(err))
+		return nil, err
+	}
+
+	// NOTE: we don't add template to DB (again) because it should have been done with RegisterEmailTemplatesJob on startup
+	params := &dbgen.CreateUserNotificationParams{
+		UserID:       Int(n.UserID),
+		ReferenceID:  n.ReferenceID,
+		TemplateHash: Text(n.TemplateHash),
+		Subject:      n.Subject,
+		Payload:      payload,
+		ScheduledAt:  Timestampz(n.DateTime),
+		Persistent:   n.Persistent,
 	}
 
 	rlog := slog.With("userID", params.UserID.Int32, "refID", params.ReferenceID)

@@ -2,21 +2,12 @@ package portal
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
-	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
-)
-
-var (
-	errEmailTemplateNotFound = errors.New("template with such name does not exist")
 )
 
 func (s *Server) createSystemNotificationContext(ctx context.Context, sess *common.Session) systemNotificationContext {
@@ -54,58 +45,4 @@ func (s *Server) dismissNotification(w http.ResponseWriter, r *http.Request) {
 		slog.ErrorContext(ctx, "Failed to parse notification ID", "id", value[:10], "length", len(value), common.ErrAttr(err))
 		http.Error(w, "", http.StatusBadRequest)
 	}
-}
-
-type NotificationScheduler struct {
-	Store db.Implementor
-}
-
-var _ common.ScheduledNotifications = (*NotificationScheduler)(nil)
-
-func (ns *NotificationScheduler) Add(ctx context.Context, n *common.ScheduledNotification) error {
-	_, err := ns.AddEx(ctx, n)
-	return err
-}
-
-func (ns *NotificationScheduler) AddEx(ctx context.Context, n *common.ScheduledNotification) (*dbgen.UserNotification, error) {
-	templates := email.Templates()
-	template, ok := templates[n.TemplateName]
-	if !ok {
-		slog.ErrorContext(ctx, "Notification template with such name does not exist", "name", n.TemplateName)
-		return nil, errEmailTemplateNotFound
-	}
-
-	payload, err := json.Marshal(n.Data)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to serialize payload for notification", common.ErrAttr(err))
-		return nil, err
-	}
-
-	// NOTE: we don't add template to DB (again) because it should have been done with RegisterEmailTemplatesJob on startup
-	params := &dbgen.CreateUserNotificationParams{
-		UserID:       db.Int(n.UserID),
-		ReferenceID:  n.ReferenceID,
-		TemplateHash: db.Text(db.EmailTemplateHash(template)),
-		Subject:      n.Subject,
-		Payload:      payload,
-		ScheduledAt:  db.Timestampz(n.DateTime),
-		Persistent:   n.Persistent,
-	}
-
-	notif, err := ns.Store.Impl().CreateUserNotification(ctx, params)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to add scheduled notification", common.ErrAttr(err))
-		return nil, err
-	}
-
-	return notif, nil
-}
-
-func (ns *NotificationScheduler) Remove(ctx context.Context, userID int32, referenceID string) error {
-	if err := ns.Store.Impl().DeletePendingUserNotification(ctx, userID, referenceID); err != nil {
-		slog.ErrorContext(ctx, "Failed to delete scheduled notification", common.ErrAttr(err))
-		return err
-	}
-
-	return nil
 }

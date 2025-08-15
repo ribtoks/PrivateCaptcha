@@ -1,14 +1,22 @@
 package email
 
-import "strings"
+import (
+	"strings"
 
-func Templates() map[string]string {
-	return map[string]string{
-		WelcomeTemplateName:          WelcomeHTMLTemplate,
-		TwoFactorTemplateName:        TwoFactorHTMLTemplate,
-		APIKeyExpirationTemplateName: APIKeyExpirationHTML,
-		APIKeyExpiredTemplateName:    APIKeyExpiredHTML,
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
+)
+
+var (
+	templates = []*common.EmailTemplate{
+		APIKeyExirationTemplate,
+		APIKeyExpiredTemplate,
+		WelcomeEmailTemplate,
+		TwoFactorEmailTemplate,
 	}
+)
+
+func Templates() []*common.EmailTemplate {
+	return templates
 }
 
 func CanBeHTML(s string) bool {

@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"crypto/sha1"
 	"encoding/hex"
 	"log/slog"
 	"strings"
@@ -442,10 +441,4 @@ func (br *StoreBulkReader[TArg, TKey, T]) Read(ctx context.Context, args map[TAr
 	}
 
 	return cached, items, nil
-}
-
-func EmailTemplateHash(content string) string {
-	h := sha1.New()
-	h.Write([]byte(content))
-	return hex.EncodeToString(h.Sum(nil))
 }

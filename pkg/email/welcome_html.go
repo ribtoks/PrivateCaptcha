@@ -1,7 +1,12 @@
 package email
 
+import "github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
+
+var (
+	WelcomeEmailTemplate = common.NewEmailTemplate("welcome", WelcomeHTMLTemplate)
+)
+
 const (
-	WelcomeTemplateName = "welcome"
 	WelcomeHTMLTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>

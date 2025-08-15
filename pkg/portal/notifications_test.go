@@ -7,8 +7,6 @@ import (
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/config"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
-	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	db_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/maintenance"
@@ -39,17 +37,16 @@ func TestUserNotificationsJob(t *testing.T) {
 
 	const referenceID = "referenceID"
 
-	hash := db.EmailTemplateHash(email.TwoFactorHTMLTemplate)
-	params := &dbgen.CreateUserNotificationParams{
-		UserID:       db.Int(user.ID),
+	n := &common.ScheduledNotification{
+		UserID:       user.ID,
 		ReferenceID:  referenceID,
-		TemplateHash: db.Text(hash),
+		TemplateHash: email.TwoFactorEmailTemplate.Hash(),
 		Subject:      "subject",
-		Payload:      []byte("{}"),
-		ScheduledAt:  db.Timestampz(tnow.Add(-10 * time.Minute)),
+		Data:         map[string]int{},
+		DateTime:     tnow.Add(-10 * time.Minute),
 		Persistent:   false,
 	}
-	if _, err := store.Impl().CreateUserNotification(ctx, params); err != nil {
+	if _, err := store.Impl().CreateUserNotification(ctx, n); err != nil {
 		t.Fatal(err)
 	}
 
@@ -105,17 +102,15 @@ func TestDeleteSentNotifications(t *testing.T) {
 		Subject:      "subject",
 		Data:         map[string]int{},
 		DateTime:     tnow.Add(-10 * time.Minute),
-		TemplateName: email.TwoFactorTemplateName,
+		TemplateHash: email.TwoFactorEmailTemplate.Hash(),
 	}
 
-	scheduler := &NotificationScheduler{Store: store}
-
-	notif, err := scheduler.AddEx(ctx, sn)
+	notif, err := store.Impl().CreateUserNotification(ctx, sn)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := scheduler.AddEx(ctx, sn); err == nil {
+	if _, err := store.Impl().CreateUserNotification(ctx, sn); err == nil {
 		t.Fatal("Shouldn't create a notification with the same referenceID")
 	}
 
@@ -128,7 +123,7 @@ func TestDeleteSentNotifications(t *testing.T) {
 	}
 
 	// should be able to create again (unlike before)
-	if _, err := scheduler.AddEx(ctx, sn); err != nil {
+	if _, err := store.Impl().CreateUserNotification(ctx, sn); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -155,25 +150,23 @@ func TestDeleteScheduledNotification(t *testing.T) {
 		Subject:      "subject",
 		Data:         map[string]int{},
 		DateTime:     tnow.Add(-10 * time.Minute),
-		TemplateName: email.TwoFactorTemplateName,
+		TemplateHash: email.TwoFactorEmailTemplate.Hash(),
 	}
 
-	scheduler := &NotificationScheduler{Store: store}
-
-	if _, err := scheduler.AddEx(ctx, sn); err != nil {
+	if _, err := store.Impl().CreateUserNotification(ctx, sn); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := scheduler.AddEx(ctx, sn); err == nil {
+	if _, err := store.Impl().CreateUserNotification(ctx, sn); err == nil {
 		t.Fatal("Shouldn't create a notification with the same referenceID")
 	}
 
-	if err := scheduler.Remove(ctx, user.ID, sn.ReferenceID); err != nil {
+	if err := store.Impl().DeletePendingUserNotification(ctx, user.ID, sn.ReferenceID); err != nil {
 		t.Fatal(err)
 	}
 
 	// should be able to create again (unlike before)
-	if _, err := scheduler.AddEx(ctx, sn); err != nil {
+	if _, err := store.Impl().CreateUserNotification(ctx, sn); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	templates = email.Templates()
+	templates = map[string]string{}
 )
 
 func homepage(w http.ResponseWriter, r *http.Request) {
@@ -106,6 +106,10 @@ func serveTemplate(name string) http.HandlerFunc {
 
 func main() {
 	http.HandleFunc("/", homepage)
+
+	for _, tpl := range email.Templates() {
+		templates[tpl.Name()] = tpl.Content()
+	}
 
 	for k := range templates {
 		http.HandleFunc("/"+k, serveTemplate(k))

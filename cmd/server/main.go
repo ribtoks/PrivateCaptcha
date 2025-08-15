@@ -192,15 +192,14 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 			MaxLifetime:  sessionStore.MaxLifetime(),
 			SecureCookie: (*certFileFlag != "") && (*keyFileFlag != ""),
 		},
-		PlanService:   planService,
-		APIURL:        apiURLConfig.URL(),
-		CDNURL:        cdnURLConfig.URL(),
-		PuzzleEngine:  apiServer,
-		Metrics:       metrics,
-		Mailer:        mailer,
-		Notifications: &portal.NotificationScheduler{Store: businessDB},
-		RateLimiter:   ipRateLimiter,
-		DataCtx:       dataCtx,
+		PlanService:  planService,
+		APIURL:       apiURLConfig.URL(),
+		CDNURL:       cdnURLConfig.URL(),
+		PuzzleEngine: apiServer,
+		Metrics:      metrics,
+		Mailer:       mailer,
+		RateLimiter:  ipRateLimiter,
+		DataCtx:      dataCtx,
 	}
 
 	templatesBuilder := portal.NewTemplatesBuilder()

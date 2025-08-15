@@ -433,7 +433,7 @@ func createAPIKeyExpirationNotification(key *dbgen.APIKey, userKey *userAPIKey) 
 			ExpireDays: apiKeyExpirationNotificationDays,
 		},
 		DateTime:     key.ExpiresAt.Time.AddDate(0, 0, -apiKeyExpirationNotificationDays),
-		TemplateName: email.APIKeyExpirationTemplateName,
+		TemplateHash: email.APIKeyExirationTemplate.Hash(),
 		Persistent:   false,
 	}
 }
@@ -454,7 +454,7 @@ func createAPIKeyExpiredNotification(key *dbgen.APIKey, userKey *userAPIKey) *co
 			APIKeySettingsPath: fmt.Sprintf("%s?%s=%s", common.SettingsEndpoint, common.ParamTab, common.APIKeysEndpoint),
 		},
 		DateTime:     key.ExpiresAt.Time,
-		TemplateName: email.APIKeyExpiredTemplateName,
+		TemplateHash: email.APIKeyExpiredTemplate.Hash(),
 		Persistent:   false,
 	}
 }
@@ -503,12 +503,14 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Mod
 
 		if days > apiKeyExpirationNotificationDays {
 			go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-				return s.Notifications.Add(bctx, createAPIKeyExpirationNotification(newKey, userKey))
+				_, err := s.Store.Impl().CreateUserNotification(bctx, createAPIKeyExpirationNotification(newKey, userKey))
+				return err
 			})
 		}
 
 		go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-			return s.Notifications.Add(bctx, createAPIKeyExpiredNotification(newKey, userKey))
+			_, err := s.Store.Impl().CreateUserNotification(bctx, createAPIKeyExpiredNotification(newKey, userKey))
+			return err
 		})
 	} else {
 		slog.ErrorContext(ctx, "Failed to create API key", common.ErrAttr(err))
@@ -540,11 +542,14 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-		return s.Notifications.Remove(bctx, user.ID, apiKeyExpirationReference(int32(keyID)))
-	})
-
-	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-		return s.Notifications.Remove(bctx, user.ID, apiKeyExpiredReference(int32(keyID)))
+		var anyError error
+		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user.ID, apiKeyExpirationReference(int32(keyID))); err != nil {
+			anyError = err
+		}
+		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user.ID, apiKeyExpiredReference(int32(keyID))); err != nil {
+			anyError = err
+		}
+		return anyError
 	})
 
 	w.WriteHeader(http.StatusOK)

@@ -17,7 +17,7 @@ import (
 )
 
 type RegisterEmailTemplatesJob struct {
-	Templates map[string]string
+	Templates []*common.EmailTemplate
 	Store     db.Implementor
 }
 
@@ -33,9 +33,9 @@ func (j *RegisterEmailTemplatesJob) InitialPause() time.Duration {
 func (j *RegisterEmailTemplatesJob) RunOnce(ctx context.Context) error {
 	var anyError error
 
-	for name, content := range j.Templates {
-		if _, err := j.Store.Impl().CreateNotificationTemplate(ctx, name, content); err != nil {
-			slog.ErrorContext(ctx, "Failed to upsert notification template", "name", name, common.ErrAttr(err))
+	for _, tpl := range j.Templates {
+		if _, err := j.Store.Impl().CreateNotificationTemplate(ctx, tpl.Name(), tpl.Content(), tpl.Hash()); err != nil {
+			slog.ErrorContext(ctx, "Failed to upsert notification template", "name", tpl.Name(), common.ErrAttr(err))
 			anyError = err
 		}
 	}
@@ -47,7 +47,7 @@ type UserEmailNotificationsJob struct {
 	// this is the "actual" interval since we will be running as a DB-locked distributed job
 	RunInterval  time.Duration
 	Store        db.Implementor
-	Templates    map[string]string
+	Templates    []*common.EmailTemplate
 	Sender       email.Sender
 	ChunkSize    common.ConfigItem
 	EmailFrom    common.ConfigItem
@@ -90,27 +90,17 @@ func groupNotificationsByTemplate(ctx context.Context, notifications []*dbgen.Ge
 	return result
 }
 
-type indexedNotificationTemplate struct {
-	name    string
-	hash    string
-	content string
-}
-
-func indexTemplates(ctx context.Context, nameToContentTplMap map[string]string) map[string]*indexedNotificationTemplate {
-	templates := make(map[string]*indexedNotificationTemplate)
-	for name, content := range nameToContentTplMap {
-		hash := db.EmailTemplateHash(content)
-		if _, ok := templates[hash]; ok {
-			slog.ErrorContext(ctx, "Found two templates with the same hash", "hash", hash, "name", name)
+func indexTemplates(ctx context.Context, templates []*common.EmailTemplate) map[string]*common.EmailTemplate {
+	tplMap := make(map[string]*common.EmailTemplate)
+	for _, tpl := range templates {
+		hash := tpl.Hash()
+		if _, ok := tplMap[hash]; ok {
+			slog.ErrorContext(ctx, "Found two templates with the same hash", "hash", hash, "name", tpl.Name())
 			continue
 		}
-		templates[hash] = &indexedNotificationTemplate{
-			name:    name,
-			hash:    hash,
-			content: content,
-		}
+		tplMap[hash] = tpl
 	}
-	return templates
+	return tplMap
 }
 
 type preparedNotificationTemplate struct {
@@ -120,15 +110,15 @@ type preparedNotificationTemplate struct {
 }
 
 func (j *UserEmailNotificationsJob) retrieveTemplate(ctx context.Context,
-	templates map[string]*indexedNotificationTemplate,
+	templates map[string]*common.EmailTemplate,
 	templateHash string) (*preparedNotificationTemplate, error) {
 	hlog := slog.With("hash", templateHash)
 	var content string
 	var name string
 	itpl, ok := templates[templateHash]
 	if ok {
-		content = itpl.content
-		name = itpl.name
+		content = itpl.Content()
+		name = itpl.Name()
 	} else {
 		hlog.WarnContext(ctx, "Template is not found locally")
 		if dbTemplate, err := j.Store.Impl().RetrieveNotificationTemplate(ctx, templateHash); err == nil {
