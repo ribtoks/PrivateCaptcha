@@ -16,3 +16,6 @@ CREATE TABLE IF NOT EXISTS backend.user_notifications(
 CREATE UNIQUE INDEX index_unique_reference_per_user
 ON backend.user_notifications (user_id, reference_id)
 WHERE (persistent = true) OR (delivered_at IS NULL);
+
+CREATE OR REPLACE TRIGGER deleted_record_insert AFTER DELETE ON backend.user_notifications
+   FOR EACH ROW EXECUTE FUNCTION backend.deleted_record_insert();
