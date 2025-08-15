@@ -502,13 +502,13 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Mod
 		renderCtx.SuccessMessage = "API Key created successfully."
 
 		if days > apiKeyExpirationNotificationDays {
-			go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(ctx context.Context) error {
-				return s.Notifications.Add(ctx, createAPIKeyExpirationNotification(newKey, userKey))
+			go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
+				return s.Notifications.Add(bctx, createAPIKeyExpirationNotification(newKey, userKey))
 			})
 		}
 
-		go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(ctx context.Context) error {
-			return s.Notifications.Add(ctx, createAPIKeyExpiredNotification(newKey, userKey))
+		go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
+			return s.Notifications.Add(bctx, createAPIKeyExpiredNotification(newKey, userKey))
 		})
 	} else {
 		slog.ErrorContext(ctx, "Failed to create API key", common.ErrAttr(err))
@@ -539,12 +539,12 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(ctx context.Context) error {
-		return s.Notifications.Remove(ctx, user.ID, apiKeyExpirationReference(int32(keyID)))
+	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
+		return s.Notifications.Remove(bctx, user.ID, apiKeyExpirationReference(int32(keyID)))
 	})
 
-	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(ctx context.Context) error {
-		return s.Notifications.Remove(ctx, user.ID, apiKeyExpiredReference(int32(keyID)))
+	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
+		return s.Notifications.Remove(bctx, user.ID, apiKeyExpiredReference(int32(keyID)))
 	})
 
 	w.WriteHeader(http.StatusOK)
