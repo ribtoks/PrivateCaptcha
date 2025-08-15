@@ -2,13 +2,19 @@ package difficulty
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"math"
+	"runtime/debug"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/leakybucket"
+)
+
+var (
+	errBackfillPanic = errors.New("panic during backfill")
 )
 
 type Levels struct {
@@ -179,6 +185,20 @@ func (l *Levels) Reset() {
 	l.userBuckets.Clear()
 }
 
+func (l *Levels) retrievePropertyStatsSafe(ctx context.Context, r *common.BackfillRequest) (data []*common.TimeCount, err error) {
+	defer func() {
+		if rvr := recover(); rvr != nil {
+			slog.ErrorContext(ctx, "Recovered from ClickHouse query panic", "panic", rvr, "stack", string(debug.Stack()))
+			data = []*common.TimeCount{}
+			err = errBackfillPanic
+		}
+	}()
+
+	// 12 because we keep last hour of 5-minute intervals in Clickhouse, so we grab all of them
+	timeFrom := time.Now().UTC().Add(-time.Duration(12) * l.propertyBuckets.LeakInterval())
+	return l.timeSeries.RetrievePropertyStatsSince(ctx, r, timeFrom)
+}
+
 func (l *Levels) backfillDifficulty(ctx context.Context, cacheDuration time.Duration) {
 	slog.DebugContext(ctx, "Backfilling difficulty", "cacheDuration", cacheDuration)
 
@@ -195,10 +215,7 @@ func (l *Levels) backfillDifficulty(ctx context.Context, cacheDuration time.Dura
 			continue
 		}
 
-		// 12 because we keep last hour of 5-minute intervals in Clickhouse, so we grab all of them
-		timeFrom := time.Now().UTC().Add(-time.Duration(12) * l.propertyBuckets.LeakInterval())
-		counts, err := l.timeSeries.RetrievePropertyStatsSince(ctx, r, timeFrom)
-
+		counts, err := l.retrievePropertyStatsSafe(ctx, r)
 		if err != nil {
 			blog.ErrorContext(ctx, "Failed to backfill stats", common.ErrAttr(err))
 			continue
