@@ -21,7 +21,7 @@ func (sm *StubMailer) SendTwoFactor(ctx context.Context, email string, code int)
 	return nil
 }
 
-func (sm *StubMailer) SendWelcome(ctx context.Context, email string) error {
-	slog.InfoContext(ctx, "Sent welcome email", "email", email)
+func (sm *StubMailer) SendWelcome(ctx context.Context, email, name string) error {
+	slog.InfoContext(ctx, "Sent welcome email", "email", email, "name", name)
 	return nil
 }

@@ -98,15 +98,17 @@ func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code in
 	return nil
 }
 
-func (pm *PortalMailer) SendWelcome(ctx context.Context, email string) error {
+func (pm *PortalMailer) SendWelcome(ctx context.Context, email, name string) error {
 	data := struct {
 		PortalURL   string
 		CurrentYear int
 		CDNURL      string
+		UserName    string
 	}{
 		CDNURL:      pm.CDNURL,
 		PortalURL:   pm.PortalURL,
 		CurrentYear: time.Now().Year(),
+		UserName:    name,
 	}
 
 	var htmlBodyTpl bytes.Buffer

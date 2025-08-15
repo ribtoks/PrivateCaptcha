@@ -62,7 +62,9 @@ func serveExecute(templateBody string, w http.ResponseWriter) error {
 		APIKeyPrefix       string
 		ExpireDays         int
 		APIKeySettingsPath string
+		UserName           string
 	}{
+		UserName:           "John Doe",
 		Code:               123456,
 		CDNURL:             "https://cdn.privatecaptcha.com",
 		PortalURL:          "https://portal.privatecaptcha.com",

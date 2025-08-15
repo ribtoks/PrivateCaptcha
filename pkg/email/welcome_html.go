@@ -26,40 +26,14 @@ const (
           <td>
             <img alt="Private Captcha" height="50" src="{{.CDNURL}}/portal/img/pc-logo-dark.png" style="display:block;outline:none;border:none;text-decoration:none" />
             <p style="font-size:16px;line-height:26px;margin:16px 0">
-              Hello,
+              Hello {{.UserName}},
             </p>
             <p style="font-size:16px;line-height:26px;margin:16px 0">
               Welcome to Private Captcha, a privacy- and user-friendly protection from bots and spam.
             </p>
-            <table align="center" width="100%" border="0" cellpadding="0" cellspacing="0" role="presentation" style="text-align:center">
-              <tbody>
-                <tr>
-                  <td>
-                      <a href="{{.PortalURL}}" style="line-height:1.5rem;text-decoration:none;display:block;max-width:300px;mso-padding-alt:0px;background-color:#111827;border-radius:0.75rem;color:#fff;font-size:1rem;text-align:center;padding:1rem 2rem;font-weight: 700;"
-                      target="_blank"
-                      ><span
-                        ><!--[if mso
-                          ]><i
-                            style="mso-font-width:300%;mso-text-raise:18"
-                            hidden
-                            >&#8202;&#8202;</i
-                          ><!
-                        [endif]--></span
-                      ><span
-                        style="max-width:100%;display:inline-block;line-height:120%;mso-padding-alt:0px;mso-text-raise:9px"
-                        >Get started</span
-                      ><span
-                        ><!--[if mso
-                          ]><i style="mso-font-width:300%" hidden
-                            >&#8202;&#8202;&#8203;</i
-                          ><!
-                        [endif]--></span
-                      ></a
-                    >
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <p style="font-size:16px;line-height:26px;margin:16px 0">If this is your first time integrating captcha, our <a href="https://docs.privatecaptcha.com/docs/tutorials/complete-example/">example tutorial</a> will help to learn how it works end-to-end.</p>
+            <p style="font-size:16px;line-height:26px;margin:16px 0">For those migrating from Google reCAPTCHA or similar services, our <a href="https://docs.privatecaptcha.com/docs/tutorials/migrate-from-recaptcha/">migration guide</a> can be useful.</p>
+            <p style="font-size:16px;line-height:26px;margin:16px 0">Already familiar with all this? The <a href="https://docs.privatecaptcha.com/docs/reference/">reference docs</a> are ready whenever you are. And of course, our team is here to help if you have any questions.</p>
             <p style="font-size:16px;line-height:26px;margin:16px 0">
               Warmly,<br />The Private Captcha team
             </p>
