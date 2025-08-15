@@ -33,9 +33,9 @@ func NewPortalMailer(cdnURL, portalURL string, mailer Sender, cfg common.ConfigS
 		ReplyToEmail:          cfg.Get(common.ReplyToEmailKey),
 		CDNURL:                strings.TrimSuffix(cdnURL, "/"),
 		PortalURL:             strings.TrimSuffix(portalURL, "/"),
-		twofactorHTMLTemplate: template.Must(template.New("HtmlBody").Parse(TwoFactorHTMLTemplate)),
+		twofactorHTMLTemplate: template.Must(template.New("HtmlBody").Parse(twoFactorHTMLTemplate)),
 		twofactorTextTemplate: template.Must(template.New("TextBody").Parse(twoFactorTextTemplate)),
-		welcomeHTMLTemplate:   template.Must(template.New("HtmlBody").Parse(WelcomeHTMLTemplate)),
+		welcomeHTMLTemplate:   template.Must(template.New("HtmlBody").Parse(welcomeHTMLTemplate)),
 		welcomeTextTemplate:   template.Must(template.New("TextBody").Parse(welcomeTextTemplate)),
 	}
 }

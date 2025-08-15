@@ -14,12 +14,12 @@ type APIKeyExpirationContext struct {
 }
 
 var (
-	APIKeyExirationTemplate = common.NewEmailTemplate("apikey-expiration", APIKeyExpirationHTMLTemplate)
-	APIKeyExpiredTemplate   = common.NewEmailTemplate("apikey-expired", APIKeyExpiredHTMLTemplate)
+	APIKeyExirationTemplate = common.NewEmailTemplate("apikey-expiration", apiKeyExpirationHTMLTemplate)
+	APIKeyExpiredTemplate   = common.NewEmailTemplate("apikey-expired", apiKeyExpiredHTMLTemplate)
 )
 
 const (
-	APIKeyExpirationHTMLTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+	apiKeyExpirationHTMLTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>
     <link rel="preload" as="image" href="{{.CDNURL}}/portal/img/pc-logo-dark.png" />
@@ -63,7 +63,7 @@ const (
   </body>
 </html>`
 
-	APIKeyExpiredHTMLTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+	apiKeyExpiredHTMLTemplate = `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html dir="ltr" lang="en">
   <head>
     <link rel="preload" as="image" href="{{.CDNURL}}/portal/img/pc-logo-dark.png" />

@@ -12,12 +12,12 @@ func TestCanBeHTML(t *testing.T) {
 		text     string
 		expected bool
 	}{
-		{WelcomeHTMLTemplate, true},
-		{TwoFactorHTMLTemplate, true},
+		{welcomeHTMLTemplate, true},
+		{twoFactorHTMLTemplate, true},
 		{welcomeTextTemplate, false},
 		{twoFactorTextTemplate, false},
-		{APIKeyExpirationHTMLTemplate, true},
-		{APIKeyExpiredHTMLTemplate, true},
+		{apiKeyExpirationHTMLTemplate, true},
+		{apiKeyExpiredHTMLTemplate, true},
 	}
 
 	for i, tc := range testCases {
