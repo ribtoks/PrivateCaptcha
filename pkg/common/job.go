@@ -25,6 +25,12 @@ type PeriodicJob interface {
 	Name() string
 }
 
+type StubOneOffJob struct{}
+
+func (StubOneOffJob) Name() string                  { return "StubOneOffJob" }
+func (StubOneOffJob) InitialPause() time.Duration   { return 0 }
+func (StubOneOffJob) RunOnce(context.Context) error { return nil }
+
 func RunOneOffJob(ctx context.Context, j OneOffJob) {
 	jlog := slog.With("name", j.Name())
 

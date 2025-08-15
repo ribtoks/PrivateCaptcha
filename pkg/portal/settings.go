@@ -364,6 +364,8 @@ func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
 	if err := s.Store.WithTx(ctx, func(impl *db.BusinessStoreImpl) error {
 		return impl.SoftDeleteUser(ctx, user.ID)
 	}); err == nil {
+		go common.RunOneOffJob(common.CopyTraceID(ctx, context.Background()), s.Jobs.OffboardUser(user))
+
 		s.logout(w, r)
 	} else {
 		slog.ErrorContext(ctx, "Failed to delete user", common.ErrAttr(err))

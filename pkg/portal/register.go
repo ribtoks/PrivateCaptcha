@@ -183,24 +183,3 @@ func (s *Server) doRegister(ctx context.Context, sess *common.Session) (*dbgen.U
 
 	return user, org, nil
 }
-
-func (s *Server) OnboardUser(user *dbgen.User, plan billing.Plan) common.OneOffJob {
-	return &onboardUserJob{user: user, mailer: s.Mailer}
-}
-
-type onboardUserJob struct {
-	user   *dbgen.User
-	mailer common.Mailer
-}
-
-func (j *onboardUserJob) Name() string {
-	return "OnboardUser"
-}
-
-func (j *onboardUserJob) InitialPause() time.Duration {
-	return 0
-}
-
-func (j *onboardUserJob) RunOnce(ctx context.Context) error {
-	return j.mailer.SendWelcome(ctx, j.user.Email, j.user.Name)
-}
