@@ -1630,7 +1630,9 @@ func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, n *commo
 
 	notif, err := s.querier.CreateUserNotification(ctx, params)
 	if err != nil {
-		rlog.ErrorContext(ctx, "Failed to create user notification", common.ErrAttr(err))
+		// warning and not error (as usual) because constraints are part of deduplication logic and we let caller decide
+		// (and also - it's not such an important error in the end)
+		rlog.WarnContext(ctx, "Failed to create user notification", common.ErrAttr(err))
 		return nil, err
 	}
 
