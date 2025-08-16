@@ -13,6 +13,14 @@ type Mailer interface {
 	SendWelcome(ctx context.Context, email, name string) error
 }
 
+type NotificationCondition int
+
+const (
+	EmptyNotificationCondition NotificationCondition = iota
+	NotificationWithSubscription
+	NotificationWithoutSubscription
+)
+
 type ScheduledNotification struct {
 	ReferenceID  string
 	UserID       int32
@@ -21,6 +29,7 @@ type ScheduledNotification struct {
 	DateTime     time.Time
 	TemplateHash string
 	Persistent   bool
+	Condition    NotificationCondition
 }
 
 func NewEmailTemplate(name, contentHTML, contentText string) *EmailTemplate {

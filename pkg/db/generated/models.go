@@ -257,14 +257,15 @@ type User struct {
 }
 
 type UserNotification struct {
-	ID          int32              `db:"id" json:"id"`
-	UserID      pgtype.Int4        `db:"user_id" json:"user_id"`
-	TemplateID  pgtype.Text        `db:"template_id" json:"template_id"`
-	Payload     []byte             `db:"payload" json:"payload"`
-	Subject     string             `db:"subject" json:"subject"`
-	ReferenceID string             `db:"reference_id" json:"reference_id"`
-	Persistent  bool               `db:"persistent" json:"persistent"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ScheduledAt pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
-	DeliveredAt pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
+	ID                   int32              `db:"id" json:"id"`
+	UserID               pgtype.Int4        `db:"user_id" json:"user_id"`
+	TemplateID           pgtype.Text        `db:"template_id" json:"template_id"`
+	Payload              []byte             `db:"payload" json:"payload"`
+	Subject              string             `db:"subject" json:"subject"`
+	ReferenceID          string             `db:"reference_id" json:"reference_id"`
+	Persistent           bool               `db:"persistent" json:"persistent"`
+	RequiresSubscription pgtype.Bool        `db:"requires_subscription" json:"requires_subscription"`
+	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ScheduledAt          pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
+	DeliveredAt          pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
 }

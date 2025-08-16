@@ -78,19 +78,20 @@ func (q *Queries) CreateSystemNotification(ctx context.Context, arg *CreateSyste
 }
 
 const createUserNotification = `-- name: CreateUserNotification :one
-INSERT INTO backend.user_notifications (user_id, reference_id, template_id, subject, payload, scheduled_at, persistent)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, user_id, template_id, payload, subject, reference_id, persistent, created_at, scheduled_at, delivered_at
+INSERT INTO backend.user_notifications (user_id, reference_id, template_id, subject, payload, scheduled_at, persistent, requires_subscription)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, user_id, template_id, payload, subject, reference_id, persistent, requires_subscription, created_at, scheduled_at, delivered_at
 `
 
 type CreateUserNotificationParams struct {
-	UserID      pgtype.Int4        `db:"user_id" json:"user_id"`
-	ReferenceID string             `db:"reference_id" json:"reference_id"`
-	TemplateID  pgtype.Text        `db:"template_id" json:"template_id"`
-	Subject     string             `db:"subject" json:"subject"`
-	Payload     []byte             `db:"payload" json:"payload"`
-	ScheduledAt pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
-	Persistent  bool               `db:"persistent" json:"persistent"`
+	UserID               pgtype.Int4        `db:"user_id" json:"user_id"`
+	ReferenceID          string             `db:"reference_id" json:"reference_id"`
+	TemplateID           pgtype.Text        `db:"template_id" json:"template_id"`
+	Subject              string             `db:"subject" json:"subject"`
+	Payload              []byte             `db:"payload" json:"payload"`
+	ScheduledAt          pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
+	Persistent           bool               `db:"persistent" json:"persistent"`
+	RequiresSubscription pgtype.Bool        `db:"requires_subscription" json:"requires_subscription"`
 }
 
 func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNotificationParams) (*UserNotification, error) {
@@ -102,6 +103,7 @@ func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNot
 		arg.Payload,
 		arg.ScheduledAt,
 		arg.Persistent,
+		arg.RequiresSubscription,
 	)
 	var i UserNotification
 	err := row.Scan(
@@ -112,6 +114,7 @@ func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNot
 		&i.Subject,
 		&i.ReferenceID,
 		&i.Persistent,
+		&i.RequiresSubscription,
 		&i.CreatedAt,
 		&i.ScheduledAt,
 		&i.DeliveredAt,
@@ -229,10 +232,15 @@ func (q *Queries) GetNotificationTemplateByHash(ctx context.Context, externalID 
 }
 
 const getPendingUserNotifications = `-- name: GetPendingUserNotifications :many
-SELECT un.id, un.user_id, un.template_id, un.payload, un.subject, un.reference_id, un.persistent, un.created_at, un.scheduled_at, un.delivered_at, u.email
+SELECT un.id, un.user_id, un.template_id, un.payload, un.subject, un.reference_id, un.persistent, un.requires_subscription, un.created_at, un.scheduled_at, un.delivered_at, u.email
 FROM backend.user_notifications un
 JOIN backend.users u ON un.user_id = u.id
-WHERE delivered_at IS NULL AND scheduled_at >= $1 AND scheduled_at <= NOW() ORDER BY scheduled_at ASC
+WHERE delivered_at IS NULL
+  AND scheduled_at >= $1
+  AND scheduled_at <= NOW()
+  AND u.deleted_at IS NULL
+  AND (un.requires_subscription IS NULL OR u.subscription_id IS NOT NULL)
+ORDER BY scheduled_at ASC
 LIMIT $2
 `
 
@@ -263,6 +271,7 @@ func (q *Queries) GetPendingUserNotifications(ctx context.Context, arg *GetPendi
 			&i.UserNotification.Subject,
 			&i.UserNotification.ReferenceID,
 			&i.UserNotification.Persistent,
+			&i.UserNotification.RequiresSubscription,
 			&i.UserNotification.CreatedAt,
 			&i.UserNotification.ScheduledAt,
 			&i.UserNotification.DeliveredAt,

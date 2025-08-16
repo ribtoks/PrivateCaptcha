@@ -1626,6 +1626,15 @@ func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, n *commo
 		Persistent:  n.Persistent,
 	}
 
+	switch n.Condition {
+	case common.EmptyNotificationCondition:
+		params.RequiresSubscription = pgtype.Bool{Valid: false}
+	case common.NotificationWithSubscription:
+		params.RequiresSubscription = Bool(true)
+	case common.NotificationWithoutSubscription:
+		params.RequiresSubscription = Bool(false)
+	}
+
 	rlog := slog.With("userID", params.UserID.Int32, "refID", params.ReferenceID)
 
 	notif, err := s.querier.CreateUserNotification(ctx, params)

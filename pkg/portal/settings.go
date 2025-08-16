@@ -437,6 +437,7 @@ func createAPIKeyExpirationNotification(key *dbgen.APIKey, userKey *userAPIKey) 
 		DateTime:     key.ExpiresAt.Time.AddDate(0, 0, -apiKeyExpirationNotificationDays),
 		TemplateHash: email.APIKeyExirationTemplate.Hash(),
 		Persistent:   false,
+		Condition:    common.NotificationWithSubscription,
 	}
 }
 
@@ -458,6 +459,7 @@ func createAPIKeyExpiredNotification(key *dbgen.APIKey, userKey *userAPIKey) *co
 		DateTime:     key.ExpiresAt.Time,
 		TemplateHash: email.APIKeyExpiredTemplate.Hash(),
 		Persistent:   false,
+		Condition:    common.NotificationWithSubscription,
 	}
 }
 

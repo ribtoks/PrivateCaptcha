@@ -8,6 +8,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/billing"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
@@ -51,6 +52,7 @@ type UserEmailNotificationsJob struct {
 	ChunkSize    int
 	EmailFrom    common.ConfigItem
 	ReplyToEmail common.ConfigItem
+	PlanService  billing.PlanService
 	CDNURL       string
 	PortalURL    string
 }
@@ -155,6 +157,47 @@ func (j *UserEmailNotificationsJob) retrieveTemplate(ctx context.Context,
 	return nt, nil
 }
 
+func (j *UserEmailNotificationsJob) retrieveUserSubscriptionStatus(ctx context.Context, notifications []*dbgen.GetPendingUserNotificationsRow) map[int32]bool {
+	requiredSubscriptionUserIDs := make(map[int32]bool)
+	for _, n := range notifications {
+		if n.UserNotification.RequiresSubscription.Valid {
+			requiredSubscriptionUserIDs[n.UserNotification.UserID.Int32] = false
+		}
+	}
+	if len(requiredSubscriptionUserIDs) == 0 {
+		return make(map[int32]bool)
+	}
+
+	userIDs := make([]int32, 0, len(requiredSubscriptionUserIDs))
+	for key := range requiredSubscriptionUserIDs {
+		userIDs = append(userIDs, key)
+	}
+
+	// NOTE: we do it like this only because sqlc struggles with LEFT JOIN (https://github.com/sqlc-dev/sqlc/issues/2997)
+	// that we would otherwise write in GetPendingUserNotifications query
+	subscriptions, err := j.Store.Impl().RetrieveSubscriptionsByUserIDs(ctx, userIDs)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to retrieve user subscriptions", common.ErrAttr(err))
+		return requiredSubscriptionUserIDs
+	}
+
+	tnow := time.Now().UTC()
+
+	for _, s := range subscriptions {
+		subscr := &s.Subscription
+		active := false
+		if db.IsInternalSubscription(subscr.Source) {
+			active = subscr.TrialEndsAt.Valid && subscr.TrialEndsAt.Time.After(tnow)
+		} else {
+			// we expect external subscriptions to be updated so we can rely on status
+			active = j.PlanService.IsSubscriptionActive(subscr.Status)
+		}
+		requiredSubscriptionUserIDs[s.UserID] = active
+	}
+
+	return requiredSubscriptionUserIDs
+}
+
 func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context) error {
 	// just for safety, we fetch overlapping segments, but it will be filtered out on the way
 	since := time.Now().UTC().Add(-(j.RunInterval + j.Interval() + j.Jitter()))
@@ -169,6 +212,7 @@ func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context) error {
 		return nil
 	}
 
+	userSubscribedMap := j.retrieveUserSubscriptionStatus(ctx, notifications)
 	templates := indexTemplates(ctx, j.Templates)
 
 	b := &backoff.Backoff{
@@ -186,7 +230,7 @@ func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context) error {
 		}
 
 		if tpl, err := j.retrieveTemplate(ctx, templates, tplHash); err == nil {
-			_ = j.processNotificationsChunk(ctx, tpl, nn, b)
+			_ = j.processNotificationsChunk(ctx, tpl, nn, userSubscribedMap, b)
 		} else {
 			slog.ErrorContext(ctx, "Failed to get notifications template", common.ErrAttr(err))
 		}
@@ -204,6 +248,7 @@ func isValidUserNotification(un *dbgen.UserNotification) bool {
 func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Context,
 	tpl *preparedNotificationTemplate,
 	notifications []*dbgen.GetPendingUserNotificationsRow,
+	userSubscribedStatus map[int32]bool,
 	b *backoff.Backoff) error {
 	emailFrom := j.EmailFrom.Value()
 	replyToEmail := j.ReplyToEmail.Value()
@@ -222,6 +267,13 @@ func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Contex
 		if !isValidUserNotification(un) {
 			nlog.WarnContext(ctx, "Skipping invalid user notification")
 			continue
+		}
+
+		if un.RequiresSubscription.Valid {
+			if subscribed, exists := userSubscribedStatus[un.UserID.Int32]; !exists || (subscribed != un.RequiresSubscription.Bool) {
+				nlog.WarnContext(ctx, "Skipping user without matching subscription status", "userID", un.UserID.Int32, "exists", exists, "expected", un.RequiresSubscription.Bool, "actual", subscribed)
+				continue
+			}
 		}
 
 		var data map[string]interface{}

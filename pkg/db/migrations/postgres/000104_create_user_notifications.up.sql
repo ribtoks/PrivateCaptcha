@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS backend.user_notifications(
     subject TEXT NOT NULL,
     reference_id TEXT NOT NULL,
     persistent BOOL NOT NULL,
+    requires_subscription BOOL DEFAULT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT current_timestamp,
     scheduled_at TIMESTAMPTZ NOT NULL,
     delivered_at TIMESTAMPTZ DEFAULT NULL
