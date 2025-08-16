@@ -363,6 +363,13 @@ func (am *AuthMiddleware) APIKey(keyFunc func(r *http.Request) string) func(http
 					http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 					return
 				}
+
+				// if user is not an active subscriber, their properties and orgs might still exist but should not allow API
+				if softRestriction, err := am.Limiter.Evaluate(ctx, apiKey.UserID.Int32); (err == nil) && !softRestriction {
+					http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+					return
+				}
+
 				ctx = context.WithValue(ctx, common.APIKeyContextKey, apiKey)
 			} else {
 				ctx = context.WithValue(ctx, common.SecretContextKey, secret)

@@ -88,6 +88,7 @@ func (a *apiKeyOwnerSource) apiKey(ctx context.Context) (*dbgen.APIKey, error) {
 
 	if secret, ok := ctx.Value(common.SecretContextKey).(string); ok && (len(secret) > 0) {
 		// this is the "postponed" DB access mentioned in APIKey() middleware
+		// NOTE: here we do NOT verify user's subscription validity, it's done only in middleware
 		key, err := a.Store.Impl().RetrieveAPIKey(ctx, secret)
 		if err != nil {
 			a.cachedKey = key
