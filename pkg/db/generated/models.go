@@ -178,8 +178,9 @@ type Lock struct {
 type NotificationTemplate struct {
 	ID          int32              `db:"id" json:"id"`
 	Name        string             `db:"name" json:"name"`
-	Content     string             `db:"content" json:"content"`
-	ContentHash string             `db:"content_hash" json:"content_hash"`
+	ExternalID  string             `db:"external_id" json:"external_id"`
+	ContentHtml string             `db:"content_html" json:"content_html"`
+	ContentText string             `db:"content_text" json:"content_text"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
@@ -256,14 +257,14 @@ type User struct {
 }
 
 type UserNotification struct {
-	ID           int32              `db:"id" json:"id"`
-	UserID       pgtype.Int4        `db:"user_id" json:"user_id"`
-	TemplateHash pgtype.Text        `db:"template_hash" json:"template_hash"`
-	Payload      []byte             `db:"payload" json:"payload"`
-	Subject      string             `db:"subject" json:"subject"`
-	ReferenceID  string             `db:"reference_id" json:"reference_id"`
-	Persistent   bool               `db:"persistent" json:"persistent"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ScheduledAt  pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
-	DeliveredAt  pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
+	ID          int32              `db:"id" json:"id"`
+	UserID      pgtype.Int4        `db:"user_id" json:"user_id"`
+	TemplateID  pgtype.Text        `db:"template_id" json:"template_id"`
+	Payload     []byte             `db:"payload" json:"payload"`
+	Subject     string             `db:"subject" json:"subject"`
+	ReferenceID string             `db:"reference_id" json:"reference_id"`
+	Persistent  bool               `db:"persistent" json:"persistent"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ScheduledAt pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
+	DeliveredAt pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
 }

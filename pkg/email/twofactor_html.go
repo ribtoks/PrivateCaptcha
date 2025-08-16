@@ -3,7 +3,7 @@ package email
 import "github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 
 var (
-	TwoFactorEmailTemplate = common.NewEmailTemplate("twofactor", twoFactorHTMLTemplate)
+	TwoFactorEmailTemplate = common.NewEmailTemplate("twofactor", twoFactorHTMLTemplate, twoFactorTextTemplate)
 )
 
 const (
@@ -79,8 +79,7 @@ const (
   </body>
 </html>
 `
-	twoFactorTextTemplate = `
-Your verification code
+	twoFactorTextTemplate = `Your verification code
 
 We want to make sure it's really you. Please enter the following verification code when prompted.
 
@@ -88,12 +87,10 @@ We want to make sure it's really you. Please enter the following verification co
 
 (This code is valid for 10 minutes)
 
---------------------------------------------------------------------------------
+---
 
 Your are receiving this message because the action you are taking requires a verification.
 
 PrivateCaptcha © {{.CurrentYear}} Intmaker OÜ
-
-{{.PortalURL}}
 `
 )

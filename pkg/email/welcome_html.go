@@ -3,7 +3,7 @@ package email
 import "github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 
 var (
-	WelcomeEmailTemplate = common.NewEmailTemplate("welcome", welcomeHTMLTemplate)
+	WelcomeEmailTemplate = common.NewEmailTemplate("welcome", welcomeHTMLTemplate, welcomeTextTemplate)
 )
 
 const (
@@ -53,17 +53,21 @@ const (
   </body>
 </html>`
 
-	welcomeTextTemplate = `
-Hello,
+	welcomeTextTemplate = `Hello,
 
 Welcome to Private Captcha, a privacy- and user-friendly protection from bots and spam.
 
-Get started at {{.PortalURL}}
+If this is your first time integrating captcha, our example tutorial (https://docs.privatecaptcha.com/docs/tutorials/complete-example/) will help to learn how it works end-to-end.
+
+For those migrating from Google reCAPTCHA or similar services, our migration guide (https://docs.privatecaptcha.com/docs/tutorials/migrate-from-recaptcha/) can be useful.
+
+Already familiar with all this? The reference docs (https://docs.privatecaptcha.com/docs/reference/) are ready whenever you are. And of course, our team is here to help if you have any questions.
+
 
 Warmly,
 The Private Captcha team
 
---------------------------------------------------------------------------------
+---
 
 PrivateCaptcha © {{.CurrentYear}} Intmaker OÜ`
 )

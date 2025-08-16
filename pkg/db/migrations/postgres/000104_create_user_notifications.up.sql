@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS backend.user_notifications(
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES backend.users(id) ON DELETE CASCADE,
-    template_hash VARCHAR(64) REFERENCES backend.notification_templates(content_hash) ON DELETE SET NULL,
+    template_id VARCHAR(64) REFERENCES backend.notification_templates(external_id) ON DELETE SET NULL,
     payload JSONB NOT NULL,
     subject TEXT NOT NULL,
     reference_id TEXT NOT NULL,

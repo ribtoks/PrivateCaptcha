@@ -27,17 +27,23 @@ type PortalMailer struct {
 
 func NewPortalMailer(cdnURL, portalURL string, mailer Sender, cfg common.ConfigStore) *PortalMailer {
 	return &PortalMailer{
-		Mailer:                mailer,
-		EmailFrom:             cfg.Get(common.EmailFromKey),
-		AdminEmail:            cfg.Get(common.AdminEmailKey),
-		ReplyToEmail:          cfg.Get(common.ReplyToEmailKey),
-		CDNURL:                strings.TrimSuffix(cdnURL, "/"),
-		PortalURL:             strings.TrimSuffix(portalURL, "/"),
-		twofactorHTMLTemplate: template.Must(template.New("HtmlBody").Parse(twoFactorHTMLTemplate)),
-		twofactorTextTemplate: template.Must(template.New("TextBody").Parse(twoFactorTextTemplate)),
-		welcomeHTMLTemplate:   template.Must(template.New("HtmlBody").Parse(welcomeHTMLTemplate)),
-		welcomeTextTemplate:   template.Must(template.New("TextBody").Parse(welcomeTextTemplate)),
+		Mailer:       mailer,
+		EmailFrom:    cfg.Get(common.EmailFromKey),
+		AdminEmail:   cfg.Get(common.AdminEmailKey),
+		ReplyToEmail: cfg.Get(common.ReplyToEmailKey),
+		CDNURL:       strings.TrimSuffix(cdnURL, "/"),
+		PortalURL:    strings.TrimSuffix(portalURL, "/"),
 	}
+}
+
+func (pm *PortalMailer) SetWelcomeEmail(tpl *common.EmailTemplate) {
+	pm.welcomeHTMLTemplate = template.Must(template.New("HtmlBody").Parse(tpl.ContentHTML()))
+	pm.welcomeTextTemplate = template.Must(template.New("TextBody").Parse(tpl.ContentText()))
+}
+
+func (pm *PortalMailer) SetTwoFactorEmail(tpl *common.EmailTemplate) {
+	pm.twofactorHTMLTemplate = template.Must(template.New("HtmlBody").Parse(tpl.ContentHTML()))
+	pm.twofactorTextTemplate = template.Must(template.New("TextBody").Parse(tpl.ContentText()))
 }
 
 var _ common.Mailer = (*PortalMailer)(nil)
@@ -60,13 +66,19 @@ func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code in
 	}
 
 	var htmlBodyTpl bytes.Buffer
-	if err := pm.twofactorHTMLTemplate.Execute(&htmlBodyTpl, data); err != nil {
-		return err
+	if pm.twofactorHTMLTemplate != nil {
+		if err := pm.twofactorHTMLTemplate.Execute(&htmlBodyTpl, data); err != nil {
+			slog.ErrorContext(ctx, "Failed to execute HTML template", common.ErrAttr(err))
+			return err
+		}
 	}
 
 	var textBodyTpl bytes.Buffer
-	if err := pm.twofactorTextTemplate.Execute(&textBodyTpl, data); err != nil {
-		return err
+	if pm.twofactorTextTemplate != nil {
+		if err := pm.twofactorTextTemplate.Execute(&textBodyTpl, data); err != nil {
+			slog.ErrorContext(ctx, "Failed to execute Text template", common.ErrAttr(err))
+			return err
+		}
 	}
 
 	msg := &Message{
@@ -112,13 +124,19 @@ func (pm *PortalMailer) SendWelcome(ctx context.Context, email, name string) err
 	}
 
 	var htmlBodyTpl bytes.Buffer
-	if err := pm.welcomeHTMLTemplate.Execute(&htmlBodyTpl, data); err != nil {
-		return err
+	if pm.welcomeHTMLTemplate != nil {
+		if err := pm.welcomeHTMLTemplate.Execute(&htmlBodyTpl, data); err != nil {
+			slog.ErrorContext(ctx, "Failed to execute HTML template", common.ErrAttr(err))
+			return err
+		}
 	}
 
 	var textBodyTpl bytes.Buffer
-	if err := pm.welcomeTextTemplate.Execute(&textBodyTpl, data); err != nil {
-		return err
+	if pm.welcomeTextTemplate != nil {
+		if err := pm.welcomeTextTemplate.Execute(&textBodyTpl, data); err != nil {
+			slog.ErrorContext(ctx, "Failed to execute Text template", common.ErrAttr(err))
+			return err
+		}
 	}
 
 	msg := &Message{

@@ -23,19 +23,25 @@ type ScheduledNotification struct {
 	Persistent   bool
 }
 
-func NewEmailTemplate(name, content string) *EmailTemplate {
-	return &EmailTemplate{name: name, content: content}
+func NewEmailTemplate(name, contentHTML, contentText string) *EmailTemplate {
+	return &EmailTemplate{
+		name:        name,
+		contentHTML: contentHTML,
+		contentText: contentText,
+	}
 }
 
 type EmailTemplate struct {
-	name    string
-	hash    string
-	mux     sync.Mutex
-	content string
+	name        string
+	hash        string
+	mux         sync.Mutex
+	contentHTML string
+	contentText string
 }
 
-func (et *EmailTemplate) Name() string    { return et.name }
-func (et *EmailTemplate) Content() string { return et.content }
+func (et *EmailTemplate) Name() string        { return et.name }
+func (et *EmailTemplate) ContentHTML() string { return et.contentHTML }
+func (et *EmailTemplate) ContentText() string { return et.contentText }
 
 func (et *EmailTemplate) Hash() string {
 	et.mux.Lock()
@@ -43,7 +49,13 @@ func (et *EmailTemplate) Hash() string {
 
 	if len(et.hash) == 0 {
 		h := sha1.New()
-		h.Write([]byte(et.content))
+		if len(et.contentHTML) > 0 {
+			h.Write([]byte(et.contentHTML))
+		} else if len(et.contentText) > 0 {
+			h.Write([]byte(et.contentText))
+		} else {
+			h.Write([]byte(et.name))
+		}
 		et.hash = hex.EncodeToString(h.Sum(nil))
 	}
 

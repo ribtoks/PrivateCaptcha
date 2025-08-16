@@ -18,16 +18,16 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: CreateNotificationTemplate :one
-INSERT INTO backend.notification_templates (name, content, content_hash)
-VALUES ($1, $2, $3)
-ON CONFLICT (content_hash) DO UPDATE SET updated_at = NOW()
+INSERT INTO backend.notification_templates (name, content_html, content_text, external_id)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (external_id) DO UPDATE SET updated_at = NOW()
 RETURNING *;
 
 -- name: GetNotificationTemplateByHash :one
-SELECT * FROM backend.notification_templates WHERE content_hash = $1;
+SELECT * FROM backend.notification_templates WHERE external_id = $1;
 
 -- name: CreateUserNotification :one
-INSERT INTO backend.user_notifications (user_id, reference_id, template_hash, subject, payload, scheduled_at, persistent)
+INSERT INTO backend.user_notifications (user_id, reference_id, template_id, subject, payload, scheduled_at, persistent)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
@@ -49,8 +49,8 @@ DELETE FROM backend.notification_templates nt
 WHERE nt.id IN (
     SELECT nt2.id
     FROM backend.notification_templates nt2
-    LEFT JOIN backend.user_notifications un ON un.template_hash = nt2.content_hash
-    WHERE ((un.template_hash IS NULL) OR (un.delivered_at < $1))
+    LEFT JOIN backend.user_notifications un ON un.template_id = nt2.external_id
+    WHERE ((un.template_id IS NULL) OR (un.delivered_at < $1))
     AND (nt2.updated_at < $2)
 );
 

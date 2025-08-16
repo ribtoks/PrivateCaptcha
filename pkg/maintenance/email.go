@@ -33,7 +33,7 @@ func (j *RegisterEmailTemplatesJob) RunOnce(ctx context.Context) error {
 	var anyError error
 
 	for _, tpl := range j.Templates {
-		if _, err := j.Store.Impl().CreateNotificationTemplate(ctx, tpl.Name(), tpl.Content(), tpl.Hash()); err != nil {
+		if _, err := j.Store.Impl().CreateNotificationTemplate(ctx, tpl.Name(), tpl.ContentHTML(), tpl.ContentText(), tpl.Hash()); err != nil {
 			slog.ErrorContext(ctx, "Failed to upsert notification template", "name", tpl.Name(), common.ErrAttr(err))
 			anyError = err
 		}
@@ -74,15 +74,15 @@ func groupNotificationsByTemplate(ctx context.Context, notifications []*dbgen.Ge
 
 	for _, n := range notifications {
 		un := &n.UserNotification
-		if !un.TemplateHash.Valid {
+		if !un.TemplateID.Valid {
 			slog.ErrorContext(ctx, "Skipping notification template with orphanned hash", "nid", un.ID)
 			continue
 		}
 
-		if list, ok := result[un.TemplateHash.String]; ok {
-			result[un.TemplateHash.String] = append(list, n)
+		if list, ok := result[un.TemplateID.String]; ok {
+			result[un.TemplateID.String] = append(list, n)
 		} else {
-			result[un.TemplateHash.String] = []*dbgen.GetPendingUserNotificationsRow{n}
+			result[un.TemplateID.String] = []*dbgen.GetPendingUserNotificationsRow{n}
 		}
 	}
 
@@ -103,25 +103,26 @@ func indexTemplates(ctx context.Context, templates []*common.EmailTemplate) map[
 }
 
 type preparedNotificationTemplate struct {
-	tpl    *template.Template
-	name   string
-	isHTML bool
+	htmlTemplate *template.Template
+	textTemplate *template.Template
+	name         string
 }
 
 func (j *UserEmailNotificationsJob) retrieveTemplate(ctx context.Context,
 	templates map[string]*common.EmailTemplate,
 	templateHash string) (*preparedNotificationTemplate, error) {
 	hlog := slog.With("hash", templateHash)
-	var content string
+	var contentHTML string
+	var contentText string
 	var name string
 	itpl, ok := templates[templateHash]
 	if ok {
-		content = itpl.Content()
+		contentHTML, contentText = itpl.ContentHTML(), itpl.ContentText()
 		name = itpl.Name()
 	} else {
 		hlog.WarnContext(ctx, "Template is not found locally")
 		if dbTemplate, err := j.Store.Impl().RetrieveNotificationTemplate(ctx, templateHash); err == nil {
-			content = dbTemplate.Content
+			contentHTML, contentText = dbTemplate.ContentHtml, dbTemplate.ContentText
 			name = dbTemplate.Name
 		} else {
 			hlog.ErrorContext(ctx, "Failed to retrieve template from DB", common.ErrAttr(err))
@@ -129,21 +130,29 @@ func (j *UserEmailNotificationsJob) retrieveTemplate(ctx context.Context,
 		}
 	}
 
-	tpl, err := template.New("Notification").Parse(content)
-	if err != nil {
-		hlog.ErrorContext(ctx, "Failed to parse HTML template", "name", name, common.ErrAttr(err))
-		return nil, err
+	nt := &preparedNotificationTemplate{name: name}
+
+	if len(contentHTML) > 0 {
+		if tplHTML, err := template.New("NotificationHTML").Parse(contentHTML); err != nil {
+			hlog.ErrorContext(ctx, "Failed to parse HTML template", "name", name, common.ErrAttr(err))
+			return nil, err
+		} else {
+			nt.htmlTemplate = tplHTML
+		}
 	}
 
-	isHTML := email.CanBeHTML(content)
+	if len(contentText) > 0 {
+		if tplText, err := template.New("NotificationText").Parse(contentText); err != nil {
+			hlog.ErrorContext(ctx, "Failed to parse text template", "name", name, common.ErrAttr(err))
+			return nil, err
+		} else {
+			nt.textTemplate = tplText
+		}
+	}
 
-	hlog.InfoContext(ctx, "Parsed template", "name", name, "length", len(content), "html", isHTML)
+	hlog.InfoContext(ctx, "Parsed templates", "name", name)
 
-	return &preparedNotificationTemplate{
-		tpl:    tpl,
-		name:   name,
-		isHTML: isHTML,
-	}, nil
+	return nt, nil
 }
 
 func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context) error {
@@ -189,7 +198,7 @@ func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context) error {
 func isValidUserNotification(un *dbgen.UserNotification) bool {
 	return len(un.Subject) > 0 &&
 		un.ScheduledAt.Valid &&
-		un.TemplateHash.Valid
+		un.TemplateID.Valid
 }
 
 func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Context,
@@ -209,7 +218,7 @@ func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Contex
 		}
 
 		un := &n.UserNotification
-		nlog := slog.With("nid", un.ID, "hash", un.TemplateHash.String, "template", tpl.name)
+		nlog := slog.With("nid", un.ID, "template_id", un.TemplateID.String, "template_name", tpl.name)
 		if !isValidUserNotification(un) {
 			nlog.WarnContext(ctx, "Skipping invalid user notification")
 			continue
@@ -225,10 +234,20 @@ func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Contex
 		data["PortalURL"] = j.PortalURL
 		data["CurrentYear"] = time.Now().Year()
 
-		var bodyTpl bytes.Buffer
-		if err := tpl.tpl.Execute(&bodyTpl, data); err != nil {
-			nlog.ErrorContext(ctx, "Failed to execute template with notification context", common.ErrAttr(err))
-			continue
+		var htmlBodyTpl bytes.Buffer
+		if tpl.htmlTemplate != nil {
+			if err := tpl.htmlTemplate.Execute(&htmlBodyTpl, data); err != nil {
+				nlog.ErrorContext(ctx, "Failed to execute HTML template with notification context", common.ErrAttr(err))
+				continue
+			}
+		}
+
+		var textBodyTpl bytes.Buffer
+		if tpl.textTemplate != nil {
+			if err := tpl.textTemplate.Execute(&textBodyTpl, data); err != nil {
+				nlog.ErrorContext(ctx, "Failed to execute Text template with notification context", common.ErrAttr(err))
+				continue
+			}
 		}
 
 		msg := &email.Message{
@@ -237,12 +256,8 @@ func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Contex
 			EmailFrom: emailFrom,
 			NameFrom:  common.PrivateCaptcha,
 			ReplyTo:   replyToEmail,
-		}
-
-		if tpl.isHTML {
-			msg.HTMLBody = bodyTpl.String()
-		} else {
-			msg.TextBody = bodyTpl.String()
+			HTMLBody:  htmlBodyTpl.String(),
+			TextBody:  textBodyTpl.String(),
 		}
 
 		if err := j.Sender.SendEmail(ctx, msg); err != nil {

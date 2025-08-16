@@ -38,7 +38,7 @@ type Querier interface {
 	GetAPIKeyByExternalID(ctx context.Context, externalID pgtype.UUID) (*APIKey, error)
 	GetCachedByKey(ctx context.Context, key string) ([]byte, error)
 	GetLastActiveSystemNotification(ctx context.Context, arg *GetLastActiveSystemNotificationParams) (*SystemNotification, error)
-	GetNotificationTemplateByHash(ctx context.Context, contentHash string) (*NotificationTemplate, error)
+	GetNotificationTemplateByHash(ctx context.Context, externalID string) (*NotificationTemplate, error)
 	GetOrgProperties(ctx context.Context, orgID pgtype.Int4) ([]*Property, error)
 	GetOrgPropertyByName(ctx context.Context, arg *GetOrgPropertyByNameParams) (*Property, error)
 	GetOrganizationUsers(ctx context.Context, orgID int32) ([]*GetOrganizationUsersRow, error)

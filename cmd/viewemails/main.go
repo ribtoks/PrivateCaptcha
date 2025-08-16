@@ -108,7 +108,7 @@ func main() {
 	http.HandleFunc("/", homepage)
 
 	for _, tpl := range email.Templates() {
-		templates[tpl.Name()] = tpl.Content()
+		templates[tpl.Name()] = tpl.ContentHTML()
 	}
 
 	for k := range templates {

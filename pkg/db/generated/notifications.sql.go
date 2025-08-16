@@ -12,26 +12,33 @@ import (
 )
 
 const createNotificationTemplate = `-- name: CreateNotificationTemplate :one
-INSERT INTO backend.notification_templates (name, content, content_hash)
-VALUES ($1, $2, $3)
-ON CONFLICT (content_hash) DO UPDATE SET updated_at = NOW()
-RETURNING id, name, content, content_hash, created_at, updated_at
+INSERT INTO backend.notification_templates (name, content_html, content_text, external_id)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (external_id) DO UPDATE SET updated_at = NOW()
+RETURNING id, name, external_id, content_html, content_text, created_at, updated_at
 `
 
 type CreateNotificationTemplateParams struct {
 	Name        string `db:"name" json:"name"`
-	Content     string `db:"content" json:"content"`
-	ContentHash string `db:"content_hash" json:"content_hash"`
+	ContentHtml string `db:"content_html" json:"content_html"`
+	ContentText string `db:"content_text" json:"content_text"`
+	ExternalID  string `db:"external_id" json:"external_id"`
 }
 
 func (q *Queries) CreateNotificationTemplate(ctx context.Context, arg *CreateNotificationTemplateParams) (*NotificationTemplate, error) {
-	row := q.db.QueryRow(ctx, createNotificationTemplate, arg.Name, arg.Content, arg.ContentHash)
+	row := q.db.QueryRow(ctx, createNotificationTemplate,
+		arg.Name,
+		arg.ContentHtml,
+		arg.ContentText,
+		arg.ExternalID,
+	)
 	var i NotificationTemplate
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Content,
-		&i.ContentHash,
+		&i.ExternalID,
+		&i.ContentHtml,
+		&i.ContentText,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -71,26 +78,26 @@ func (q *Queries) CreateSystemNotification(ctx context.Context, arg *CreateSyste
 }
 
 const createUserNotification = `-- name: CreateUserNotification :one
-INSERT INTO backend.user_notifications (user_id, reference_id, template_hash, subject, payload, scheduled_at, persistent)
+INSERT INTO backend.user_notifications (user_id, reference_id, template_id, subject, payload, scheduled_at, persistent)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, user_id, template_hash, payload, subject, reference_id, persistent, created_at, scheduled_at, delivered_at
+RETURNING id, user_id, template_id, payload, subject, reference_id, persistent, created_at, scheduled_at, delivered_at
 `
 
 type CreateUserNotificationParams struct {
-	UserID       pgtype.Int4        `db:"user_id" json:"user_id"`
-	ReferenceID  string             `db:"reference_id" json:"reference_id"`
-	TemplateHash pgtype.Text        `db:"template_hash" json:"template_hash"`
-	Subject      string             `db:"subject" json:"subject"`
-	Payload      []byte             `db:"payload" json:"payload"`
-	ScheduledAt  pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
-	Persistent   bool               `db:"persistent" json:"persistent"`
+	UserID      pgtype.Int4        `db:"user_id" json:"user_id"`
+	ReferenceID string             `db:"reference_id" json:"reference_id"`
+	TemplateID  pgtype.Text        `db:"template_id" json:"template_id"`
+	Subject     string             `db:"subject" json:"subject"`
+	Payload     []byte             `db:"payload" json:"payload"`
+	ScheduledAt pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
+	Persistent  bool               `db:"persistent" json:"persistent"`
 }
 
 func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNotificationParams) (*UserNotification, error) {
 	row := q.db.QueryRow(ctx, createUserNotification,
 		arg.UserID,
 		arg.ReferenceID,
-		arg.TemplateHash,
+		arg.TemplateID,
 		arg.Subject,
 		arg.Payload,
 		arg.ScheduledAt,
@@ -100,7 +107,7 @@ func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNot
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
-		&i.TemplateHash,
+		&i.TemplateID,
 		&i.Payload,
 		&i.Subject,
 		&i.ReferenceID,
@@ -155,8 +162,8 @@ DELETE FROM backend.notification_templates nt
 WHERE nt.id IN (
     SELECT nt2.id
     FROM backend.notification_templates nt2
-    LEFT JOIN backend.user_notifications un ON un.template_hash = nt2.content_hash
-    WHERE ((un.template_hash IS NULL) OR (un.delivered_at < $1))
+    LEFT JOIN backend.user_notifications un ON un.template_id = nt2.external_id
+    WHERE ((un.template_id IS NULL) OR (un.delivered_at < $1))
     AND (nt2.updated_at < $2)
 )
 `
@@ -203,17 +210,18 @@ func (q *Queries) GetLastActiveSystemNotification(ctx context.Context, arg *GetL
 }
 
 const getNotificationTemplateByHash = `-- name: GetNotificationTemplateByHash :one
-SELECT id, name, content, content_hash, created_at, updated_at FROM backend.notification_templates WHERE content_hash = $1
+SELECT id, name, external_id, content_html, content_text, created_at, updated_at FROM backend.notification_templates WHERE external_id = $1
 `
 
-func (q *Queries) GetNotificationTemplateByHash(ctx context.Context, contentHash string) (*NotificationTemplate, error) {
-	row := q.db.QueryRow(ctx, getNotificationTemplateByHash, contentHash)
+func (q *Queries) GetNotificationTemplateByHash(ctx context.Context, externalID string) (*NotificationTemplate, error) {
+	row := q.db.QueryRow(ctx, getNotificationTemplateByHash, externalID)
 	var i NotificationTemplate
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.Content,
-		&i.ContentHash,
+		&i.ExternalID,
+		&i.ContentHtml,
+		&i.ContentText,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -221,7 +229,7 @@ func (q *Queries) GetNotificationTemplateByHash(ctx context.Context, contentHash
 }
 
 const getPendingUserNotifications = `-- name: GetPendingUserNotifications :many
-SELECT un.id, un.user_id, un.template_hash, un.payload, un.subject, un.reference_id, un.persistent, un.created_at, un.scheduled_at, un.delivered_at, u.email
+SELECT un.id, un.user_id, un.template_id, un.payload, un.subject, un.reference_id, un.persistent, un.created_at, un.scheduled_at, un.delivered_at, u.email
 FROM backend.user_notifications un
 JOIN backend.users u ON un.user_id = u.id
 WHERE delivered_at IS NULL AND scheduled_at >= $1 AND scheduled_at <= NOW() ORDER BY scheduled_at ASC
@@ -250,7 +258,7 @@ func (q *Queries) GetPendingUserNotifications(ctx context.Context, arg *GetPendi
 		if err := rows.Scan(
 			&i.UserNotification.ID,
 			&i.UserNotification.UserID,
-			&i.UserNotification.TemplateHash,
+			&i.UserNotification.TemplateID,
 			&i.UserNotification.Payload,
 			&i.UserNotification.Subject,
 			&i.UserNotification.ReferenceID,

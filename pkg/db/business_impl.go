@@ -1564,15 +1564,16 @@ func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.
 	return user, org, nil
 }
 
-func (s *BusinessStoreImpl) CreateNotificationTemplate(ctx context.Context, name, tpl, hash string) (*dbgen.NotificationTemplate, error) {
+func (s *BusinessStoreImpl) CreateNotificationTemplate(ctx context.Context, name, tplHTML, tplText, hash string) (*dbgen.NotificationTemplate, error) {
 	if s.querier == nil {
 		return nil, ErrMaintenance
 	}
 
 	t, err := s.querier.CreateNotificationTemplate(ctx, &dbgen.CreateNotificationTemplateParams{
 		Name:        name,
-		Content:     tpl,
-		ContentHash: hash,
+		ContentHtml: tplHTML,
+		ContentText: tplText,
+		ExternalID:  hash,
 	})
 
 	if err != nil {
@@ -1616,13 +1617,13 @@ func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, n *commo
 
 	// NOTE: we don't add template to DB (again) because it should have been done with RegisterEmailTemplatesJob on startup
 	params := &dbgen.CreateUserNotificationParams{
-		UserID:       Int(n.UserID),
-		ReferenceID:  n.ReferenceID,
-		TemplateHash: Text(n.TemplateHash),
-		Subject:      n.Subject,
-		Payload:      payload,
-		ScheduledAt:  Timestampz(n.DateTime),
-		Persistent:   n.Persistent,
+		UserID:      Int(n.UserID),
+		ReferenceID: n.ReferenceID,
+		TemplateID:  Text(n.TemplateHash),
+		Subject:     n.Subject,
+		Payload:     payload,
+		ScheduledAt: Timestampz(n.DateTime),
+		Persistent:  n.Persistent,
 	}
 
 	rlog := slog.With("userID", params.UserID.Int32, "refID", params.ReferenceID)
