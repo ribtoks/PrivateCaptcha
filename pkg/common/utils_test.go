@@ -123,3 +123,29 @@ func TestSubDomain(t *testing.T) {
 		})
 	}
 }
+
+func TestGuessFirstName(t *testing.T) {
+	tests := []struct {
+		username string
+		expected string
+	}{
+		{"john doe", "John"},
+		{"123 alice 456", "Alice"},
+		{"bob123 charlie", "bob123"},
+		{"david", "David"},
+		{"123 456 789", "123 456 789"},
+		{"", ""},
+		{"    ", "    "},
+		{"!@# john_doe", "john_doe"},
+		{"___123___", "___123___"},
+		{"   emily rose  ", "Emily"},
+		{"123 456abc", "456abc"},
+	}
+
+	for _, tt := range tests {
+		actual := GuessFirstName(tt.username)
+		if actual != tt.expected {
+			t.Errorf("GuessFirstName(%q) = %q; want %q", tt.username, actual, tt.expected)
+		}
+	}
+}

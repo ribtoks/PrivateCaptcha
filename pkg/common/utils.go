@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/jpillora/backoff"
 )
@@ -96,6 +97,52 @@ func ParseBoolean(value string) bool {
 	default:
 		return false
 	}
+}
+
+func containsAlphabetic(s string) bool {
+	for _, r := range s {
+		if unicode.IsLetter(r) {
+			return true
+		}
+	}
+	return false
+}
+
+func onlyAlphabetic(s string) bool {
+	for _, r := range s {
+		if !unicode.IsLetter(r) {
+			return false
+		}
+	}
+	return true
+}
+
+func isLowerCase(s string) bool {
+	for _, r := range s {
+		if !unicode.IsLower(r) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func GuessFirstName(username string) string {
+	parts := strings.Fields(username)
+
+	for _, p := range parts {
+		if containsAlphabetic(p) {
+			if onlyAlphabetic(p) && isLowerCase(p) {
+				runes := []rune(p)
+				runes[0] = unicode.ToUpper(runes[0])
+				return string(runes)
+			}
+
+			return p
+		}
+	}
+
+	return username
 }
 
 func ChunkedCleanup(ctx context.Context, minInterval, maxInterval time.Duration, defaultChunkSize int, deleter func(context.Context, time.Time, int) int) {

@@ -254,7 +254,7 @@ func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Contex
 			Subject:   un.Subject,
 			EmailTo:   n.Email,
 			EmailFrom: emailFrom,
-			NameFrom:  common.PrivateCaptcha,
+			NameFrom:  common.PrivateCaptchaTeam,
 			ReplyTo:   replyToEmail,
 			HTMLBody:  htmlBodyTpl.String(),
 			TextBody:  textBodyTpl.String(),

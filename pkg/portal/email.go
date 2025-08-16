@@ -93,7 +93,7 @@ func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code in
 		Subject:   fmt.Sprintf("[%s] Your verification code is %v", common.PrivateCaptcha, data.Code),
 		EmailTo:   email,
 		EmailFrom: pm.EmailFrom.Value(),
-		NameFrom:  common.PrivateCaptcha,
+		NameFrom:  common.PrivateCaptchaTeam,
 	}
 
 	clog := slog.With("email", email, "code", data.Code)
@@ -151,7 +151,7 @@ func (pm *PortalMailer) SendWelcome(ctx context.Context, email, name string) err
 		Subject:   "Welcome to Private Captcha",
 		EmailTo:   email,
 		EmailFrom: pm.EmailFrom.Value(),
-		NameFrom:  common.PrivateCaptcha,
+		NameFrom:  common.PrivateCaptchaTeam,
 		ReplyTo:   pm.ReplyToEmail.Value(),
 	}
 

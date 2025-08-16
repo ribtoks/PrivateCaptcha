@@ -36,5 +36,5 @@ func (j *onboardUserJob) InitialPause() time.Duration {
 }
 
 func (j *onboardUserJob) RunOnce(ctx context.Context) error {
-	return j.mailer.SendWelcome(ctx, j.user.Email, j.user.Name)
+	return j.mailer.SendWelcome(ctx, j.user.Email, common.GuessFirstName(j.user.Name))
 }

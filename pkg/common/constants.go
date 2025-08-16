@@ -5,6 +5,7 @@ import "net/http"
 const (
 	DefaultOrgName        = "My Organization"
 	PrivateCaptcha        = "Private Captcha"
+	PrivateCaptchaTeam    = "Private Captcha Team"
 	StageDev              = "dev"
 	StageStaging          = "staging"
 	StageTest             = "test"
