@@ -260,10 +260,10 @@ func (impl *BusinessStoreImpl) SoftDeleteUser(ctx context.Context, userID int32)
 	}
 
 	if err := impl.querier.DeleteUserAPIKeys(ctx, Int(userID)); err != nil {
-		slog.ErrorContext(ctx, "Failed to soft-delete user API keys", "userID", userID, common.ErrAttr(err))
+		slog.ErrorContext(ctx, "Failed to delete user API keys", "userID", userID, common.ErrAttr(err))
 		return err
 	} else {
-		slog.DebugContext(ctx, "Disabled user API keys", "userID", userID)
+		slog.DebugContext(ctx, "Deleted user API keys", "userID", userID)
 	}
 
 	// TODO: Delete user API keys from cache
@@ -1754,4 +1754,29 @@ func (s *BusinessStoreImpl) DeletePendingUserNotification(ctx context.Context, u
 	slog.DebugContext(ctx, "Deleted pending user notification", "userID", userID, "refID", referenceID)
 
 	return nil
+}
+
+func (s *BusinessStoreImpl) RetrieveUsersWithExpiredTrials(ctx context.Context, before time.Time, trialStatus string, maxUsers int32) ([]*dbgen.User, error) {
+	if s.querier == nil {
+		return nil, ErrMaintenance
+	}
+
+	users, err := s.querier.GetUsersWithExpiredTrials(ctx, &dbgen.GetUsersWithExpiredTrialsParams{
+		TrialEndsAt: Timestampz(before),
+		Status:      trialStatus,
+		Limit:       maxUsers,
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return []*dbgen.User{}, nil
+		}
+
+		slog.ErrorContext(ctx, "Failed to retrieve users with expired trials", "before", before, "status", trialStatus, common.ErrAttr(err))
+
+		return nil, err
+	}
+
+	slog.DebugContext(ctx, "Fetched users with expired trials", "count", len(users), "before", before, "status", trialStatus)
+
+	return users, nil
 }

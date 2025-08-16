@@ -2,10 +2,13 @@ package maintenance
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/billing"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
+	"github.com/jpillora/backoff"
 )
 
 const (
@@ -95,6 +98,54 @@ func (j *GarbageCollectDataJob) RunOnce(ctx context.Context) error {
 
 	if err := j.purgeUsers(ctx, before); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+type CleanupExpiredTrialUsersJob struct {
+	Age         time.Duration
+	BusinessDB  db.Implementor
+	PlanService billing.PlanService
+	ChunkSize   int
+}
+
+func (j *CleanupExpiredTrialUsersJob) Interval() time.Duration {
+	return 12 * time.Hour
+}
+
+func (j *CleanupExpiredTrialUsersJob) Jitter() time.Duration {
+	return 6 * time.Hour
+}
+
+func (CleanupExpiredTrialUsersJob) Name() string {
+	return "cleanup_expired_trial_users_job"
+}
+
+func (j *CleanupExpiredTrialUsersJob) RunOnce(ctx context.Context) error {
+	expiredBefore := time.Now().Add(-j.Age)
+	users, err := j.BusinessDB.Impl().RetrieveUsersWithExpiredTrials(ctx, expiredBefore, j.PlanService.TrialStatus(), int32(j.ChunkSize))
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to retrieve users with expired trials", common.ErrAttr(err))
+		return err
+	}
+
+	b := &backoff.Backoff{
+		Min:    200 * time.Millisecond,
+		Max:    1 * time.Second,
+		Factor: 2,
+		Jitter: true,
+	}
+
+	for i, u := range users {
+		if (i > 0) && (err == nil) {
+			time.Sleep(b.Duration())
+		}
+
+		err = j.BusinessDB.Impl().SoftDeleteUser(ctx, u.ID)
+		if err != nil {
+			slog.ErrorContext(ctx, "Failed to soft-delete user", "userID", u.ID, common.ErrAttr(err))
+		}
 	}
 
 	return nil

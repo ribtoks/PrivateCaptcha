@@ -147,6 +147,56 @@ func (q *Queries) GetUserBySubscriptionID(ctx context.Context, subscriptionID pg
 	return &i, err
 }
 
+const getUsersWithExpiredTrials = `-- name: GetUsersWithExpiredTrials :many
+SELECT u.id, u.name, u.email, u.subscription_id, u.created_at, u.updated_at, u.deleted_at
+FROM backend.users u
+JOIN backend.subscriptions s ON u.subscription_id = s.id
+WHERE
+  s.source = 'internal' AND
+  s.trial_ends_at IS NOT NULL AND
+  s.trial_ends_at < $1 AND
+  s.status = $2 AND
+  (s.external_customer_id IS NULL OR s.external_customer_id = '') AND
+  (s.external_subscription_id IS NULL OR s.external_subscription_id = '') AND
+  s.next_billed_at IS NULL AND
+  u.deleted_at IS NULL
+LIMIT $3
+`
+
+type GetUsersWithExpiredTrialsParams struct {
+	TrialEndsAt pgtype.Timestamptz `db:"trial_ends_at" json:"trial_ends_at"`
+	Status      string             `db:"status" json:"status"`
+	Limit       int32              `db:"limit" json:"limit"`
+}
+
+func (q *Queries) GetUsersWithExpiredTrials(ctx context.Context, arg *GetUsersWithExpiredTrialsParams) ([]*User, error) {
+	rows, err := q.db.Query(ctx, getUsersWithExpiredTrials, arg.TrialEndsAt, arg.Status, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Email,
+			&i.SubscriptionID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.DeletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUsersWithoutSubscription = `-- name: GetUsersWithoutSubscription :many
 SELECT id, name, email, subscription_id, created_at, updated_at, deleted_at FROM backend.users where id = ANY($1::INT[]) AND (subscription_id IS NULL OR deleted_at IS NOT NULL)
 `

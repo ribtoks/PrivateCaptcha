@@ -342,7 +342,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Store:        businessDB,
 		Templates:    email.Templates(),
 		Sender:       sender,
-		ChunkSize:    100,
+		ChunkSize:    50,
 		EmailFrom:    cfg.Get(common.EmailFromKey),
 		ReplyToEmail: cfg.Get(common.ReplyToEmailKey),
 		CDNURL:       mailer.CDNURL,
@@ -350,6 +350,12 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	})
 	jobs.AddLocked(24*time.Hour, &maintenance.CleanupUserNotificationsJob{
 		Store: businessDB,
+	})
+	jobs.AddLocked(24*time.Hour, &maintenance.CleanupExpiredTrialUsersJob{
+		Age:         30 * 24 * time.Hour,
+		BusinessDB:  businessDB,
+		PlanService: planService,
+		ChunkSize:   20,
 	})
 	jobs.Run()
 

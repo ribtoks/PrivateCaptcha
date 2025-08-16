@@ -31,3 +31,18 @@ DELETE FROM backend.users WHERE id = ANY($1::INT[]);
 
 -- name: GetUsersWithoutSubscription :many
 SELECT * FROM backend.users where id = ANY($1::INT[]) AND (subscription_id IS NULL OR deleted_at IS NOT NULL);
+
+-- name: GetUsersWithExpiredTrials :many
+SELECT u.*
+FROM backend.users u
+JOIN backend.subscriptions s ON u.subscription_id = s.id
+WHERE
+  s.source = 'internal' AND
+  s.trial_ends_at IS NOT NULL AND
+  s.trial_ends_at < $1 AND
+  s.status = $2 AND
+  (s.external_customer_id IS NULL OR s.external_customer_id = '') AND
+  (s.external_subscription_id IS NULL OR s.external_subscription_id = '') AND
+  s.next_billed_at IS NULL AND
+  u.deleted_at IS NULL
+LIMIT $3;

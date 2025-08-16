@@ -61,6 +61,7 @@ type Querier interface {
 	GetUserBySubscriptionID(ctx context.Context, subscriptionID pgtype.Int4) (*User, error)
 	GetUserOrganizations(ctx context.Context, userID pgtype.Int4) ([]*GetUserOrganizationsRow, error)
 	GetUserPropertiesCount(ctx context.Context, orgOwnerID pgtype.Int4) (int64, error)
+	GetUsersWithExpiredTrials(ctx context.Context, arg *GetUsersWithExpiredTrialsParams) ([]*User, error)
 	GetUsersWithoutSubscription(ctx context.Context, dollar_1 []int32) ([]*User, error)
 	InsertLock(ctx context.Context, arg *InsertLockParams) (*Lock, error)
 	InviteUserToOrg(ctx context.Context, arg *InviteUserToOrgParams) (*OrganizationUser, error)
