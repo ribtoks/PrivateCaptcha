@@ -1756,27 +1756,28 @@ func (s *BusinessStoreImpl) DeletePendingUserNotification(ctx context.Context, u
 	return nil
 }
 
-func (s *BusinessStoreImpl) RetrieveUsersWithExpiredTrials(ctx context.Context, before time.Time, trialStatus string, maxUsers int32) ([]*dbgen.User, error) {
+func (s *BusinessStoreImpl) RetrieveUsersWithExpiredTrials(ctx context.Context, from, to time.Time, trialStatus string, maxUsers int32) ([]*dbgen.User, error) {
 	if s.querier == nil {
 		return nil, ErrMaintenance
 	}
 
 	users, err := s.querier.GetUsersWithExpiredTrials(ctx, &dbgen.GetUsersWithExpiredTrialsParams{
-		TrialEndsAt: Timestampz(before),
-		Status:      trialStatus,
-		Limit:       maxUsers,
+		TrialEndsAt:   Timestampz(from),
+		TrialEndsAt_2: Timestampz(to),
+		Status:        trialStatus,
+		Limit:         maxUsers,
 	})
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return []*dbgen.User{}, nil
 		}
 
-		slog.ErrorContext(ctx, "Failed to retrieve users with expired trials", "before", before, "status", trialStatus, common.ErrAttr(err))
+		slog.ErrorContext(ctx, "Failed to retrieve users with expired trials", "from", from, "to", to, "status", trialStatus, common.ErrAttr(err))
 
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, "Fetched users with expired trials", "count", len(users), "before", before, "status", trialStatus)
+	slog.DebugContext(ctx, "Fetched users with expired trials", "count", len(users), "from", from, "to", to, "status", trialStatus)
 
 	return users, nil
 }

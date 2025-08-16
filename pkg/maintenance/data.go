@@ -123,8 +123,9 @@ func (CleanupExpiredTrialUsersJob) Name() string {
 }
 
 func (j *CleanupExpiredTrialUsersJob) RunOnce(ctx context.Context) error {
-	expiredBefore := time.Now().Add(-j.Age)
-	users, err := j.BusinessDB.Impl().RetrieveUsersWithExpiredTrials(ctx, expiredBefore, j.PlanService.TrialStatus(), int32(j.ChunkSize))
+	expiredTo := time.Now().Add(-j.Age)
+	expiredFrom := expiredTo.AddDate(0, -6 /*months*/, 0)
+	users, err := j.BusinessDB.Impl().RetrieveUsersWithExpiredTrials(ctx, expiredFrom, expiredTo, j.PlanService.TrialStatus(), int32(j.ChunkSize))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve users with expired trials", common.ErrAttr(err))
 		return err

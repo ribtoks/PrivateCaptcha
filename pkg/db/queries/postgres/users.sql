@@ -39,10 +39,10 @@ JOIN backend.subscriptions s ON u.subscription_id = s.id
 WHERE
   s.source = 'internal' AND
   s.trial_ends_at IS NOT NULL AND
-  s.trial_ends_at < $1 AND
-  s.status = $2 AND
+  s.trial_ends_at BETWEEN $1 AND $2 AND
+  s.status = $3 AND
   (s.external_customer_id IS NULL OR s.external_customer_id = '') AND
   (s.external_subscription_id IS NULL OR s.external_subscription_id = '') AND
   s.next_billed_at IS NULL AND
   u.deleted_at IS NULL
-LIMIT $3;
+LIMIT $4;

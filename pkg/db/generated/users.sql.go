@@ -154,23 +154,29 @@ JOIN backend.subscriptions s ON u.subscription_id = s.id
 WHERE
   s.source = 'internal' AND
   s.trial_ends_at IS NOT NULL AND
-  s.trial_ends_at < $1 AND
-  s.status = $2 AND
+  s.trial_ends_at BETWEEN $1 AND $2 AND
+  s.status = $3 AND
   (s.external_customer_id IS NULL OR s.external_customer_id = '') AND
   (s.external_subscription_id IS NULL OR s.external_subscription_id = '') AND
   s.next_billed_at IS NULL AND
   u.deleted_at IS NULL
-LIMIT $3
+LIMIT $4
 `
 
 type GetUsersWithExpiredTrialsParams struct {
-	TrialEndsAt pgtype.Timestamptz `db:"trial_ends_at" json:"trial_ends_at"`
-	Status      string             `db:"status" json:"status"`
-	Limit       int32              `db:"limit" json:"limit"`
+	TrialEndsAt   pgtype.Timestamptz `db:"trial_ends_at" json:"trial_ends_at"`
+	TrialEndsAt_2 pgtype.Timestamptz `db:"trial_ends_at_2" json:"trial_ends_at_2"`
+	Status        string             `db:"status" json:"status"`
+	Limit         int32              `db:"limit" json:"limit"`
 }
 
 func (q *Queries) GetUsersWithExpiredTrials(ctx context.Context, arg *GetUsersWithExpiredTrialsParams) ([]*User, error) {
-	rows, err := q.db.Query(ctx, getUsersWithExpiredTrials, arg.TrialEndsAt, arg.Status, arg.Limit)
+	rows, err := q.db.Query(ctx, getUsersWithExpiredTrials,
+		arg.TrialEndsAt,
+		arg.TrialEndsAt_2,
+		arg.Status,
+		arg.Limit,
+	)
 	if err != nil {
 		return nil, err
 	}
