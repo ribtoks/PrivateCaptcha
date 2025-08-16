@@ -23,7 +23,7 @@ type RegisterEmailTemplatesJob struct {
 var _ common.OneOffJob = (*RegisterEmailTemplatesJob)(nil)
 
 func (j *RegisterEmailTemplatesJob) Name() string {
-	return "RegisterEmailTemplatesJob"
+	return "register_email_templates_job"
 }
 func (j *RegisterEmailTemplatesJob) InitialPause() time.Duration {
 	return 20 * time.Second
@@ -66,7 +66,7 @@ func (j *UserEmailNotificationsJob) Jitter() time.Duration {
 }
 
 func (j *UserEmailNotificationsJob) Name() string {
-	return "UserEmailNotificationsJob"
+	return "user_email_notifications_job"
 }
 
 func groupNotificationsByTemplate(ctx context.Context, notifications []*dbgen.GetPendingUserNotificationsRow) map[string][]*dbgen.GetPendingUserNotificationsRow {
@@ -316,5 +316,5 @@ func (j *CleanupUserNotificationsJob) Jitter() time.Duration {
 	return 1 * time.Hour
 }
 func (j *CleanupUserNotificationsJob) Name() string {
-	return "CleanupUserNotificationsJob"
+	return "cleanup_user_notifications_job"
 }

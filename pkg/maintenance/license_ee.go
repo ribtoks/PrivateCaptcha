@@ -296,5 +296,5 @@ func (j *checkLicenseJob) Jitter() time.Duration {
 }
 
 func (j *checkLicenseJob) Name() string {
-	return "CheckLicenseJob"
+	return "check_license_job"
 }

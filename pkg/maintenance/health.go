@@ -43,7 +43,7 @@ func (j *HealthCheckJob) Jitter() time.Duration {
 }
 
 func (j *HealthCheckJob) Name() string {
-	return "health_check"
+	return "health_check_job"
 }
 
 func (hc *HealthCheckJob) RunOnce(ctx context.Context) error {
