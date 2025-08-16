@@ -151,7 +151,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	portalURLConfig := config.AsURL(ctx, cfg.Get(common.PortalBaseURLKey))
 
 	sender := email.NewMailSender(cfg)
-	mailer := email.NewPortalMailer("https:"+cdnURLConfig.URL(), "https:"+portalURLConfig.URL(), sender, cfg)
+	mailer := portal.NewPortalMailer("https:"+cdnURLConfig.URL(), "https:"+portalURLConfig.URL(), sender, cfg)
 	mailer.SetWelcomeEmail(email.WelcomeEmailTemplate)
 	mailer.SetTwoFactorEmail(email.TwoFactorEmailTemplate)
 

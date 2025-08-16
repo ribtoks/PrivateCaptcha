@@ -1,8 +1,9 @@
-package email
+package portal
 
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -10,10 +11,15 @@ import (
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
+	emailpkg "github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
+)
+
+var (
+	errInvalidEmail = errors.New("email is not valid")
 )
 
 type PortalMailer struct {
-	Mailer                Sender
+	Mailer                emailpkg.Sender
 	CDNURL                string
 	PortalURL             string
 	EmailFrom             common.ConfigItem
@@ -25,7 +31,7 @@ type PortalMailer struct {
 	welcomeTextTemplate   *template.Template
 }
 
-func NewPortalMailer(cdnURL, portalURL string, mailer Sender, cfg common.ConfigStore) *PortalMailer {
+func NewPortalMailer(cdnURL, portalURL string, mailer emailpkg.Sender, cfg common.ConfigStore) *PortalMailer {
 	return &PortalMailer{
 		Mailer:       mailer,
 		EmailFrom:    cfg.Get(common.EmailFromKey),
@@ -81,7 +87,7 @@ func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code in
 		}
 	}
 
-	msg := &Message{
+	msg := &emailpkg.Message{
 		HTMLBody:  htmlBodyTpl.String(),
 		TextBody:  textBodyTpl.String(),
 		Subject:   fmt.Sprintf("[%s] Your verification code is %v", common.PrivateCaptcha, data.Code),
@@ -139,7 +145,7 @@ func (pm *PortalMailer) SendWelcome(ctx context.Context, email, name string) err
 		}
 	}
 
-	msg := &Message{
+	msg := &emailpkg.Message{
 		HTMLBody:  htmlBodyTpl.String(),
 		TextBody:  textBodyTpl.String(),
 		Subject:   "Welcome to Private Captcha",

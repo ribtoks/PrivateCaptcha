@@ -24,7 +24,6 @@ type Message struct {
 
 var (
 	errInvalidMessage = errors.New("mail message is not valid")
-	errInvalidEmail   = errors.New("email is not valid")
 	errNoEmailBody    = errors.New("no email body was generated")
 )
 
