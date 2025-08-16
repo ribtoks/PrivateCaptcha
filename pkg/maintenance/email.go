@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/config"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
@@ -49,7 +48,7 @@ type UserEmailNotificationsJob struct {
 	Store        db.Implementor
 	Templates    []*common.EmailTemplate
 	Sender       email.Sender
-	ChunkSize    common.ConfigItem
+	ChunkSize    int
 	EmailFrom    common.ConfigItem
 	ReplyToEmail common.ConfigItem
 	CDNURL       string
@@ -150,8 +149,7 @@ func (j *UserEmailNotificationsJob) retrieveTemplate(ctx context.Context,
 func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context) error {
 	// just for safety, we fetch overlapping segments, but it will be filtered out on the way
 	since := time.Now().UTC().Add(-(j.RunInterval + j.Interval() + j.Jitter()))
-	chunkSize := config.AsInt(j.ChunkSize, 100 /*fallback*/)
-	notifications, err := j.Store.Impl().RetrievePendingUserNotifications(ctx, since, chunkSize)
+	notifications, err := j.Store.Impl().RetrievePendingUserNotifications(ctx, since, j.ChunkSize)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve pending user notifications", common.ErrAttr(err))
 		return err

@@ -57,7 +57,7 @@ func TestUserNotificationsJob(t *testing.T) {
 		Store:        store,
 		Templates:    email.Templates(),
 		Sender:       sender,
-		ChunkSize:    config.NewStaticValue(common.NotificationsChunkSizeKey, "100"),
+		ChunkSize:    100,
 		EmailFrom:    config.NewStaticValue(common.EmailFromKey, "foo@bar.com"),
 		ReplyToEmail: config.NewStaticValue(common.ReplyToEmailKey, "foo@bar.com"),
 	}

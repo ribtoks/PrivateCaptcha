@@ -340,7 +340,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Store:        businessDB,
 		Templates:    email.Templates(),
 		Sender:       sender,
-		ChunkSize:    cfg.Get(common.NotificationsChunkSizeKey),
+		ChunkSize:    100,
 		EmailFrom:    cfg.Get(common.EmailFromKey),
 		ReplyToEmail: cfg.Get(common.ReplyToEmailKey),
 		CDNURL:       mailer.CDNURL,
