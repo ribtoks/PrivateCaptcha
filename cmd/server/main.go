@@ -359,6 +359,12 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		PlanService: planService,
 		ChunkSize:   20,
 	})
+	jobs.AddLocked(3*time.Hour, &maintenance.ExpireInternalTrialsJob{
+		PastInterval: 3 * time.Hour,
+		Age:          24 * time.Hour,
+		BusinessDB:   businessDB,
+		PlanService:  planService,
+	})
 	jobs.Run()
 
 	var localServer *http.Server

@@ -12,3 +12,15 @@ INSERT INTO backend.subscriptions (external_product_id, external_price_id, exter
 
 -- name: UpdateSubscription :one
 UPDATE backend.subscriptions SET external_product_id = $2, status = $3, next_billed_at = $4, cancel_from = $5, updated_at = NOW() WHERE external_subscription_id = $1 RETURNING *;
+
+-- name: UpdateInternalSubscriptions :exec
+UPDATE backend.subscriptions
+SET status = $1, updated_at = NOW()
+WHERE
+  source = 'internal' AND
+  trial_ends_at IS NOT NULL AND
+  trial_ends_at BETWEEN $2 AND $3 AND
+  status = $4 AND
+  (external_customer_id IS NULL OR external_customer_id = '') AND
+  (external_subscription_id IS NULL OR external_subscription_id = '') AND
+  next_billed_at IS NULL;

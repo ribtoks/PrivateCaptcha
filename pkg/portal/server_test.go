@@ -31,6 +31,7 @@ var (
 	timeSeries *db.TimeSeriesDB
 	store      *db.BusinessStore
 	testPlan   billing.Plan
+	cache      common.Cache[db.CacheKey, any]
 )
 
 func portalDomain() string {
@@ -103,7 +104,12 @@ func TestMain(m *testing.M) {
 	levels.Init(2*time.Second, 5*time.Minute)
 	defer levels.Shutdown()
 
-	store = db.NewBusiness(pool)
+	cache, err = db.NewMemoryCache[db.CacheKey, any]("default", 100, &struct{}{}, 1*time.Minute, 3*time.Minute, 30*time.Second)
+	if err != nil {
+		panic(err)
+	}
+
+	store = db.NewBusinessEx(pool, cache)
 
 	sessionStore := db.NewSessionStore(pool, memory.New(), 1*time.Minute, session.KeyPersistent)
 

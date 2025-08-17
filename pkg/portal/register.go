@@ -165,7 +165,7 @@ func (s *Server) doRegister(ctx context.Context, sess *common.Session) (*dbgen.U
 	}
 
 	plan := s.PlanService.GetInternalTrialPlan()
-	subscrParams := createInternalTrial(plan, s.PlanService.TrialStatus())
+	subscrParams := createInternalTrial(plan, s.PlanService.ActiveTrialStatus())
 
 	var user *dbgen.User
 	var org *dbgen.Organization

@@ -174,7 +174,7 @@ func (impl *BusinessStoreImpl) createNewSubscription(ctx context.Context, params
 	}
 
 	if subscription != nil {
-		cacheKey := subscriptionCacheKey(subscription.ID)
+		cacheKey := SubscriptionCacheKey(subscription.ID)
 		_ = impl.cache.Set(ctx, cacheKey, subscription)
 	}
 
@@ -592,7 +592,7 @@ func (impl *BusinessStoreImpl) retrieveOrgProperty(ctx context.Context, orgID, p
 
 func (impl *BusinessStoreImpl) RetrieveSubscription(ctx context.Context, sID int32) (*dbgen.Subscription, error) {
 	reader := &StoreOneReader[int32, dbgen.Subscription]{
-		CacheKey: subscriptionCacheKey(sID),
+		CacheKey: SubscriptionCacheKey(sID),
 		Cache:    impl.cache,
 	}
 
@@ -618,7 +618,7 @@ func (impl *BusinessStoreImpl) UpdateSubscription(ctx context.Context, params *d
 	if subscription != nil {
 		slog.DebugContext(ctx, "Updated subscription in DB", "id", subscription.ID, "status", subscription.Status)
 
-		cacheKey := subscriptionCacheKey(subscription.ID)
+		cacheKey := SubscriptionCacheKey(subscription.ID)
 		_ = impl.cache.Set(ctx, cacheKey, subscription)
 	}
 
@@ -1787,28 +1787,58 @@ func (s *BusinessStoreImpl) DeletePendingUserNotification(ctx context.Context, u
 	return nil
 }
 
-func (s *BusinessStoreImpl) RetrieveUsersWithExpiredTrials(ctx context.Context, from, to time.Time, trialStatus string, maxUsers int32) ([]*dbgen.User, error) {
+func (s *BusinessStoreImpl) RetrieveTrialUsers(ctx context.Context, from, to time.Time, status string, maxUsers int32, internal bool) ([]*dbgen.User, error) {
 	if s.querier == nil {
 		return nil, ErrMaintenance
 	}
 
-	users, err := s.querier.GetUsersWithExpiredTrials(ctx, &dbgen.GetUsersWithExpiredTrialsParams{
+	params := &dbgen.GetTrialUsersParams{
 		TrialEndsAt:   Timestampz(from),
 		TrialEndsAt_2: Timestampz(to),
-		Status:        trialStatus,
+		Status:        status,
 		Limit:         maxUsers,
-	})
+	}
+
+	if internal {
+		params.Source = dbgen.SubscriptionSourceInternal
+	} else {
+		params.Source = dbgen.SubscriptionSourceExternal
+	}
+
+	users, err := s.querier.GetTrialUsers(ctx, params)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return []*dbgen.User{}, nil
 		}
 
-		slog.ErrorContext(ctx, "Failed to retrieve users with expired trials", "from", from, "to", to, "status", trialStatus, common.ErrAttr(err))
+		slog.ErrorContext(ctx, "Failed to retrieve trial users", "from", from, "to", to, "status", status, common.ErrAttr(err))
 
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, "Fetched users with expired trials", "count", len(users), "from", from, "to", to, "status", trialStatus)
+	slog.DebugContext(ctx, "Fetched trial users", "count", len(users), "from", from, "to", to, "status", status)
 
 	return users, nil
+}
+
+func (s *BusinessStoreImpl) ExpireInternalTrials(ctx context.Context, from, to time.Time, activeStatus, expiredStatus string) error {
+	if s.querier == nil {
+		return ErrMaintenance
+	}
+
+	if err := s.querier.UpdateInternalSubscriptions(ctx, &dbgen.UpdateInternalSubscriptionsParams{
+		TrialEndsAt:   Timestampz(from),
+		TrialEndsAt_2: Timestampz(to),
+		Status:        expiredStatus,
+		Status_2:      activeStatus,
+	}); err != nil {
+		slog.ErrorContext(ctx, "Failed to expire internal trials", "from", from, "to", to, common.ErrAttr(err))
+		return err
+	}
+
+	// NOTE: we don't update caches in this case
+
+	slog.DebugContext(ctx, "Expired internal trials", "from", from, "to", to)
+
+	return nil
 }

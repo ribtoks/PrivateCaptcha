@@ -8,7 +8,8 @@ import (
 
 const (
 	// do NOT use
-	InternalStatusTrialing = "pc-trial"
+	InternalStatusTrialing = "pc-trial-active"
+	InternalStatusExpired  = "pc-trial-expired"
 )
 
 type Prices map[string]int
@@ -78,7 +79,8 @@ type Plan interface {
 type PlanService interface {
 	FindPlan(productID string, priceID string, stage string, internal bool) (Plan, error)
 	IsSubscriptionActive(status string) bool
-	TrialStatus() string
+	ActiveTrialStatus() string
+	ExpiredTrialStatus() string
 	CancelSubscription(ctx context.Context, sid string) error
 	GetInternalAdminPlan() Plan
 	GetInternalTrialPlan() Plan
@@ -166,8 +168,12 @@ func (s *CorePlanService) FindPlan(productID string, priceID string, stage strin
 	return nil, ErrUnknownProductID
 }
 
-func (s *CorePlanService) TrialStatus() string {
+func (s *CorePlanService) ActiveTrialStatus() string {
 	return InternalStatusTrialing
+}
+
+func (s *CorePlanService) ExpiredTrialStatus() string {
+	return InternalStatusExpired
 }
 
 func (s *CorePlanService) CancelSubscription(ctx context.Context, sid string) error {

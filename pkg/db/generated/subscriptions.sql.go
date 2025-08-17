@@ -125,6 +125,34 @@ func (q *Queries) GetSubscriptionsByUserIDs(ctx context.Context, dollar_1 []int3
 	return items, nil
 }
 
+const updateInternalSubscriptions = `-- name: UpdateInternalSubscriptions :exec
+UPDATE backend.subscriptions
+SET status = $1, updated_at = NOW()
+WHERE
+  source = 'internal' AND
+  trial_ends_at IS NOT NULL AND
+  trial_ends_at BETWEEN $2 AND $3 AND
+  status = $4 AND
+  next_billed_at IS NULL
+`
+
+type UpdateInternalSubscriptionsParams struct {
+	Status        string             `db:"status" json:"status"`
+	TrialEndsAt   pgtype.Timestamptz `db:"trial_ends_at" json:"trial_ends_at"`
+	TrialEndsAt_2 pgtype.Timestamptz `db:"trial_ends_at_2" json:"trial_ends_at_2"`
+	Status_2      string             `db:"status_2" json:"status_2"`
+}
+
+func (q *Queries) UpdateInternalSubscriptions(ctx context.Context, arg *UpdateInternalSubscriptionsParams) error {
+	_, err := q.db.Exec(ctx, updateInternalSubscriptions,
+		arg.Status,
+		arg.TrialEndsAt,
+		arg.TrialEndsAt_2,
+		arg.Status_2,
+	)
+	return err
+}
+
 const updateSubscription = `-- name: UpdateSubscription :one
 UPDATE backend.subscriptions SET external_product_id = $2, status = $3, next_billed_at = $4, cancel_from = $5, updated_at = NOW() WHERE external_subscription_id = $1 RETURNING id, external_product_id, external_price_id, external_subscription_id, external_customer_id, status, source, trial_ends_at, next_billed_at, cancel_from, created_at, updated_at
 `

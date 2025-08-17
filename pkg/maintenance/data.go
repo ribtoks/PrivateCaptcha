@@ -125,7 +125,7 @@ func (CleanupExpiredTrialUsersJob) Name() string {
 func (j *CleanupExpiredTrialUsersJob) RunOnce(ctx context.Context) error {
 	expiredTo := time.Now().Add(-j.Age)
 	expiredFrom := expiredTo.AddDate(0, -6 /*months*/, 0)
-	users, err := j.BusinessDB.Impl().RetrieveUsersWithExpiredTrials(ctx, expiredFrom, expiredTo, j.PlanService.TrialStatus(), int32(j.ChunkSize))
+	users, err := j.BusinessDB.Impl().RetrieveTrialUsers(ctx, expiredFrom, expiredTo, j.PlanService.ExpiredTrialStatus(), int32(j.ChunkSize), true /*internal*/)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve users with expired trials", common.ErrAttr(err))
 		return err
@@ -150,4 +150,29 @@ func (j *CleanupExpiredTrialUsersJob) RunOnce(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+type ExpireInternalTrialsJob struct {
+	PastInterval time.Duration
+	Age          time.Duration
+	BusinessDB   db.Implementor
+	PlanService  billing.PlanService
+}
+
+func (ExpireInternalTrialsJob) Interval() (_ time.Duration) {
+	return 1 * time.Hour
+}
+
+func (j *ExpireInternalTrialsJob) Jitter() time.Duration {
+	return 30 * time.Minute
+}
+
+func (j *ExpireInternalTrialsJob) Name() string {
+	return "expire_internal_trials_job"
+}
+
+func (j *ExpireInternalTrialsJob) RunOnce(ctx context.Context) error {
+	to := time.Now().Add(-j.Age)
+	from := to.Add(-(j.PastInterval + j.Interval() + j.Jitter()))
+	return j.BusinessDB.Impl().ExpireInternalTrials(ctx, from, to, j.PlanService.ActiveTrialStatus(), j.PlanService.ExpiredTrialStatus())
 }

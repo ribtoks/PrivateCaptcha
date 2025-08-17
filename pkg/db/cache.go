@@ -283,6 +283,6 @@ func orgUsersCacheKey(orgID int32) CacheKey  { return Int32CacheKey(orgUsersCach
 func userAPIKeysCacheKey(userID int32) CacheKey {
 	return Int32CacheKey(userAPIKeysCacheKeyPrefix, userID)
 }
-func subscriptionCacheKey(sID int32) CacheKey { return Int32CacheKey(subscriptionCacheKeyPrefix, sID) }
+func SubscriptionCacheKey(sID int32) CacheKey { return Int32CacheKey(subscriptionCacheKeyPrefix, sID) }
 func notificationCacheKey(ID int32) CacheKey  { return Int32CacheKey(notificationCacheKeyPrefix, ID) }
 func templateCacheKey(str string) CacheKey    { return StringCacheKey(templateCacheKeyPrefix, str) }

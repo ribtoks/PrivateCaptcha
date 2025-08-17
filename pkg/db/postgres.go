@@ -150,7 +150,7 @@ func NewPostgresMigrateContext(ctx context.Context, cfg common.ConfigStore, plan
 		AdminEmail:               cfg.Get(common.AdminEmailKey).Value(),
 		ExternalProductID:        adminPlan.ProductID(),
 		ExternalPriceID:          priceIDYearly,
-		ExternalStatus:           planService.TrialStatus(),
+		ExternalStatus:           planService.ActiveTrialStatus(),
 		PortalLoginDifficulty:    common.DifficultyLevelSmall,
 		PortalRegisterDifficulty: common.DifficultyLevelSmall,
 	}

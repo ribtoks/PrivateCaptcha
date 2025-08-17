@@ -55,13 +55,13 @@ type Querier interface {
 	GetSubscriptionByID(ctx context.Context, id int32) (*Subscription, error)
 	GetSubscriptionsByUserIDs(ctx context.Context, dollar_1 []int32) ([]*GetSubscriptionsByUserIDsRow, error)
 	GetSystemNotificationById(ctx context.Context, id int32) (*SystemNotification, error)
+	GetTrialUsers(ctx context.Context, arg *GetTrialUsersParams) ([]*User, error)
 	GetUserAPIKeys(ctx context.Context, userID pgtype.Int4) ([]*APIKey, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, id int32) (*User, error)
 	GetUserBySubscriptionID(ctx context.Context, subscriptionID pgtype.Int4) (*User, error)
 	GetUserOrganizations(ctx context.Context, userID pgtype.Int4) ([]*GetUserOrganizationsRow, error)
 	GetUserPropertiesCount(ctx context.Context, orgOwnerID pgtype.Int4) (int64, error)
-	GetUsersWithExpiredTrials(ctx context.Context, arg *GetUsersWithExpiredTrialsParams) ([]*User, error)
 	GetUsersWithoutSubscription(ctx context.Context, dollar_1 []int32) ([]*User, error)
 	InsertLock(ctx context.Context, arg *InsertLockParams) (*Lock, error)
 	InviteUserToOrg(ctx context.Context, arg *InviteUserToOrgParams) (*OrganizationUser, error)
@@ -74,6 +74,7 @@ type Querier interface {
 	UpdateAPIKey(ctx context.Context, arg *UpdateAPIKeyParams) (*APIKey, error)
 	UpdateAttemptedUserNotifications(ctx context.Context, dollar_1 []int32) error
 	UpdateCacheExpiration(ctx context.Context, arg *UpdateCacheExpirationParams) error
+	UpdateInternalSubscriptions(ctx context.Context, arg *UpdateInternalSubscriptionsParams) error
 	UpdateOrgMembershipLevel(ctx context.Context, arg *UpdateOrgMembershipLevelParams) error
 	UpdateOrganization(ctx context.Context, arg *UpdateOrganizationParams) (*Organization, error)
 	UpdateProcessedUserNotifications(ctx context.Context, arg *UpdateProcessedUserNotificationsParams) error
