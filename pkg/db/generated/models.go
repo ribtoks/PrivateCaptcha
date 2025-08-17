@@ -263,9 +263,11 @@ type UserNotification struct {
 	Payload              []byte             `db:"payload" json:"payload"`
 	Subject              string             `db:"subject" json:"subject"`
 	ReferenceID          string             `db:"reference_id" json:"reference_id"`
+	ProcessingAttempts   int32              `db:"processing_attempts" json:"processing_attempts"`
 	Persistent           bool               `db:"persistent" json:"persistent"`
 	RequiresSubscription pgtype.Bool        `db:"requires_subscription" json:"requires_subscription"`
 	CreatedAt            pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	ScheduledAt          pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
-	DeliveredAt          pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
+	ProcessedAt          pgtype.Timestamptz `db:"processed_at" json:"processed_at"`
 }

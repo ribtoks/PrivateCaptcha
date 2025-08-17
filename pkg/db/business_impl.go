@@ -1650,7 +1650,7 @@ func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, n *commo
 	return notif, nil
 }
 
-func (s *BusinessStoreImpl) RetrievePendingUserNotifications(ctx context.Context, since time.Time, maxCount int) ([]*dbgen.GetPendingUserNotificationsRow, error) {
+func (s *BusinessStoreImpl) RetrievePendingUserNotifications(ctx context.Context, since time.Time, maxCount, maxAttempts int) ([]*dbgen.GetPendingUserNotificationsRow, error) {
 	if maxCount <= 0 {
 		return nil, ErrInvalidInput
 	}
@@ -1660,8 +1660,9 @@ func (s *BusinessStoreImpl) RetrievePendingUserNotifications(ctx context.Context
 	}
 
 	result, err := s.querier.GetPendingUserNotifications(ctx, &dbgen.GetPendingUserNotificationsParams{
-		ScheduledAt: Timestampz(since),
-		Limit:       int32(maxCount),
+		ScheduledAt:        Timestampz(since),
+		Limit:              int32(maxCount),
+		ProcessingAttempts: int32(maxAttempts),
 	})
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -1679,7 +1680,7 @@ func (s *BusinessStoreImpl) RetrievePendingUserNotifications(ctx context.Context
 	return result, nil
 }
 
-func (s *BusinessStoreImpl) MarkUserNotificationsSent(ctx context.Context, ids []int32, t time.Time) error {
+func (s *BusinessStoreImpl) MarkUserNotificationsAttempted(ctx context.Context, ids []int32) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -1688,33 +1689,52 @@ func (s *BusinessStoreImpl) MarkUserNotificationsSent(ctx context.Context, ids [
 		return ErrMaintenance
 	}
 
-	if err := s.querier.UpdateSentUserNotifications(ctx, &dbgen.UpdateSentUserNotificationsParams{
-		DeliveredAt: Timestampz(t),
-		Column2:     ids,
-	}); err != nil {
-		slog.ErrorContext(ctx, "Failed to update user notifications sent time", "count", len(ids), common.ErrAttr(err))
+	if err := s.querier.UpdateAttemptedUserNotifications(ctx, ids); err != nil {
+		slog.ErrorContext(ctx, "Failed to update attempted user notifications", "count", len(ids), common.ErrAttr(err))
 		return err
 	}
 
-	slog.DebugContext(ctx, "Updated user notifications sent time", "count", len(ids), "delivered_at", t)
+	slog.DebugContext(ctx, "Updated attempted user notifications", "count", len(ids))
 
 	return nil
 }
 
-func (s *BusinessStoreImpl) DeleteUnusedNotificationTemplates(ctx context.Context, deliveredBefore, updatedBefore time.Time) error {
+func (s *BusinessStoreImpl) MarkUserNotificationsProcessed(ctx context.Context, ids []int32, t time.Time) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	if s.querier == nil {
+		return ErrMaintenance
+	}
+
+	if err := s.querier.UpdateProcessedUserNotifications(ctx, &dbgen.UpdateProcessedUserNotificationsParams{
+		ProcessedAt: Timestampz(t),
+		Column2:     ids,
+	}); err != nil {
+		slog.ErrorContext(ctx, "Failed to update processed user notifications", "count", len(ids), common.ErrAttr(err))
+		return err
+	}
+
+	slog.DebugContext(ctx, "Updated processed user notifications", "count", len(ids), "processed_at", t)
+
+	return nil
+}
+
+func (s *BusinessStoreImpl) DeleteUnusedNotificationTemplates(ctx context.Context, processedBefore, updatedBefore time.Time) error {
 	if s.querier == nil {
 		return ErrMaintenance
 	}
 
 	if err := s.querier.DeleteUnusedNotificationTemplates(ctx, &dbgen.DeleteUnusedNotificationTemplatesParams{
-		DeliveredAt: Timestampz(deliveredBefore),
+		ProcessedAt: Timestampz(processedBefore),
 		UpdatedAt:   Timestampz(updatedBefore),
 	}); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete unused notification templates", common.ErrAttr(err))
 		return err
 	}
 
-	slog.DebugContext(ctx, "Deleted unused notification templates", "delivered_before", deliveredBefore, "updated_before", updatedBefore)
+	slog.DebugContext(ctx, "Deleted unused notification templates", "delivered_before", processedBefore, "updated_before", updatedBefore)
 
 	return nil
 }
@@ -1724,7 +1744,7 @@ func (s *BusinessStoreImpl) DeleteSentUserNotifications(ctx context.Context, bef
 		return ErrMaintenance
 	}
 
-	if err := s.querier.DeleteSentUserNotifications(ctx, Timestampz(before)); err != nil {
+	if err := s.querier.DeleteProcessedUserNotifications(ctx, Timestampz(before)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete sent user notifications", common.ErrAttr(err))
 		return err
 	}
@@ -1739,7 +1759,7 @@ func (s *BusinessStoreImpl) DeleteUnsentUserNotifications(ctx context.Context, b
 		return ErrMaintenance
 	}
 
-	if err := s.querier.DeleteUnsentUserNotifications(ctx, Timestampz(before)); err != nil {
+	if err := s.querier.DeleteUnprocessedUserNotifications(ctx, Timestampz(before)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete UNsent user notifications", common.ErrAttr(err))
 		return err
 	}

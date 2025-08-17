@@ -50,11 +50,13 @@ type UserEmailNotificationsJob struct {
 	Templates    []*common.EmailTemplate
 	Sender       email.Sender
 	ChunkSize    int
+	MaxAttempts  int
 	EmailFrom    common.ConfigItem
 	ReplyToEmail common.ConfigItem
 	PlanService  billing.PlanService
 	CDNURL       string
 	PortalURL    string
+	UserIDs      map[int32]struct{}
 }
 
 var _ common.PeriodicJob = (*UserEmailNotificationsJob)(nil)
@@ -157,62 +159,51 @@ func (j *UserEmailNotificationsJob) retrieveTemplate(ctx context.Context,
 	return nt, nil
 }
 
-func (j *UserEmailNotificationsJob) retrieveUserSubscriptionStatus(ctx context.Context, notifications []*dbgen.GetPendingUserNotificationsRow) map[int32]bool {
-	requiredSubscriptionUserIDs := make(map[int32]bool)
-	for _, n := range notifications {
-		if n.UserNotification.RequiresSubscription.Valid {
-			requiredSubscriptionUserIDs[n.UserNotification.UserID.Int32] = false
-		}
-	}
-	if len(requiredSubscriptionUserIDs) == 0 {
-		return make(map[int32]bool)
-	}
-
-	userIDs := make([]int32, 0, len(requiredSubscriptionUserIDs))
-	for key := range requiredSubscriptionUserIDs {
-		userIDs = append(userIDs, key)
-	}
-
-	// NOTE: we do it like this only because sqlc struggles with LEFT JOIN (https://github.com/sqlc-dev/sqlc/issues/2997)
-	// that we would otherwise write in GetPendingUserNotifications query
-	subscriptions, err := j.Store.Impl().RetrieveSubscriptionsByUserIDs(ctx, userIDs)
+func (j *UserEmailNotificationsJob) retrievePendingNotifications(ctx context.Context) ([]*dbgen.GetPendingUserNotificationsRow, error) {
+	// just for safety, we fetch overlapping segments, but it will be filtered out on the way
+	since := time.Now().UTC().Add(-(j.RunInterval + j.Interval() + j.Jitter()))
+	notifications, err := j.Store.Impl().RetrievePendingUserNotifications(ctx, since, j.ChunkSize, j.MaxAttempts)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve user subscriptions", common.ErrAttr(err))
-		return requiredSubscriptionUserIDs
+		return nil, err
 	}
 
-	tnow := time.Now().UTC()
+	if len(notifications) == 0 {
+		slog.DebugContext(ctx, "No pending notifications", "since", since)
+		return notifications, nil
+	}
 
-	for _, s := range subscriptions {
-		subscr := &s.Subscription
-		active := false
-		if db.IsInternalSubscription(subscr.Source) {
-			active = subscr.TrialEndsAt.Valid && subscr.TrialEndsAt.Time.After(tnow)
-		} else {
-			// we expect external subscriptions to be updated so we can rely on status
-			active = j.PlanService.IsSubscriptionActive(subscr.Status)
+	if len(j.UserIDs) == 0 {
+		return notifications, nil
+	}
+
+	filtered := make([]*dbgen.GetPendingUserNotificationsRow, 0, len(notifications))
+	for _, n := range notifications {
+		shouldAdd := false
+		if n.UserNotification.UserID.Valid {
+			if _, ok := j.UserIDs[n.UserNotification.UserID.Int32]; ok {
+				shouldAdd = true
+			}
 		}
-		requiredSubscriptionUserIDs[s.UserID] = active
+
+		if shouldAdd {
+			filtered = append(filtered, n)
+		}
 	}
 
-	return requiredSubscriptionUserIDs
+	return filtered, nil
 }
 
 func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context) error {
-	// just for safety, we fetch overlapping segments, but it will be filtered out on the way
-	since := time.Now().UTC().Add(-(j.RunInterval + j.Interval() + j.Jitter()))
-	notifications, err := j.Store.Impl().RetrievePendingUserNotifications(ctx, since, j.ChunkSize)
+	notifications, err := j.retrievePendingNotifications(ctx)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve pending user notifications", common.ErrAttr(err))
 		return err
 	}
 
 	if len(notifications) == 0 {
-		slog.DebugContext(ctx, "No pending notifications", "since", since)
 		return nil
 	}
 
-	userSubscribedMap := j.retrieveUserSubscriptionStatus(ctx, notifications)
 	templates := indexTemplates(ctx, j.Templates)
 
 	b := &backoff.Backoff{
@@ -230,7 +221,9 @@ func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context) error {
 		}
 
 		if tpl, err := j.retrieveTemplate(ctx, templates, tplHash); err == nil {
-			_ = j.processNotificationsChunk(ctx, tpl, nn, userSubscribedMap, b)
+			processedIDs := j.processNotificationsChunk(ctx, tpl, nn, b)
+			// NOTE: potentially it's not most efficient to update them piece by piece, but it's less error-prone
+			j.updateNotifications(ctx, nn, processedIDs)
 		} else {
 			slog.ErrorContext(ctx, "Failed to get notifications template", common.ErrAttr(err))
 		}
@@ -239,8 +232,34 @@ func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context) error {
 	return nil
 }
 
+func (j *UserEmailNotificationsJob) updateNotifications(ctx context.Context,
+	notifications []*dbgen.GetPendingUserNotificationsRow,
+	processedIDs []int32) {
+	if err := j.Store.Impl().MarkUserNotificationsProcessed(ctx, processedIDs, time.Now().UTC()); err != nil {
+		slog.ErrorContext(ctx, "Failed to mark notifications processed", common.ErrAttr(err))
+	}
+
+	processedNotifications := make(map[int32]struct{})
+	t := struct{}{}
+	for _, id := range processedIDs {
+		processedNotifications[id] = t
+	}
+
+	attemptedNotificationIDs := make([]int32, 0, len(notifications)-len(processedNotifications)+1)
+	for _, n := range notifications {
+		if _, ok := processedNotifications[n.UserNotification.ID]; !ok {
+			attemptedNotificationIDs = append(attemptedNotificationIDs, n.UserNotification.ID)
+		}
+	}
+
+	if err := j.Store.Impl().MarkUserNotificationsAttempted(ctx, attemptedNotificationIDs); err != nil {
+		slog.ErrorContext(ctx, "Failed to update failed notifications", common.ErrAttr(err))
+	}
+}
+
 func isValidUserNotification(un *dbgen.UserNotification) bool {
 	return len(un.Subject) > 0 &&
+		len(un.ReferenceID) > 0 &&
 		un.ScheduledAt.Valid &&
 		un.TemplateID.Valid
 }
@@ -248,30 +267,33 @@ func isValidUserNotification(un *dbgen.UserNotification) bool {
 func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Context,
 	tpl *preparedNotificationTemplate,
 	notifications []*dbgen.GetPendingUserNotificationsRow,
-	userSubscribedStatus map[int32]bool,
-	b *backoff.Backoff) error {
+	b *backoff.Backoff) []int32 {
 	emailFrom := j.EmailFrom.Value()
 	replyToEmail := j.ReplyToEmail.Value()
-	sentNotificationIDs := make([]int32, 0, len(notifications))
+	processedNotificationIDs := make([]int32, 0, len(notifications))
 	lastSentCount := 0
 
 	for _, n := range notifications {
-		if currSentCount := len(sentNotificationIDs); currSentCount > lastSentCount {
+		if currSentCount := len(processedNotificationIDs); currSentCount > lastSentCount {
 			// backoff a little not to overwhelm transactional email provider
 			time.Sleep(b.Duration())
 			lastSentCount = currSentCount
 		}
 
 		un := &n.UserNotification
-		nlog := slog.With("nid", un.ID, "template_id", un.TemplateID.String, "template_name", tpl.name)
+		nlog := slog.With("notifID", un.ID, "template_id", un.TemplateID.String, "template_name", tpl.name)
+		nlog.Log(ctx, common.LevelTrace, "Processing notification", "attempts", un.ProcessingAttempts, "subject", un.Subject, "userID", un.UserID.Int32)
+
 		if !isValidUserNotification(un) {
 			nlog.WarnContext(ctx, "Skipping invalid user notification")
 			continue
 		}
 
 		if un.RequiresSubscription.Valid {
-			if subscribed, exists := userSubscribedStatus[un.UserID.Int32]; !exists || (subscribed != un.RequiresSubscription.Bool) {
-				nlog.WarnContext(ctx, "Skipping user without matching subscription status", "userID", un.UserID.Int32, "exists", exists, "expected", un.RequiresSubscription.Bool, "actual", subscribed)
+			// NOTE: checking this logic in code (instead of SQL) means that we might attempt to process same notifications
+			// again and again so we rely on "processing_attempts" circuit breaker logic
+			if isActive := n.Status.Valid && j.PlanService.IsSubscriptionActive(n.Status.String); isActive != un.RequiresSubscription.Bool {
+				nlog.WarnContext(ctx, "Skipping user notification without matching subscription status", "userID", un.UserID.Int32, "expected", un.RequiresSubscription.Bool, "actual", isActive, "subscID", n.SubscriptionID.Int32)
 				continue
 			}
 		}
@@ -319,14 +341,10 @@ func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Contex
 
 		nlog.DebugContext(ctx, "Processed user notification")
 
-		sentNotificationIDs = append(sentNotificationIDs, un.ID)
+		processedNotificationIDs = append(processedNotificationIDs, un.ID)
 	}
 
-	if err := j.Store.Impl().MarkUserNotificationsSent(ctx, sentNotificationIDs, time.Now().UTC()); err != nil {
-		slog.ErrorContext(ctx, "Failed to mark notifications sent", common.ErrAttr(err))
-	}
-
-	return nil
+	return processedNotificationIDs
 }
 
 type CleanupUserNotificationsJob struct {

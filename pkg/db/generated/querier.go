@@ -28,9 +28,9 @@ type Querier interface {
 	DeleteLock(ctx context.Context, name string) error
 	DeleteOrganizations(ctx context.Context, dollar_1 []int32) error
 	DeletePendingUserNotification(ctx context.Context, arg *DeletePendingUserNotificationParams) error
+	DeleteProcessedUserNotifications(ctx context.Context, processedAt pgtype.Timestamptz) error
 	DeleteProperties(ctx context.Context, dollar_1 []int32) error
-	DeleteSentUserNotifications(ctx context.Context, deliveredAt pgtype.Timestamptz) error
-	DeleteUnsentUserNotifications(ctx context.Context, scheduledAt pgtype.Timestamptz) error
+	DeleteUnprocessedUserNotifications(ctx context.Context, scheduledAt pgtype.Timestamptz) error
 	DeleteUnusedNotificationTemplates(ctx context.Context, arg *DeleteUnusedNotificationTemplatesParams) error
 	DeleteUserAPIKeys(ctx context.Context, userID pgtype.Int4) error
 	DeleteUsers(ctx context.Context, dollar_1 []int32) error
@@ -72,11 +72,12 @@ type Querier interface {
 	SoftDeleteUserOrganization(ctx context.Context, arg *SoftDeleteUserOrganizationParams) error
 	SoftDeleteUserOrganizations(ctx context.Context, userID pgtype.Int4) error
 	UpdateAPIKey(ctx context.Context, arg *UpdateAPIKeyParams) (*APIKey, error)
+	UpdateAttemptedUserNotifications(ctx context.Context, dollar_1 []int32) error
 	UpdateCacheExpiration(ctx context.Context, arg *UpdateCacheExpirationParams) error
 	UpdateOrgMembershipLevel(ctx context.Context, arg *UpdateOrgMembershipLevelParams) error
 	UpdateOrganization(ctx context.Context, arg *UpdateOrganizationParams) (*Organization, error)
+	UpdateProcessedUserNotifications(ctx context.Context, arg *UpdateProcessedUserNotificationsParams) error
 	UpdateProperty(ctx context.Context, arg *UpdatePropertyParams) (*Property, error)
-	UpdateSentUserNotifications(ctx context.Context, arg *UpdateSentUserNotificationsParams) error
 	UpdateSubscription(ctx context.Context, arg *UpdateSubscriptionParams) (*Subscription, error)
 	UpdateUserAPIKeysRateLimits(ctx context.Context, arg *UpdateUserAPIKeysRateLimitsParams) error
 	UpdateUserData(ctx context.Context, arg *UpdateUserDataParams) (*User, error)

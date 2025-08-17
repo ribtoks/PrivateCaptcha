@@ -32,22 +32,34 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: DeletePendingUserNotification :exec
-DELETE FROM backend.user_notifications WHERE delivered_at IS NULL AND user_id = $1 AND reference_id = $2;
+DELETE FROM backend.user_notifications WHERE processed_at IS NULL AND user_id = $1 AND reference_id = $2;
 
--- name: UpdateSentUserNotifications :exec
-UPDATE backend.user_notifications SET delivered_at = $1 WHERE id = ANY($2::INT[]);
+-- name: UpdateProcessedUserNotifications :exec
+UPDATE backend.user_notifications SET
+  processed_at = $1,
+  processing_attempts = processing_attempts + 1,
+  updated_at = NOW()
+WHERE id = ANY($2::INT[]);
+
+-- name: UpdateAttemptedUserNotifications :exec
+UPDATE backend.user_notifications SET
+  processing_attempts = processing_attempts + 1,
+  updated_at = NOW()
+WHERE id = ANY($1::INT[]);
 
 -- name: GetPendingUserNotifications :many
-SELECT sqlc.embed(un), u.email
+SELECT sqlc.embed(un), u.email, u.subscription_id, s.status
 FROM backend.user_notifications un
 JOIN backend.users u ON un.user_id = u.id
-WHERE delivered_at IS NULL
-  AND scheduled_at >= $1
-  AND scheduled_at <= NOW()
+LEFT JOIN backend.subscriptions s ON u.subscription_id = s.id
+WHERE un.processed_at IS NULL
+  AND un.scheduled_at >= $1
+  AND un.scheduled_at <= NOW()
   AND u.deleted_at IS NULL
+  AND un.processing_attempts < $2
   AND (un.requires_subscription IS NULL OR u.subscription_id IS NOT NULL)
-ORDER BY scheduled_at ASC
-LIMIT $2;
+ORDER BY un.scheduled_at ASC
+LIMIT $3;
 
 -- name: DeleteUnusedNotificationTemplates :exec
 DELETE FROM backend.notification_templates nt
@@ -55,18 +67,18 @@ WHERE nt.id IN (
     SELECT nt2.id
     FROM backend.notification_templates nt2
     LEFT JOIN backend.user_notifications un ON un.template_id = nt2.external_id
-    WHERE ((un.template_id IS NULL) OR (un.delivered_at < $1))
+    WHERE ((un.template_id IS NULL) OR (un.processed_at < $1))
     AND (nt2.updated_at < $2)
 );
 
--- name: DeleteSentUserNotifications :exec
+-- name: DeleteProcessedUserNotifications :exec
 DELETE FROM backend.user_notifications
-WHERE delivered_at IS NOT NULL
+WHERE processed_at IS NOT NULL
 AND persistent = false
-AND delivered_at < $1;
+AND processed_at < $1;
 
--- name: DeleteUnsentUserNotifications :exec
+-- name: DeleteUnprocessedUserNotifications :exec
 DELETE FROM backend.user_notifications
-WHERE delivered_at IS NULL
+WHERE processed_at IS NULL
 AND persistent = false
 AND scheduled_at < $1;

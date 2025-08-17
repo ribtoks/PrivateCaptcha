@@ -343,8 +343,10 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Templates:    email.Templates(),
 		Sender:       sender,
 		ChunkSize:    50,
+		MaxAttempts:  5,
 		EmailFrom:    cfg.Get(common.EmailFromKey),
 		ReplyToEmail: cfg.Get(common.ReplyToEmailKey),
+		PlanService:  planService,
 		CDNURL:       mailer.CDNURL,
 		PortalURL:    mailer.PortalURL,
 	})

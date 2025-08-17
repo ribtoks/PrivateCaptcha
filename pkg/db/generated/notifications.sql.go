@@ -80,7 +80,7 @@ func (q *Queries) CreateSystemNotification(ctx context.Context, arg *CreateSyste
 const createUserNotification = `-- name: CreateUserNotification :one
 INSERT INTO backend.user_notifications (user_id, reference_id, template_id, subject, payload, scheduled_at, persistent, requires_subscription)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, user_id, template_id, payload, subject, reference_id, persistent, requires_subscription, created_at, scheduled_at, delivered_at
+RETURNING id, user_id, template_id, payload, subject, reference_id, processing_attempts, persistent, requires_subscription, created_at, updated_at, scheduled_at, processed_at
 `
 
 type CreateUserNotificationParams struct {
@@ -113,17 +113,19 @@ func (q *Queries) CreateUserNotification(ctx context.Context, arg *CreateUserNot
 		&i.Payload,
 		&i.Subject,
 		&i.ReferenceID,
+		&i.ProcessingAttempts,
 		&i.Persistent,
 		&i.RequiresSubscription,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 		&i.ScheduledAt,
-		&i.DeliveredAt,
+		&i.ProcessedAt,
 	)
 	return &i, err
 }
 
 const deletePendingUserNotification = `-- name: DeletePendingUserNotification :exec
-DELETE FROM backend.user_notifications WHERE delivered_at IS NULL AND user_id = $1 AND reference_id = $2
+DELETE FROM backend.user_notifications WHERE processed_at IS NULL AND user_id = $1 AND reference_id = $2
 `
 
 type DeletePendingUserNotificationParams struct {
@@ -136,27 +138,27 @@ func (q *Queries) DeletePendingUserNotification(ctx context.Context, arg *Delete
 	return err
 }
 
-const deleteSentUserNotifications = `-- name: DeleteSentUserNotifications :exec
+const deleteProcessedUserNotifications = `-- name: DeleteProcessedUserNotifications :exec
 DELETE FROM backend.user_notifications
-WHERE delivered_at IS NOT NULL
+WHERE processed_at IS NOT NULL
 AND persistent = false
-AND delivered_at < $1
+AND processed_at < $1
 `
 
-func (q *Queries) DeleteSentUserNotifications(ctx context.Context, deliveredAt pgtype.Timestamptz) error {
-	_, err := q.db.Exec(ctx, deleteSentUserNotifications, deliveredAt)
+func (q *Queries) DeleteProcessedUserNotifications(ctx context.Context, processedAt pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, deleteProcessedUserNotifications, processedAt)
 	return err
 }
 
-const deleteUnsentUserNotifications = `-- name: DeleteUnsentUserNotifications :exec
+const deleteUnprocessedUserNotifications = `-- name: DeleteUnprocessedUserNotifications :exec
 DELETE FROM backend.user_notifications
-WHERE delivered_at IS NULL
+WHERE processed_at IS NULL
 AND persistent = false
 AND scheduled_at < $1
 `
 
-func (q *Queries) DeleteUnsentUserNotifications(ctx context.Context, scheduledAt pgtype.Timestamptz) error {
-	_, err := q.db.Exec(ctx, deleteUnsentUserNotifications, scheduledAt)
+func (q *Queries) DeleteUnprocessedUserNotifications(ctx context.Context, scheduledAt pgtype.Timestamptz) error {
+	_, err := q.db.Exec(ctx, deleteUnprocessedUserNotifications, scheduledAt)
 	return err
 }
 
@@ -166,18 +168,18 @@ WHERE nt.id IN (
     SELECT nt2.id
     FROM backend.notification_templates nt2
     LEFT JOIN backend.user_notifications un ON un.template_id = nt2.external_id
-    WHERE ((un.template_id IS NULL) OR (un.delivered_at < $1))
+    WHERE ((un.template_id IS NULL) OR (un.processed_at < $1))
     AND (nt2.updated_at < $2)
 )
 `
 
 type DeleteUnusedNotificationTemplatesParams struct {
-	DeliveredAt pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
+	ProcessedAt pgtype.Timestamptz `db:"processed_at" json:"processed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 func (q *Queries) DeleteUnusedNotificationTemplates(ctx context.Context, arg *DeleteUnusedNotificationTemplatesParams) error {
-	_, err := q.db.Exec(ctx, deleteUnusedNotificationTemplates, arg.DeliveredAt, arg.UpdatedAt)
+	_, err := q.db.Exec(ctx, deleteUnusedNotificationTemplates, arg.ProcessedAt, arg.UpdatedAt)
 	return err
 }
 
@@ -232,30 +234,35 @@ func (q *Queries) GetNotificationTemplateByHash(ctx context.Context, externalID 
 }
 
 const getPendingUserNotifications = `-- name: GetPendingUserNotifications :many
-SELECT un.id, un.user_id, un.template_id, un.payload, un.subject, un.reference_id, un.persistent, un.requires_subscription, un.created_at, un.scheduled_at, un.delivered_at, u.email
+SELECT un.id, un.user_id, un.template_id, un.payload, un.subject, un.reference_id, un.processing_attempts, un.persistent, un.requires_subscription, un.created_at, un.updated_at, un.scheduled_at, un.processed_at, u.email, u.subscription_id, s.status
 FROM backend.user_notifications un
 JOIN backend.users u ON un.user_id = u.id
-WHERE delivered_at IS NULL
-  AND scheduled_at >= $1
-  AND scheduled_at <= NOW()
+LEFT JOIN backend.subscriptions s ON u.subscription_id = s.id
+WHERE un.processed_at IS NULL
+  AND un.scheduled_at >= $1
+  AND un.scheduled_at <= NOW()
   AND u.deleted_at IS NULL
+  AND un.processing_attempts < $2
   AND (un.requires_subscription IS NULL OR u.subscription_id IS NOT NULL)
-ORDER BY scheduled_at ASC
-LIMIT $2
+ORDER BY un.scheduled_at ASC
+LIMIT $3
 `
 
 type GetPendingUserNotificationsParams struct {
-	ScheduledAt pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
-	Limit       int32              `db:"limit" json:"limit"`
+	ScheduledAt        pgtype.Timestamptz `db:"scheduled_at" json:"scheduled_at"`
+	ProcessingAttempts int32              `db:"processing_attempts" json:"processing_attempts"`
+	Limit              int32              `db:"limit" json:"limit"`
 }
 
 type GetPendingUserNotificationsRow struct {
 	UserNotification UserNotification `db:"user_notification" json:"user_notification"`
 	Email            string           `db:"email" json:"email"`
+	SubscriptionID   pgtype.Int4      `db:"subscription_id" json:"subscription_id"`
+	Status           pgtype.Text      `db:"status" json:"status"`
 }
 
 func (q *Queries) GetPendingUserNotifications(ctx context.Context, arg *GetPendingUserNotificationsParams) ([]*GetPendingUserNotificationsRow, error) {
-	rows, err := q.db.Query(ctx, getPendingUserNotifications, arg.ScheduledAt, arg.Limit)
+	rows, err := q.db.Query(ctx, getPendingUserNotifications, arg.ScheduledAt, arg.ProcessingAttempts, arg.Limit)
 	if err != nil {
 		return nil, err
 	}
@@ -270,12 +277,16 @@ func (q *Queries) GetPendingUserNotifications(ctx context.Context, arg *GetPendi
 			&i.UserNotification.Payload,
 			&i.UserNotification.Subject,
 			&i.UserNotification.ReferenceID,
+			&i.UserNotification.ProcessingAttempts,
 			&i.UserNotification.Persistent,
 			&i.UserNotification.RequiresSubscription,
 			&i.UserNotification.CreatedAt,
+			&i.UserNotification.UpdatedAt,
 			&i.UserNotification.ScheduledAt,
-			&i.UserNotification.DeliveredAt,
+			&i.UserNotification.ProcessedAt,
 			&i.Email,
+			&i.SubscriptionID,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -305,16 +316,32 @@ func (q *Queries) GetSystemNotificationById(ctx context.Context, id int32) (*Sys
 	return &i, err
 }
 
-const updateSentUserNotifications = `-- name: UpdateSentUserNotifications :exec
-UPDATE backend.user_notifications SET delivered_at = $1 WHERE id = ANY($2::INT[])
+const updateAttemptedUserNotifications = `-- name: UpdateAttemptedUserNotifications :exec
+UPDATE backend.user_notifications SET
+  processing_attempts = processing_attempts + 1,
+  updated_at = NOW()
+WHERE id = ANY($1::INT[])
 `
 
-type UpdateSentUserNotificationsParams struct {
-	DeliveredAt pgtype.Timestamptz `db:"delivered_at" json:"delivered_at"`
+func (q *Queries) UpdateAttemptedUserNotifications(ctx context.Context, dollar_1 []int32) error {
+	_, err := q.db.Exec(ctx, updateAttemptedUserNotifications, dollar_1)
+	return err
+}
+
+const updateProcessedUserNotifications = `-- name: UpdateProcessedUserNotifications :exec
+UPDATE backend.user_notifications SET
+  processed_at = $1,
+  processing_attempts = processing_attempts + 1,
+  updated_at = NOW()
+WHERE id = ANY($2::INT[])
+`
+
+type UpdateProcessedUserNotificationsParams struct {
+	ProcessedAt pgtype.Timestamptz `db:"processed_at" json:"processed_at"`
 	Column2     []int32            `db:"column_2" json:"column_2"`
 }
 
-func (q *Queries) UpdateSentUserNotifications(ctx context.Context, arg *UpdateSentUserNotificationsParams) error {
-	_, err := q.db.Exec(ctx, updateSentUserNotifications, arg.DeliveredAt, arg.Column2)
+func (q *Queries) UpdateProcessedUserNotifications(ctx context.Context, arg *UpdateProcessedUserNotificationsParams) error {
+	_, err := q.db.Exec(ctx, updateProcessedUserNotifications, arg.ProcessedAt, arg.Column2)
 	return err
 }
