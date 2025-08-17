@@ -32,6 +32,10 @@ type jobs struct {
 // Implicit logic is that lockDuration is the actual job Interval, but it is defined by the SQL lock.
 // Job's Interval() is much smaller only for the purpose of "retrying" if the previous job execution failed
 func (j *jobs) AddLocked(lockDuration time.Duration, job common.PeriodicJob) {
+	if interval := job.Interval(); interval >= lockDuration {
+		slog.Error("Periodic job interval should be less than lock duration", "job", job.Name(), "lock", lockDuration.String(), "interval", interval.String())
+	}
+
 	j.periodicJobs = append(j.periodicJobs, &UniquePeriodicJob{
 		Job:          job,
 		Store:        j.store,
