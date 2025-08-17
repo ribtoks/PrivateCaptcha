@@ -316,3 +316,82 @@ func TestNotificationProcessingAttempts(t *testing.T) {
 		t.Errorf("Unexpected number of sent emails: %v", sender.Count)
 	}
 }
+
+func TestRequireSubscription(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	t.Parallel()
+
+	ctx := common.TraceContext(context.TODO(), t.Name())
+
+	// this has to reflect what we actually use instead of db_helpers where we fill external IDs too
+	subscrParams := createInternalTrial(testPlan, server.PlanService.ActiveTrialStatus())
+	user, _, err := db_tests.CreateNewAccountForTestEx(ctx, store, t.Name(), subscrParams)
+	if err != nil {
+		t.Fatalf("failed to create new account: %v", err)
+	}
+
+	tnow := time.Now().UTC()
+
+	sn := &common.ScheduledNotification{
+		ReferenceID:  "referenceID",
+		UserID:       user.ID,
+		Subject:      "subject",
+		Data:         map[string]int{},
+		DateTime:     tnow.Add(-10 * time.Minute),
+		TemplateHash: email.TwoFactorEmailTemplate.Hash(),
+		Condition:    common.NotificationWithoutSubscription,
+	}
+
+	if _, err := store.Impl().CreateUserNotification(ctx, sn); err != nil {
+		t.Fatal(err)
+	}
+
+	sender := &email.StubSender{}
+
+	job := &maintenance.UserEmailNotificationsJob{
+		RunInterval:  1 * time.Hour,
+		Store:        store,
+		Templates:    email.Templates(),
+		Sender:       sender,
+		ChunkSize:    100,
+		MaxAttempts:  100,
+		PlanService:  server.PlanService,
+		EmailFrom:    config.NewStaticValue(common.EmailFromKey, "foo@bar.com"),
+		ReplyToEmail: config.NewStaticValue(common.ReplyToEmailKey, "foo@bar.com"),
+		UserIDs:      map[int32]struct{}{user.ID: struct{}{}},
+	}
+
+	if err := job.RunOnce(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	// notification should have been skipped based on condition (without subscription)
+	if sender.Count != 0 {
+		t.Errorf("Unexpected number of sent emails: %v", sender.Count)
+	}
+
+	subscr, err := store.Impl().RetrieveSubscription(ctx, user.SubscriptionID.Int32)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := store.Impl().ExpireInternalTrials(ctx,
+		subscr.TrialEndsAt.Time.Add(-1*time.Minute),
+		subscr.TrialEndsAt.Time.Add(+1*time.Minute),
+		server.PlanService.ActiveTrialStatus(),
+		server.PlanService.ExpiredTrialStatus()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := job.RunOnce(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	// now it should have been processed because user should not have a subscription anymore
+	if sender.Count != 1 {
+		t.Errorf("Unexpected number of sent emails: %v", sender.Count)
+	}
+}
