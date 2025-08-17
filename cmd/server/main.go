@@ -338,7 +338,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Store:     businessDB,
 	})
 	jobs.AddLocked(1*time.Hour, &maintenance.UserEmailNotificationsJob{
-		RunInterval:  1 * time.Hour,
+		RunInterval:  3 * time.Hour, // overlap few locked intervals to cover for possible unprocessed notifications
 		Store:        businessDB,
 		Templates:    email.Templates(),
 		Sender:       sender,
