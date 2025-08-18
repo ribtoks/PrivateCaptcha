@@ -26,7 +26,7 @@ func (j *checkLicenseNoopJob) NewParams() any {
 }
 
 func (j *checkLicenseNoopJob) Interval() time.Duration {
-	return 365 * 24 * time.Hour
+	return 1 * time.Hour
 }
 
 func (j *checkLicenseNoopJob) Jitter() time.Duration {
