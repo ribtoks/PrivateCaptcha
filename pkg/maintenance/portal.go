@@ -29,7 +29,11 @@ func (j *SessionsCleanupJob) Name() string {
 	return "sessions_cleanup_job"
 }
 
-func (j *SessionsCleanupJob) RunOnce(ctx context.Context) error {
+func (j *SessionsCleanupJob) NewParams() any {
+	return struct{}{}
+}
+
+func (j *SessionsCleanupJob) RunOnce(ctx context.Context, params any) error {
 	j.Session.GC(ctx)
 
 	return nil
@@ -50,7 +54,11 @@ func (j *WarmupPortalAuthJob) InitialPause() time.Duration {
 	return 5 * time.Second
 }
 
-func (j *WarmupPortalAuthJob) RunOnce(ctx context.Context) error {
+func (j *WarmupPortalAuthJob) NewParams() any {
+	return struct{}{}
+}
+
+func (j *WarmupPortalAuthJob) RunOnce(ctx context.Context, params any) error {
 	loginUUID := pgtype.UUID{}
 	var err error
 	if err = loginUUID.Scan(db.PortalLoginPropertyID); err == nil {

@@ -24,7 +24,11 @@ func (j *WarmupAPICacheJob) InitialPause() time.Duration {
 	return 5 * time.Second
 }
 
-func (j *WarmupAPICacheJob) RunOnce(ctx context.Context) error {
+func (j *WarmupAPICacheJob) NewParams() any {
+	return struct{}{}
+}
+
+func (j *WarmupAPICacheJob) RunOnce(ctx context.Context, params any) error {
 	// TODO: Switch to a percentile in future
 	propertiesMap, err := j.TimeSeries.RetrieveRecentTopProperties(ctx, j.Limit)
 	if err != nil {

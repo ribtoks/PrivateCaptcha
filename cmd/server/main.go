@@ -246,7 +246,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		return err
 	}
 	// nolint:errcheck
-	go common.RunPeriodicJobOnce(common.TraceContext(context.Background(), "check_license"), checkLicenseJob)
+	go common.RunPeriodicJobOnce(common.TraceContext(context.Background(), "check_license"), checkLicenseJob, checkLicenseJob.NewParams())
 
 	router := http.NewServeMux()
 	apiServer.Setup(router, apiURLConfig.Domain(), verbose, common.NoopMiddleware)
@@ -351,13 +351,16 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		PortalURL:    mailer.PortalURL,
 	})
 	jobs.AddLocked(24*time.Hour, &maintenance.CleanupUserNotificationsJob{
-		Store: businessDB,
+		Store:              businessDB,
+		NotificationMonths: 6,
+		TemplateMonths:     7,
 	})
 	jobs.AddLocked(24*time.Hour, &maintenance.CleanupExpiredTrialUsersJob{
 		Age:         30 * 24 * time.Hour,
 		BusinessDB:  businessDB,
 		PlanService: planService,
 		ChunkSize:   20,
+		Months:      6,
 	})
 	jobs.AddLocked(3*time.Hour, &maintenance.ExpireInternalTrialsJob{
 		PastInterval: 3 * time.Hour,

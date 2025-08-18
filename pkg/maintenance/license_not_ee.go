@@ -17,8 +17,12 @@ func NewCheckLicenseJob(db.Implementor, common.ConfigStore, string, func(ctx con
 type checkLicenseNoopJob struct {
 }
 
-func (j *checkLicenseNoopJob) RunOnce(ctx context.Context) error {
+func (j *checkLicenseNoopJob) RunOnce(ctx context.Context, params any) error {
 	return nil
+}
+
+func (j *checkLicenseNoopJob) NewParams() any {
+	return struct{}{}
 }
 
 func (j *checkLicenseNoopJob) Interval() time.Duration {
@@ -30,5 +34,5 @@ func (j *checkLicenseNoopJob) Jitter() time.Duration {
 }
 
 func (j *checkLicenseNoopJob) Name() string {
-	return "CheckLicenseStubJob"
+	return "check_license_noop_job"
 }

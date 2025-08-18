@@ -51,7 +51,7 @@ func gcDataTestSuite(ctx context.Context, property *dbgen.Property, deleter func
 		TimeSeries: timeSeries,
 	}
 
-	err = job.RunOnce(ctx)
+	err = job.RunOnce(ctx, job.NewParams())
 	if err != nil {
 		t.Fatal(err)
 	}

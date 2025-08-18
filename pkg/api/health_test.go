@@ -21,7 +21,7 @@ func TestReadyEndpoint(t *testing.T) {
 		Metrics:      monitoring.NewStub(),
 	}
 
-	if err := healthCheck.RunOnce(context.TODO()); err != nil {
+	if err := healthCheck.RunOnce(context.TODO(), healthCheck.NewParams()); err != nil {
 		t.Fatal(err)
 	}
 

@@ -31,6 +31,10 @@ func (j *UniquePeriodicJob) Name() string {
 	return j.Job.Name()
 }
 
+func (j *UniquePeriodicJob) NewParams() any {
+	return j.Job.NewParams()
+}
+
 func (j *UniquePeriodicJob) acquireLock(ctx context.Context, lockName string) error {
 	expiration := time.Now().UTC().Add(j.LockDuration)
 
@@ -46,14 +50,14 @@ func (j *UniquePeriodicJob) releaseLock(ctx context.Context, lockName string) er
 	})
 }
 
-func (j *UniquePeriodicJob) RunOnce(ctx context.Context) error {
+func (j *UniquePeriodicJob) RunOnce(ctx context.Context, params any) error {
 	var jerr error
 	lockName := j.Job.Name()
 
 	// TODO: Acquire the lock incrementally instead of the full duration
 	// this will help to handle situations when we crash and don't release the lock
 	if err := j.acquireLock(ctx, lockName); err == nil {
-		jerr = j.Job.RunOnce(ctx)
+		jerr = j.Job.RunOnce(ctx, params)
 		if jerr != nil {
 			// NOTE: in usual circumstances we do NOT release the lock, letting it expire by TTL, thus effectively
 			// preventing other possible maintenance jobs during the interval. The only use-case is when the job

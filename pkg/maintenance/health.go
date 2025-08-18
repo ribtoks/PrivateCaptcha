@@ -46,7 +46,11 @@ func (j *HealthCheckJob) Name() string {
 	return "health_check_job"
 }
 
-func (hc *HealthCheckJob) RunOnce(ctx context.Context) error {
+func (j *HealthCheckJob) NewParams() any {
+	return struct{}{}
+}
+
+func (hc *HealthCheckJob) RunOnce(ctx context.Context, params any) error {
 	pgStatus := hc.checkPostgres(ctx)
 	hc.postgresFlag.Store(pgStatus)
 

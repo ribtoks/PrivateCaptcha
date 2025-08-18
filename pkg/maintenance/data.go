@@ -37,6 +37,16 @@ func (j *GarbageCollectDataJob) Name() string {
 	return "garbage_collect_data_job"
 }
 
+type GarbageCollectDataParams struct {
+	Age time.Duration `json:"age"`
+}
+
+func (j *GarbageCollectDataJob) NewParams() any {
+	return &GarbageCollectDataParams{
+		Age: j.Age,
+	}
+}
+
 func (j *GarbageCollectDataJob) purgeProperties(ctx context.Context, before time.Time) error {
 	// NOTE: we're processing properties that are soft-deleted, but org is not
 	if properties, err := j.BusinessDB.Impl().RetrieveSoftDeletedProperties(ctx, before, maxSoftDeletedProperties); (err == nil) && (len(properties) > 0) {
@@ -86,8 +96,14 @@ func (j *GarbageCollectDataJob) purgeUsers(ctx context.Context, before time.Time
 
 }
 
-func (j *GarbageCollectDataJob) RunOnce(ctx context.Context) error {
-	before := time.Now().UTC().Add(-j.Age)
+func (j *GarbageCollectDataJob) RunOnce(ctx context.Context, params any) error {
+	p, ok := params.(*GarbageCollectDataParams)
+	if !ok || (p == nil) {
+		slog.ErrorContext(ctx, "Job parameter has incorrect type", "params", params, "job", j.Name())
+		p = j.NewParams().(*GarbageCollectDataParams)
+	}
+
+	before := time.Now().UTC().Add(-p.Age)
 	if err := j.purgeProperties(ctx, before); err != nil {
 		return err
 	}
@@ -108,7 +124,10 @@ type CleanupExpiredTrialUsersJob struct {
 	BusinessDB  db.Implementor
 	PlanService billing.PlanService
 	ChunkSize   int
+	Months      int
 }
+
+var _ common.PeriodicJob = (*CleanupExpiredTrialUsersJob)(nil)
 
 func (j *CleanupExpiredTrialUsersJob) Interval() time.Duration {
 	return 12 * time.Hour
@@ -118,14 +137,34 @@ func (j *CleanupExpiredTrialUsersJob) Jitter() time.Duration {
 	return 6 * time.Hour
 }
 
-func (CleanupExpiredTrialUsersJob) Name() string {
+func (j *CleanupExpiredTrialUsersJob) Name() string {
 	return "cleanup_expired_trial_users_job"
 }
 
-func (j *CleanupExpiredTrialUsersJob) RunOnce(ctx context.Context) error {
-	expiredTo := time.Now().Add(-j.Age)
-	expiredFrom := expiredTo.AddDate(0, -6 /*months*/, 0)
-	users, err := j.BusinessDB.Impl().RetrieveTrialUsers(ctx, expiredFrom, expiredTo, j.PlanService.ExpiredTrialStatus(), int32(j.ChunkSize), true /*internal*/)
+type CleanupExpiredTrialUsersParams struct {
+	Age       time.Duration `json:"age"`
+	ChunkSize int           `json:"chunk_size"`
+	Months    int           `json:"months"`
+}
+
+func (j *CleanupExpiredTrialUsersJob) NewParams() any {
+	return &CleanupExpiredTrialUsersParams{
+		Age:       j.Age,
+		ChunkSize: j.ChunkSize,
+		Months:    j.Months,
+	}
+}
+
+func (j *CleanupExpiredTrialUsersJob) RunOnce(ctx context.Context, params any) error {
+	p, ok := params.(*CleanupExpiredTrialUsersParams)
+	if !ok || (p == nil) {
+		slog.ErrorContext(ctx, "Job parameter has incorrect type", "params", params, "job", j.Name())
+		p = j.NewParams().(*CleanupExpiredTrialUsersParams)
+	}
+
+	expiredTo := time.Now().Add(-p.Age)
+	expiredFrom := expiredTo.AddDate(0, -p.Months, 0)
+	users, err := j.BusinessDB.Impl().RetrieveTrialUsers(ctx, expiredFrom, expiredTo, j.PlanService.ExpiredTrialStatus(), int32(p.ChunkSize), true /*internal*/)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve users with expired trials", common.ErrAttr(err))
 		return err
@@ -159,7 +198,9 @@ type ExpireInternalTrialsJob struct {
 	PlanService  billing.PlanService
 }
 
-func (ExpireInternalTrialsJob) Interval() (_ time.Duration) {
+var _ common.PeriodicJob = (*ExpireInternalTrialsJob)(nil)
+
+func (ExpireInternalTrialsJob) Interval() time.Duration {
 	return 1 * time.Hour
 }
 
@@ -171,8 +212,26 @@ func (j *ExpireInternalTrialsJob) Name() string {
 	return "expire_internal_trials_job"
 }
 
-func (j *ExpireInternalTrialsJob) RunOnce(ctx context.Context) error {
-	to := time.Now().Add(-j.Age)
-	from := to.Add(-(j.PastInterval + j.Interval() + j.Jitter()))
+type ExpireInternalTrialsParams struct {
+	PastInterval time.Duration `json:"past_interval"`
+	Age          time.Duration `json:"age"`
+}
+
+func (j *ExpireInternalTrialsJob) NewParams() any {
+	return &ExpireInternalTrialsParams{
+		PastInterval: j.PastInterval,
+		Age:          j.Age,
+	}
+}
+
+func (j *ExpireInternalTrialsJob) RunOnce(ctx context.Context, params any) error {
+	p, ok := params.(*ExpireInternalTrialsParams)
+	if !ok || (p == nil) {
+		slog.ErrorContext(ctx, "Job parameter has incorrect type", "params", params, "job", j.Name())
+		p = j.NewParams().(*ExpireInternalTrialsParams)
+	}
+
+	to := time.Now().Add(-p.Age)
+	from := to.Add(-(p.PastInterval + j.Interval() + j.Jitter()))
 	return j.BusinessDB.Impl().ExpireInternalTrials(ctx, from, to, j.PlanService.ActiveTrialStatus(), j.PlanService.ExpiredTrialStatus())
 }

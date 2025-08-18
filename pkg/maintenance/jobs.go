@@ -2,7 +2,9 @@ package maintenance
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -65,13 +67,14 @@ func (j *jobs) Run() {
 	}
 
 	for _, job := range j.oneOffJobs {
-		go common.RunOneOffJob(j.maintenanceCtx, &mutexOneOffJob{job: job, mux: &j.mux})
+		go common.RunOneOffJob(j.maintenanceCtx, &mutexOneOffJob{job: job, mux: &j.mux}, job.NewParams())
 	}
 }
 
 func (j *jobs) Setup(mux *http.ServeMux) {
-	mux.Handle(http.MethodPost+" /maintenance/periodic/{job}", common.Recovered(http.HandlerFunc(j.handlePeriodicJob)))
-	mux.Handle(http.MethodPost+" /maintenance/oneoff/{job}", common.Recovered(http.HandlerFunc(j.handleOneoffJob)))
+	const maxBytes = 256 * 1024
+	mux.Handle(http.MethodPost+" /maintenance/periodic/{job}", common.Recovered(http.MaxBytesHandler(http.HandlerFunc(j.handlePeriodicJob), maxBytes)))
+	mux.Handle(http.MethodPost+" /maintenance/oneoff/{job}", common.Recovered(http.MaxBytesHandler(http.HandlerFunc(j.handleOneoffJob), maxBytes)))
 }
 
 func (j *jobs) handlePeriodicJob(w http.ResponseWriter, r *http.Request) {
@@ -87,8 +90,19 @@ func (j *jobs) handlePeriodicJob(w http.ResponseWriter, r *http.Request) {
 
 	for _, job := range j.periodicJobs {
 		if job.Name() == jobName {
+			params := job.NewParams()
+			if r.Body != nil {
+				if buf, _ := io.ReadAll(r.Body); len(buf) > 0 {
+					if err := json.Unmarshal(buf, params); err != nil {
+						slog.ErrorContext(ctx, "Failed to decode params", "job", jobName, common.ErrAttr(err))
+						http.Error(w, err.Error(), http.StatusBadRequest)
+						return
+					}
+				}
+			}
+
 			go func() {
-				_ = common.RunPeriodicJobOnce(common.CopyTraceID(ctx, context.Background()), job)
+				_ = common.RunPeriodicJobOnce(common.CopyTraceID(ctx, context.Background()), job, params)
 			}()
 			found = true
 			break
@@ -116,7 +130,19 @@ func (j *jobs) handleOneoffJob(w http.ResponseWriter, r *http.Request) {
 
 	for _, job := range j.oneOffJobs {
 		if job.Name() == jobName {
-			go common.RunOneOffJob(common.CopyTraceID(ctx, context.Background()), job)
+			params := job.NewParams()
+			if r.Body != nil {
+				if buf, _ := io.ReadAll(r.Body); len(buf) > 0 {
+					if err := json.Unmarshal(buf, params); err != nil {
+						slog.ErrorContext(ctx, "Failed to decode params", "job", jobName, common.ErrAttr(err))
+						http.Error(w, err.Error(), http.StatusBadRequest)
+						return
+					}
+				}
+			}
+
+			go common.RunOneOffJob(common.CopyTraceID(ctx, context.Background()), job, params)
+
 			found = true
 			break
 		}

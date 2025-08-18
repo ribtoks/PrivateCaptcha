@@ -43,7 +43,7 @@ func TestExpireInternalTrials(t *testing.T) {
 		PlanService:  server.PlanService,
 	}
 
-	if err := job.RunOnce(ctx); err != nil {
+	if err := job.RunOnce(ctx, job.NewParams()); err != nil {
 		t.Fatal(err)
 	}
 

@@ -277,13 +277,17 @@ func (j *checkLicenseJob) checkLicense(ctx context.Context) error {
 	return nil
 }
 
-func (j *checkLicenseJob) RunOnce(ctx context.Context) error {
+func (j *checkLicenseJob) RunOnce(ctx context.Context, params any) error {
 	if err := j.checkLicense(ctx); err != nil {
 		go j.quitFunc(ctx)
 		return err
 	}
 
 	return nil
+}
+
+func (j *checkLicenseJob) NewParams() any {
+	return struct{}{}
 }
 
 func (j *checkLicenseJob) Interval() time.Duration {

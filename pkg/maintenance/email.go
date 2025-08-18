@@ -29,8 +29,11 @@ func (j *RegisterEmailTemplatesJob) Name() string {
 func (j *RegisterEmailTemplatesJob) InitialPause() time.Duration {
 	return 20 * time.Second
 }
+func (j *RegisterEmailTemplatesJob) NewParams() any {
+	return struct{}{}
+}
 
-func (j *RegisterEmailTemplatesJob) RunOnce(ctx context.Context) error {
+func (j *RegisterEmailTemplatesJob) RunOnce(ctx context.Context, params any) error {
 	var anyError error
 
 	for _, tpl := range j.Templates {
@@ -159,10 +162,10 @@ func (j *UserEmailNotificationsJob) retrieveTemplate(ctx context.Context,
 	return nt, nil
 }
 
-func (j *UserEmailNotificationsJob) retrievePendingNotifications(ctx context.Context) ([]*dbgen.GetPendingUserNotificationsRow, error) {
+func (j *UserEmailNotificationsJob) retrievePendingNotifications(ctx context.Context, params *UserEmailNotificationsParams) ([]*dbgen.GetPendingUserNotificationsRow, error) {
 	// just for safety, we fetch overlapping segments, but it will be filtered out on the way
-	since := time.Now().UTC().Add(-(j.RunInterval + j.Interval() + j.Jitter()))
-	notifications, err := j.Store.Impl().RetrievePendingUserNotifications(ctx, since, j.ChunkSize, j.MaxAttempts)
+	since := time.Now().UTC().Add(-(params.RunInterval + j.Interval() + j.Jitter()))
+	notifications, err := j.Store.Impl().RetrievePendingUserNotifications(ctx, since, params.ChunkSize, params.MaxAttempts)
 	if err != nil {
 		return nil, err
 	}
@@ -193,14 +196,34 @@ func (j *UserEmailNotificationsJob) retrievePendingNotifications(ctx context.Con
 	return filtered, nil
 }
 
+type UserEmailNotificationsParams struct {
+	RunInterval time.Duration `json:"run_interval"`
+	ChunkSize   int           `json:"chunk_size"`
+	MaxAttempts int           `json:"max_attempts"`
+}
+
+func (j *UserEmailNotificationsJob) NewParams() any {
+	return &UserEmailNotificationsParams{
+		RunInterval: j.RunInterval,
+		ChunkSize:   j.ChunkSize,
+		MaxAttempts: j.MaxAttempts,
+	}
+}
+
 // NOTE: we should NOT refactor this into "while we have pending notifications {}" loop because some notifications
 // are unprocessable by design (e.g. "subscribed-only" notifications for users who don't have subscriptions), therefore
 // there are cases when there will always be "pending" notifications.
 // If we are not managing to process all of them, we need to modify ChunkSize and Interval (or Lock Inteval) instead
-func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context) error {
+func (j *UserEmailNotificationsJob) RunOnce(ctx context.Context, params any) error {
+	p, ok := params.(*UserEmailNotificationsParams)
+	if !ok || (p == nil) {
+		slog.ErrorContext(ctx, "Job parameter has incorrect type", "params", params, "job", j.Name())
+		p = j.NewParams().(*UserEmailNotificationsParams)
+	}
+
 	// TODO: Monitor pending notifications count in Postgres
 	// so we will know if we have enough processing capacity
-	notifications, err := j.retrievePendingNotifications(ctx)
+	notifications, err := j.retrievePendingNotifications(ctx, p)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve pending user notifications", common.ErrAttr(err))
 		return err
@@ -354,28 +377,50 @@ func (j *UserEmailNotificationsJob) processNotificationsChunk(ctx context.Contex
 }
 
 type CleanupUserNotificationsJob struct {
-	Store db.Implementor
+	Store              db.Implementor
+	NotificationMonths int
+	TemplateMonths     int
 }
 
-func (j *CleanupUserNotificationsJob) RunOnce(ctx context.Context) error {
+var _ common.PeriodicJob = (*CleanupUserNotificationsJob)(nil)
+
+type CleanupUserNotificationsParams struct {
+	NotificationMonths int `json:"notification_months"`
+	TemplateMonths     int `json:"template_months"`
+}
+
+func (j *CleanupUserNotificationsJob) NewParams() any {
+	return &CleanupUserNotificationsParams{
+		NotificationMonths: j.NotificationMonths,
+		TemplateMonths:     j.TemplateMonths,
+	}
+}
+
+func (j *CleanupUserNotificationsJob) RunOnce(ctx context.Context, params any) error {
+	p, ok := params.(*CleanupUserNotificationsParams)
+	if !ok || (p == nil) {
+		slog.ErrorContext(ctx, "Job parameter has incorrect type", "params", params, "job", j.Name())
+		p = j.NewParams().(*CleanupUserNotificationsParams)
+	}
+
 	var anyError error
 
 	tnow := time.Now().UTC()
 
-	if err := j.Store.Impl().DeleteSentUserNotifications(ctx, tnow.AddDate(0, -6 /*months*/, 0)); err != nil {
+	if err := j.Store.Impl().DeleteSentUserNotifications(ctx, tnow.AddDate(0, -p.NotificationMonths, 0)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete sent user notifications", common.ErrAttr(err))
 		anyError = err
 	}
 
-	if err := j.Store.Impl().DeleteUnsentUserNotifications(ctx, tnow.AddDate(0, -6 /*months*/, 0)); err != nil {
+	if err := j.Store.Impl().DeleteUnsentUserNotifications(ctx, tnow.AddDate(0, -p.NotificationMonths, 0)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete UNsent user notifications", common.ErrAttr(err))
 		anyError = err
 	}
 
 	// we delete notification templates only if there're no dangling references in
 	// user_notifications table so the date should be smaller than the other two
-	templateUpdatedBefore := tnow.AddDate(0, -7 /*months*/, 0)
-	notifDeliveredBefore := tnow.AddDate(0, -7 /*months*/, 0)
+	templateUpdatedBefore := tnow.AddDate(0, -p.TemplateMonths, 0)
+	notifDeliveredBefore := tnow.AddDate(0, -p.TemplateMonths, 0)
 	if err := j.Store.Impl().DeleteUnusedNotificationTemplates(ctx, notifDeliveredBefore, templateUpdatedBefore); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete unused notification templates", common.ErrAttr(err))
 		anyError = err

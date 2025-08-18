@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -26,7 +27,11 @@ func (j *CleanupDBCacheJob) Name() string {
 	return "cleanup_db_cache_job"
 }
 
-func (j *CleanupDBCacheJob) RunOnce(ctx context.Context) error {
+func (j *CleanupDBCacheJob) NewParams() any {
+	return struct{}{}
+}
+
+func (j *CleanupDBCacheJob) RunOnce(ctx context.Context, params any) error {
 	return j.Store.Impl().DeleteExpiredCache(ctx)
 }
 
@@ -49,7 +54,23 @@ func (j *CleanupDeletedRecordsJob) Name() string {
 	return "cleanup_deleted_records_job"
 }
 
-func (j *CleanupDeletedRecordsJob) RunOnce(ctx context.Context) error {
-	before := time.Now().UTC().Add(-j.Age)
+type CleanupDeletedRecordsParams struct {
+	Age time.Duration `json:"age"`
+}
+
+func (j *CleanupDeletedRecordsJob) NewParams() any {
+	return &CleanupDeletedRecordsParams{
+		Age: j.Age,
+	}
+}
+
+func (j *CleanupDeletedRecordsJob) RunOnce(ctx context.Context, params any) error {
+	p, ok := params.(*CleanupDeletedRecordsParams)
+	if !ok || (p == nil) {
+		slog.ErrorContext(ctx, "Job parameter has incorrect type", "params", params, "job", j.Name())
+		p = j.NewParams().(*CleanupDeletedRecordsParams)
+	}
+
+	before := time.Now().UTC().Add(-p.Age)
 	return j.Store.Impl().DeleteDeletedRecords(ctx, before)
 }

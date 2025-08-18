@@ -11,11 +11,13 @@ import (
 type OneOffJob interface {
 	Name() string
 	InitialPause() time.Duration
-	RunOnce(ctx context.Context) error
+	NewParams() any
+	RunOnce(ctx context.Context, params any) error
 }
 
 type PeriodicJob interface {
-	RunOnce(ctx context.Context) error
+	NewParams() any
+	RunOnce(ctx context.Context, params any) error
 	// NOTE: For DB-locked Periodic job Interval() will not define the actual interval, but
 	// how many times the job will _attempt_ to run. In that case the "actual" interval for
 	// the most jobs will be determined by the duration of the lock they hold in DB.
@@ -27,11 +29,14 @@ type PeriodicJob interface {
 
 type StubOneOffJob struct{}
 
-func (StubOneOffJob) Name() string                  { return "StubOneOffJob" }
-func (StubOneOffJob) InitialPause() time.Duration   { return 0 }
-func (StubOneOffJob) RunOnce(context.Context) error { return nil }
+var _ OneOffJob = (*StubOneOffJob)(nil)
 
-func RunOneOffJob(ctx context.Context, j OneOffJob) {
+func (StubOneOffJob) Name() string                       { return "StubOneOffJob" }
+func (StubOneOffJob) InitialPause() time.Duration        { return 0 }
+func (StubOneOffJob) NewParams() any                     { return struct{}{} }
+func (StubOneOffJob) RunOnce(context.Context, any) error { return nil }
+
+func RunOneOffJob(ctx context.Context, j OneOffJob, params any) {
 	jlog := slog.With("name", j.Name())
 
 	defer func() {
@@ -44,7 +49,7 @@ func RunOneOffJob(ctx context.Context, j OneOffJob) {
 
 	jlog.DebugContext(ctx, "Running one-off job")
 
-	if err := j.RunOnce(ctx); err != nil {
+	if err := j.RunOnce(ctx, params); err != nil {
 		jlog.ErrorContext(ctx, "One-off job failed", ErrAttr(err))
 	}
 
@@ -89,14 +94,14 @@ func RunPeriodicJob(ctx context.Context, j PeriodicJob) {
 			// introduction of jitter is supposed to help in case we have multiple workers to distribute the load
 		case <-time.After(interval + time.Duration(randv2.Int64N(int64(jitter)))):
 			jlog.Log(ctx, LevelTrace, "Running periodic job once", "interval", interval.String(), "jitter", jitter.String())
-			_ = j.RunOnce(ctx)
+			_ = j.RunOnce(ctx, j.NewParams())
 		}
 	}
 
 	jlog.DebugContext(ctx, "Periodic job finished")
 }
 
-func RunPeriodicJobOnce(ctx context.Context, j PeriodicJob) error {
+func RunPeriodicJobOnce(ctx context.Context, j PeriodicJob, params any) error {
 	jlog := slog.With("name", j.Name())
 
 	defer func() {
@@ -106,7 +111,7 @@ func RunPeriodicJobOnce(ctx context.Context, j PeriodicJob) error {
 	}()
 
 	jlog.Log(ctx, LevelTrace, "Running periodic job once")
-	err := j.RunOnce(ctx)
+	err := j.RunOnce(ctx, params)
 	if err != nil {
 		jlog.ErrorContext(ctx, "Periodic job failed", ErrAttr(err))
 	}

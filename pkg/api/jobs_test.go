@@ -14,13 +14,14 @@ type TestJob struct {
 	count int32
 }
 
-func (j *TestJob) RunOnce(ctx context.Context) error {
+func (j *TestJob) RunOnce(ctx context.Context, params any) error {
 	atomic.AddInt32(&j.count, 1)
 	return nil
 }
 func (j *TestJob) Interval() time.Duration { return 200 * time.Millisecond }
 func (j *TestJob) Jitter() time.Duration   { return 1 }
 func (j *TestJob) Name() string            { return "test_job" }
+func (j *TestJob) NewParams() any          { return struct{}{} }
 
 func TestUniqueJob(t *testing.T) {
 	if testing.Short() {
@@ -38,7 +39,7 @@ func TestUniqueJob(t *testing.T) {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := common.RunPeriodicJobOnce(ctx, uniqueJob); err != nil {
+	if err := common.RunPeriodicJobOnce(ctx, uniqueJob, uniqueJob.NewParams()); err != nil {
 		t.Fatal(err)
 	}
 	cancel()

@@ -35,6 +35,10 @@ func (j *onboardUserJob) InitialPause() time.Duration {
 	return 0
 }
 
-func (j *onboardUserJob) RunOnce(ctx context.Context) error {
+func (j *onboardUserJob) NewParams() any {
+	return struct{}{}
+}
+
+func (j *onboardUserJob) RunOnce(ctx context.Context, params any) error {
 	return j.mailer.SendWelcome(ctx, j.user.Email, common.GuessFirstName(j.user.Name))
 }

@@ -142,10 +142,11 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	(&maintenance.RegisterEmailTemplatesJob{
+	job := &maintenance.RegisterEmailTemplatesJob{
 		Templates: email.Templates(),
 		Store:     store,
-	}).RunOnce(ctx)
+	}
+	job.RunOnce(ctx, job.NewParams())
 
 	os.Exit(m.Run())
 }

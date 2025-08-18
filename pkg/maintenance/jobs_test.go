@@ -19,7 +19,11 @@ func (j *stubOneOffJob) InitialPause() time.Duration {
 	return 0
 }
 
-func (j *stubOneOffJob) RunOnce(ctx context.Context) error {
+func (j *stubOneOffJob) NewParams() any {
+	return struct{}{}
+}
+
+func (j *stubOneOffJob) RunOnce(ctx context.Context, params any) error {
 	atomic.StoreInt32(&j.executed, 1)
 	return nil
 }
@@ -46,7 +50,11 @@ func (j *stubPeriodicJob) Jitter() time.Duration {
 	return 1
 }
 
-func (j *stubPeriodicJob) RunOnce(ctx context.Context) error {
+func (j *stubPeriodicJob) NewParams() any {
+	return struct{}{}
+}
+
+func (j *stubPeriodicJob) RunOnce(ctx context.Context, params any) error {
 	atomic.StoreInt32(&j.executed, 1)
 	return nil
 }

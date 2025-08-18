@@ -79,7 +79,7 @@ func TestUserNotificationsJob(t *testing.T) {
 		UserIDs:      map[int32]struct{}{user.ID: struct{}{}},
 	}
 
-	if err := job.RunOnce(ctx); err != nil {
+	if err := job.RunOnce(ctx, job.NewParams()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -88,7 +88,7 @@ func TestUserNotificationsJob(t *testing.T) {
 	}
 
 	// run again, but the notification should be processed by now
-	if err := job.RunOnce(ctx); err != nil {
+	if err := job.RunOnce(ctx, job.NewParams()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -241,7 +241,7 @@ func TestNotificationMaxAttempts(t *testing.T) {
 		UserIDs:      map[int32]struct{}{user.ID: struct{}{}},
 	}
 
-	if err := job.RunOnce(ctx); err != nil {
+	if err := job.RunOnce(ctx, job.NewParams()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -297,7 +297,7 @@ func TestNotificationProcessingAttempts(t *testing.T) {
 	const times = 4
 
 	for _ = range times {
-		if err := job.RunOnce(ctx); err != nil {
+		if err := job.RunOnce(ctx, job.NewParams()); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -307,7 +307,7 @@ func TestNotificationProcessingAttempts(t *testing.T) {
 	job.Sender = sender
 	job.MaxAttempts = times
 
-	if err := job.RunOnce(ctx); err != nil {
+	if err := job.RunOnce(ctx, job.NewParams()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -364,7 +364,7 @@ func TestRequireSubscription(t *testing.T) {
 		UserIDs:      map[int32]struct{}{user.ID: struct{}{}},
 	}
 
-	if err := job.RunOnce(ctx); err != nil {
+	if err := job.RunOnce(ctx, job.NewParams()); err != nil {
 		t.Fatal(err)
 	}
 
@@ -386,7 +386,7 @@ func TestRequireSubscription(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := job.RunOnce(ctx); err != nil {
+	if err := job.RunOnce(ctx, job.NewParams()); err != nil {
 		t.Fatal(err)
 	}
 
