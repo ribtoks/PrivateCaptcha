@@ -118,8 +118,6 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 			slog.DebugContext(bctx, "Fetching system notification for user", "userID", userID)
 			if n, err := s.Store.Impl().RetrieveSystemUserNotification(bctx, time.Now().UTC(), userID); err == nil {
 				_ = sess.Set(session.KeyNotificationID, n.ID)
-			} else {
-				return err
 			}
 		} else {
 			slog.ErrorContext(bctx, "UserID not found in session")
