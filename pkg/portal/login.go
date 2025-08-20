@@ -90,7 +90,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	ownerSource := &portalPropertyOwnerSource{Store: s.Store, Sitekey: data.CaptchaSitekey}
 	verifyResult, err := s.PuzzleEngine.Verify(ctx, []byte(captchaSolution), ownerSource, time.Now().UTC())
 	if err != nil || !verifyResult.Success() {
-		slog.ErrorContext(ctx, "Failed to verify captcha", "verify", verifyResult.ErrorsToStrings(), common.ErrAttr(err))
+		slog.ErrorContext(ctx, "Failed to verify captcha", "verify", verifyResult.Error.String(), common.ErrAttr(err))
 		data.CaptchaError = "Captcha verification failed"
 		s.render(w, r, loginFormTemplate, data)
 		return
