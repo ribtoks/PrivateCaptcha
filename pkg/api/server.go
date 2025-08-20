@@ -417,6 +417,8 @@ func (s *Server) Verify(ctx context.Context, data []byte, expectedOwner puzzle.O
 		if cerr := s.BusinessDB.CachePuzzle(ctx, puzzleObject, tnow); cerr != nil {
 			slog.ErrorContext(ctx, "Failed to cache puzzle", "puzzleID", puzzleObject.PuzzleID, common.ErrAttr(cerr))
 		}
+	} else if puzzleObject != nil {
+		slog.Log(ctx, common.LevelTrace, "Skipping caching puzzle", "puzzleID", puzzleObject.PuzzleID)
 	}
 
 	s.addVerifyRecord(ctx, puzzleObject, property, puzzle.VerifyNoError)

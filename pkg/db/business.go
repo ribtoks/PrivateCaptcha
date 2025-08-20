@@ -151,7 +151,7 @@ func (s *BusinessStore) CacheHitRatio() float64 {
 }
 
 func (s *BusinessStore) CheckPuzzleCached(ctx context.Context, p *puzzle.Puzzle) bool {
-	if p.PuzzleID == 0 {
+	if p == nil || p.IsZero() {
 		return false
 	}
 
@@ -162,8 +162,8 @@ func (s *BusinessStore) CheckPuzzleCached(ctx context.Context, p *puzzle.Puzzle)
 }
 
 func (s *BusinessStore) CachePuzzle(ctx context.Context, p *puzzle.Puzzle, tnow time.Time) error {
-	if p.PuzzleID == 0 {
-		slog.Log(ctx, common.LevelTrace, "Skipping caching stub puzzle")
+	if p == nil || p.IsZero() {
+		slog.Log(ctx, common.LevelTrace, "Skipping caching zero puzzle")
 		return nil
 	}
 
