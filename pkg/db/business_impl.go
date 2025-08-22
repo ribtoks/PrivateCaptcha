@@ -604,27 +604,6 @@ func (impl *BusinessStoreImpl) RetrieveSubscription(ctx context.Context, sID int
 	return reader.Read(ctx)
 }
 
-func (impl *BusinessStoreImpl) UpdateSubscription(ctx context.Context, params *dbgen.UpdateSubscriptionParams) (*dbgen.Subscription, error) {
-	if impl.querier == nil {
-		return nil, ErrMaintenance
-	}
-
-	subscription, err := impl.querier.UpdateSubscription(ctx, params)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to update subscription in DB", "externalSubscriptionID", params.ExternalSubscriptionID, common.ErrAttr(err))
-		return nil, err
-	}
-
-	if subscription != nil {
-		slog.DebugContext(ctx, "Updated subscription in DB", "id", subscription.ID, "status", subscription.Status)
-
-		cacheKey := SubscriptionCacheKey(subscription.ID)
-		_ = impl.cache.Set(ctx, cacheKey, subscription)
-	}
-
-	return subscription, nil
-}
-
 func (impl *BusinessStoreImpl) FindOrgProperty(ctx context.Context, name string, orgID int32) (*dbgen.Property, error) {
 	if len(name) == 0 {
 		return nil, ErrInvalidInput
