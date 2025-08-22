@@ -1,13 +1,13 @@
 package portal
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	htmltpl "html/template"
 	"log/slog"
 	"strings"
-	"text/template"
+	texttpl "text/template"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -25,10 +25,10 @@ type PortalMailer struct {
 	EmailFrom             common.ConfigItem
 	AdminEmail            common.ConfigItem
 	ReplyToEmail          common.ConfigItem
-	twofactorHTMLTemplate *template.Template
-	twofactorTextTemplate *template.Template
-	welcomeHTMLTemplate   *template.Template
-	welcomeTextTemplate   *template.Template
+	twofactorHTMLTemplate *htmltpl.Template
+	twofactorTextTemplate *texttpl.Template
+	welcomeHTMLTemplate   *htmltpl.Template
+	welcomeTextTemplate   *texttpl.Template
 }
 
 func NewPortalMailer(cdnURL, portalURL string, mailer emailpkg.Sender, cfg common.ConfigStore) *PortalMailer {
@@ -43,13 +43,11 @@ func NewPortalMailer(cdnURL, portalURL string, mailer emailpkg.Sender, cfg commo
 }
 
 func (pm *PortalMailer) SetWelcomeEmail(tpl *common.EmailTemplate) {
-	pm.welcomeHTMLTemplate = template.Must(template.New("HtmlBody").Parse(tpl.ContentHTML()))
-	pm.welcomeTextTemplate = template.Must(template.New("TextBody").Parse(tpl.ContentText()))
+	pm.welcomeHTMLTemplate, pm.welcomeTextTemplate = tpl.Parse()
 }
 
 func (pm *PortalMailer) SetTwoFactorEmail(tpl *common.EmailTemplate) {
-	pm.twofactorHTMLTemplate = template.Must(template.New("HtmlBody").Parse(tpl.ContentHTML()))
-	pm.twofactorTextTemplate = template.Must(template.New("TextBody").Parse(tpl.ContentText()))
+	pm.twofactorHTMLTemplate, pm.twofactorTextTemplate = tpl.Parse()
 }
 
 var _ common.Mailer = (*PortalMailer)(nil)
@@ -71,25 +69,19 @@ func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code in
 		CurrentYear: time.Now().Year(),
 	}
 
-	var htmlBodyTpl bytes.Buffer
-	if pm.twofactorHTMLTemplate != nil {
-		if err := pm.twofactorHTMLTemplate.Execute(&htmlBodyTpl, data); err != nil {
-			slog.ErrorContext(ctx, "Failed to execute HTML template", common.ErrAttr(err))
-			return err
-		}
+	htmlBody, err := common.RenderHTMLTemplate(ctx, pm.twofactorHTMLTemplate, data)
+	if err != nil {
+		return err
 	}
 
-	var textBodyTpl bytes.Buffer
-	if pm.twofactorTextTemplate != nil {
-		if err := pm.twofactorTextTemplate.Execute(&textBodyTpl, data); err != nil {
-			slog.ErrorContext(ctx, "Failed to execute Text template", common.ErrAttr(err))
-			return err
-		}
+	textBody, err := common.RenderTextTemplate(ctx, pm.twofactorTextTemplate, data)
+	if err != nil {
+		return err
 	}
 
 	msg := &emailpkg.Message{
-		HTMLBody:  htmlBodyTpl.String(),
-		TextBody:  textBodyTpl.String(),
+		HTMLBody:  htmlBody,
+		TextBody:  textBody,
 		Subject:   fmt.Sprintf("[%s] Your verification code is %v", common.PrivateCaptcha, data.Code),
 		EmailTo:   email,
 		EmailFrom: pm.EmailFrom.Value(),
@@ -129,25 +121,19 @@ func (pm *PortalMailer) SendWelcome(ctx context.Context, email, name string) err
 		UserName:    name,
 	}
 
-	var htmlBodyTpl bytes.Buffer
-	if pm.welcomeHTMLTemplate != nil {
-		if err := pm.welcomeHTMLTemplate.Execute(&htmlBodyTpl, data); err != nil {
-			slog.ErrorContext(ctx, "Failed to execute HTML template", common.ErrAttr(err))
-			return err
-		}
+	htmlBody, err := common.RenderHTMLTemplate(ctx, pm.welcomeHTMLTemplate, data)
+	if err != nil {
+		return err
 	}
 
-	var textBodyTpl bytes.Buffer
-	if pm.welcomeTextTemplate != nil {
-		if err := pm.welcomeTextTemplate.Execute(&textBodyTpl, data); err != nil {
-			slog.ErrorContext(ctx, "Failed to execute Text template", common.ErrAttr(err))
-			return err
-		}
+	textBody, err := common.RenderTextTemplate(ctx, pm.welcomeTextTemplate, data)
+	if err != nil {
+		return err
 	}
 
 	msg := &emailpkg.Message{
-		HTMLBody:  htmlBodyTpl.String(),
-		TextBody:  textBodyTpl.String(),
+		HTMLBody:  htmlBody,
+		TextBody:  textBody,
 		Subject:   "Welcome to Private Captcha",
 		EmailTo:   email,
 		EmailFrom: pm.EmailFrom.Value(),

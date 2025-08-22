@@ -1,10 +1,14 @@
 package common
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	htmltpl "html/template"
+	"log/slog"
 	"sync"
+	texttpl "text/template"
 	"time"
 )
 
@@ -69,4 +73,33 @@ func (et *EmailTemplate) Hash() string {
 	}
 
 	return et.hash
+}
+
+func (et *EmailTemplate) Parse() (*htmltpl.Template, *texttpl.Template) {
+	return htmltpl.Must(htmltpl.New("HtmlBody").Parse(et.ContentHTML())),
+		texttpl.Must(texttpl.New("TextBody").Parse(et.ContentText()))
+}
+
+func RenderHTMLTemplate(ctx context.Context, tpl *htmltpl.Template, data interface{}) (string, error) {
+	var buf bytes.Buffer
+	if tpl != nil {
+		if err := tpl.Execute(&buf, data); err != nil {
+			slog.ErrorContext(ctx, "Failed to execute HTML template", ErrAttr(err))
+			return "", err
+		}
+	}
+
+	return buf.String(), nil
+}
+
+func RenderTextTemplate(ctx context.Context, tpl *texttpl.Template, data interface{}) (string, error) {
+	var buf bytes.Buffer
+	if tpl != nil {
+		if err := tpl.Execute(&buf, data); err != nil {
+			slog.ErrorContext(ctx, "Failed to execute Text template", ErrAttr(err))
+			return "", err
+		}
+	}
+
+	return buf.String(), nil
 }
