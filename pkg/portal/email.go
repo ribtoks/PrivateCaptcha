@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 	emailpkg "github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 )
 
@@ -36,8 +35,8 @@ func NewPortalMailer(cdnURL, portalURL string, mailer emailpkg.Sender, cfg commo
 		ReplyToEmail:      cfg.Get(common.ReplyToEmailKey),
 		CDNURL:            strings.TrimSuffix(cdnURL, "/"),
 		PortalURL:         strings.TrimSuffix(portalURL, "/"),
-		TwofactorTemplate: email.TwoFactorEmailTemplate,
-		WelcomeTemplate:   email.WelcomeEmailTemplate,
+		TwofactorTemplate: emailpkg.TwoFactorEmailTemplate,
+		WelcomeTemplate:   emailpkg.WelcomeEmailTemplate,
 	}
 }
 
