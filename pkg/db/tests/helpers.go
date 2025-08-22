@@ -11,7 +11,6 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/rs/xid"
 )
 
@@ -68,24 +67,6 @@ func CreateNewAccountForTestEx(ctx context.Context, store db.Implementor, testNa
 		return nil, nil, err
 	}
 	return user, org, nil
-}
-
-func CancelUserSubscription(ctx context.Context, store db.Implementor, userID int32) error {
-	subscriptions, err := store.Impl().RetrieveSubscriptionsByUserIDs(ctx, []int32{userID})
-	if err != nil {
-		return err
-	}
-
-	subscr := subscriptions[0]
-	_, err = store.Impl().UpdateSubscription(ctx, &dbgen.UpdateSubscriptionParams{
-		ExternalSubscriptionID: subscr.Subscription.ExternalSubscriptionID,
-		ExternalProductID:      subscr.Subscription.ExternalProductID,
-		Status:                 "cancelled",
-		NextBilledAt:           pgtype.Timestamptz{},
-		CancelFrom:             db.Timestampz(time.Now().UTC()),
-	})
-
-	return err
 }
 
 func CreateNewBareAccount(ctx context.Context, store db.Implementor, testName string) (*dbgen.User, *dbgen.Organization, error) {
