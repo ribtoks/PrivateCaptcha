@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	htmltpl "html/template"
 	"log/slog"
 	"strings"
-	texttpl "text/template"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 	emailpkg "github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 )
 
@@ -19,35 +18,27 @@ var (
 )
 
 type PortalMailer struct {
-	Mailer                emailpkg.Sender
-	CDNURL                string
-	PortalURL             string
-	EmailFrom             common.ConfigItem
-	AdminEmail            common.ConfigItem
-	ReplyToEmail          common.ConfigItem
-	twofactorHTMLTemplate *htmltpl.Template
-	twofactorTextTemplate *texttpl.Template
-	welcomeHTMLTemplate   *htmltpl.Template
-	welcomeTextTemplate   *texttpl.Template
+	Mailer            emailpkg.Sender
+	CDNURL            string
+	PortalURL         string
+	EmailFrom         common.ConfigItem
+	AdminEmail        common.ConfigItem
+	ReplyToEmail      common.ConfigItem
+	TwofactorTemplate *common.EmailTemplate
+	WelcomeTemplate   *common.EmailTemplate
 }
 
 func NewPortalMailer(cdnURL, portalURL string, mailer emailpkg.Sender, cfg common.ConfigStore) *PortalMailer {
 	return &PortalMailer{
-		Mailer:       mailer,
-		EmailFrom:    cfg.Get(common.EmailFromKey),
-		AdminEmail:   cfg.Get(common.AdminEmailKey),
-		ReplyToEmail: cfg.Get(common.ReplyToEmailKey),
-		CDNURL:       strings.TrimSuffix(cdnURL, "/"),
-		PortalURL:    strings.TrimSuffix(portalURL, "/"),
+		Mailer:            mailer,
+		EmailFrom:         cfg.Get(common.EmailFromKey),
+		AdminEmail:        cfg.Get(common.AdminEmailKey),
+		ReplyToEmail:      cfg.Get(common.ReplyToEmailKey),
+		CDNURL:            strings.TrimSuffix(cdnURL, "/"),
+		PortalURL:         strings.TrimSuffix(portalURL, "/"),
+		TwofactorTemplate: email.TwoFactorEmailTemplate,
+		WelcomeTemplate:   email.WelcomeEmailTemplate,
 	}
-}
-
-func (pm *PortalMailer) SetWelcomeEmail(tpl *common.EmailTemplate) {
-	pm.welcomeHTMLTemplate, pm.welcomeTextTemplate = tpl.Parse()
-}
-
-func (pm *PortalMailer) SetTwoFactorEmail(tpl *common.EmailTemplate) {
-	pm.twofactorHTMLTemplate, pm.twofactorTextTemplate = tpl.Parse()
 }
 
 var _ common.Mailer = (*PortalMailer)(nil)
@@ -69,12 +60,12 @@ func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code in
 		CurrentYear: time.Now().Year(),
 	}
 
-	htmlBody, err := common.RenderHTMLTemplate(ctx, pm.twofactorHTMLTemplate, data)
+	htmlBody, err := pm.TwofactorTemplate.RenderHTML(ctx, data)
 	if err != nil {
 		return err
 	}
 
-	textBody, err := common.RenderTextTemplate(ctx, pm.twofactorTextTemplate, data)
+	textBody, err := pm.TwofactorTemplate.RenderText(ctx, data)
 	if err != nil {
 		return err
 	}
@@ -121,12 +112,12 @@ func (pm *PortalMailer) SendWelcome(ctx context.Context, email, name string) err
 		UserName:    name,
 	}
 
-	htmlBody, err := common.RenderHTMLTemplate(ctx, pm.welcomeHTMLTemplate, data)
+	htmlBody, err := pm.WelcomeTemplate.RenderHTML(ctx, data)
 	if err != nil {
 		return err
 	}
 
-	textBody, err := common.RenderTextTemplate(ctx, pm.welcomeTextTemplate, data)
+	textBody, err := pm.WelcomeTemplate.RenderText(ctx, data)
 	if err != nil {
 		return err
 	}

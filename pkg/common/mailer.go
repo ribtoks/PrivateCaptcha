@@ -50,6 +50,11 @@ type EmailTemplate struct {
 	mux         sync.Mutex
 	contentHTML string
 	contentText string
+
+	// Parsed templates - lazy initialized
+	parsedHTML *htmltpl.Template
+	parsedText *texttpl.Template
+	parseOnce  sync.Once
 }
 
 func (et *EmailTemplate) Name() string        { return et.name }
@@ -75,15 +80,31 @@ func (et *EmailTemplate) Hash() string {
 	return et.hash
 }
 
-func (et *EmailTemplate) Parse() (*htmltpl.Template, *texttpl.Template) {
-	return htmltpl.Must(htmltpl.New("HtmlBody").Parse(et.ContentHTML())),
-		texttpl.Must(texttpl.New("TextBody").Parse(et.ContentText()))
+func (et *EmailTemplate) ensureParsed(ctx context.Context) {
+	et.parseOnce.Do(func() {
+		if len(et.contentHTML) > 0 {
+			if tpl, err := htmltpl.New("HtmlBody").Parse(et.contentHTML); err != nil {
+				slog.ErrorContext(ctx, "Failed to parse HTML template", ErrAttr(err))
+			} else {
+				et.parsedHTML = tpl
+			}
+		}
+		if len(et.contentText) > 0 {
+			if tpl, err := texttpl.New("TextBody").Parse(et.contentText); err != nil {
+				slog.ErrorContext(ctx, "Failed to parse text template", ErrAttr(err))
+			} else {
+				et.parsedText = tpl
+			}
+		}
+	})
 }
 
-func RenderHTMLTemplate(ctx context.Context, tpl *htmltpl.Template, data interface{}) (string, error) {
+func (et *EmailTemplate) RenderHTML(ctx context.Context, data interface{}) (string, error) {
+	et.ensureParsed(ctx)
+
 	var buf bytes.Buffer
-	if tpl != nil {
-		if err := tpl.Execute(&buf, data); err != nil {
+	if et.parsedHTML != nil {
+		if err := et.parsedHTML.Execute(&buf, data); err != nil {
 			slog.ErrorContext(ctx, "Failed to execute HTML template", ErrAttr(err))
 			return "", err
 		}
@@ -92,10 +113,12 @@ func RenderHTMLTemplate(ctx context.Context, tpl *htmltpl.Template, data interfa
 	return buf.String(), nil
 }
 
-func RenderTextTemplate(ctx context.Context, tpl *texttpl.Template, data interface{}) (string, error) {
+func (et *EmailTemplate) RenderText(ctx context.Context, data interface{}) (string, error) {
+	et.ensureParsed(ctx)
+
 	var buf bytes.Buffer
-	if tpl != nil {
-		if err := tpl.Execute(&buf, data); err != nil {
+	if et.parsedText != nil {
+		if err := et.parsedText.Execute(&buf, data); err != nil {
 			slog.ErrorContext(ctx, "Failed to execute Text template", ErrAttr(err))
 			return "", err
 		}
