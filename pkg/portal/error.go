@@ -41,13 +41,15 @@ func (s *Server) renderError(ctx context.Context, w http.ResponseWriter, code in
 	}
 
 	actualData := struct {
-		Params interface{}
-		Const  interface{}
-		Ctx    interface{}
+		Params   interface{}
+		Const    interface{}
+		Ctx      interface{}
+		Platform interface{}
 	}{
-		Params: data,
-		Const:  s.RenderConstants,
-		Ctx:    reqCtx,
+		Params:   data,
+		Const:    s.RenderConstants,
+		Ctx:      reqCtx,
+		Platform: s.PlatformCtx,
 	}
 
 	switch code {
