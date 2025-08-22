@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	htmltpl "html/template"
 	"log/slog"
-	"text/template"
+	texttpl "text/template"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/billing"
@@ -110,8 +111,8 @@ func indexTemplates(ctx context.Context, templates []*common.EmailTemplate) map[
 }
 
 type preparedNotificationTemplate struct {
-	htmlTemplate *template.Template
-	textTemplate *template.Template
+	htmlTemplate *htmltpl.Template
+	textTemplate *texttpl.Template
 	name         string
 }
 
@@ -140,7 +141,7 @@ func (j *UserEmailNotificationsJob) retrieveTemplate(ctx context.Context,
 	nt := &preparedNotificationTemplate{name: name}
 
 	if len(contentHTML) > 0 {
-		if tplHTML, err := template.New("NotificationHTML").Parse(contentHTML); err != nil {
+		if tplHTML, err := htmltpl.New("NotificationHTML").Parse(contentHTML); err != nil {
 			hlog.ErrorContext(ctx, "Failed to parse HTML template", "name", name, common.ErrAttr(err))
 			return nil, err
 		} else {
@@ -149,7 +150,7 @@ func (j *UserEmailNotificationsJob) retrieveTemplate(ctx context.Context,
 	}
 
 	if len(contentText) > 0 {
-		if tplText, err := template.New("NotificationText").Parse(contentText); err != nil {
+		if tplText, err := texttpl.New("NotificationText").Parse(contentText); err != nil {
 			hlog.ErrorContext(ctx, "Failed to parse text template", "name", name, common.ErrAttr(err))
 			return nil, err
 		} else {
