@@ -219,7 +219,6 @@ type Property struct {
 	ValidityInterval time.Duration      `db:"validity_interval" json:"validity_interval"`
 	AllowSubdomains  bool               `db:"allow_subdomains" json:"allow_subdomains"`
 	AllowLocalhost   bool               `db:"allow_localhost" json:"allow_localhost"`
-	AllowReplay      bool               `db:"allow_replay" json:"allow_replay"`
 	MaxReplayCount   int32              `db:"max_replay_count" json:"max_replay_count"`
 }
 
