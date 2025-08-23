@@ -293,7 +293,7 @@ func (s *Server) validatePropertyName(ctx context.Context, name string, orgID in
 	return ""
 }
 
-func (s *Server) validateDomainName(ctx context.Context, domain string) string {
+func (s *Server) validateDomainName(ctx context.Context, domain string, ignoreResolveError bool) string {
 	if len(domain) == 0 {
 		return "Domain name cannot be empty."
 	}
@@ -312,6 +312,10 @@ func (s *Server) validateDomainName(ctx context.Context, domain string) string {
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to validate domain name", "domain", domain, common.ErrAttr(err))
 		return "Domain name is not valid."
+	}
+
+	if ignoreResolveError {
+		return ""
 	}
 
 	const timeout = 3 * time.Second
@@ -486,12 +490,11 @@ func (s *Server) postNewOrgProperty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, ignoreError := r.Form[common.ParamIgnoreError]; !ignoreError {
-		if domainError := s.validateDomainName(ctx, domain); len(domainError) > 0 {
-			renderCtx.DomainError = domainError
-			s.render(w, r, createPropertyFormTemplate, renderCtx)
-			return
-		}
+	_, ignoreError := r.Form[common.ParamIgnoreError]
+	if domainError := s.validateDomainName(ctx, domain, ignoreError); len(domainError) > 0 {
+		renderCtx.DomainError = domainError
+		s.render(w, r, createPropertyFormTemplate, renderCtx)
+		return
 	}
 
 	if limitError := s.validatePropertiesLimit(ctx, org, user); len(limitError) > 0 {

@@ -661,6 +661,10 @@ func (impl *BusinessStoreImpl) CreateNewProperty(ctx context.Context, params *db
 		return nil, ErrMaintenance
 	}
 
+	if (params == nil) || (len(params.Domain) == 0) || (len(params.Name) == 0) {
+		return nil, ErrInvalidInput
+	}
+
 	property, err := impl.querier.CreateProperty(ctx, params)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to create property in DB", "name", params.Name, "org", params.OrgID, common.ErrAttr(err))
