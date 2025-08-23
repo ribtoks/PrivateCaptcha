@@ -17,9 +17,6 @@ type StubRateLimiter struct {
 
 var _ HTTPRateLimiter = (*StubRateLimiter)(nil)
 
-func (srl *StubRateLimiter) Shutdown() {
-	// BUMP
-}
 func (srl *StubRateLimiter) context(r *http.Request) context.Context {
 	var value string
 	if len(srl.Header) > 0 {

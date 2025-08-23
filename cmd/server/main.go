@@ -154,7 +154,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	mailer := portal.NewPortalMailer("https:"+cdnURLConfig.URL(), "https:"+portalURLConfig.URL(), sender, cfg)
 
 	rateLimitHeader := cfg.Get(common.RateLimitHeaderKey).Value()
-	ipRateLimiter := ratelimit.NewIPAddrRateLimiter("general", rateLimitHeader, newIPAddrBuckets(cfg))
+	ipRateLimiter := ratelimit.NewIPAddrRateLimiter(rateLimitHeader, newIPAddrBuckets(cfg))
 
 	apiServer := &api.Server{
 		Stage:              stage,
@@ -398,7 +398,6 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		jobs.Shutdown()
 		sessionStore.Shutdown()
 		apiServer.Shutdown()
-		ipRateLimiter.Shutdown()
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), _shutdownPeriod)
 		defer cancel()
 		httpServer.SetKeepAlivesEnabled(false)

@@ -1,11 +1,9 @@
 package ratelimit
 
 import (
-	"context"
 	"log/slog"
 	"net/http"
 	"net/netip"
-	"strings"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -32,16 +30,10 @@ func clientIPAddr(strategy realclientip.Strategy, r *http.Request) netip.Addr {
 type IPAddrBuckets = leakybucket.Manager[netip.Addr, leakybucket.ConstLeakyBucket[netip.Addr], *leakybucket.ConstLeakyBucket[netip.Addr]]
 
 func NewIPAddrBuckets(maxBuckets int, bucketCap uint32, leakInterval time.Duration) *IPAddrBuckets {
-	buckets := leakybucket.NewManager[netip.Addr, leakybucket.ConstLeakyBucket[netip.Addr]](maxBuckets, bucketCap, leakInterval)
-
-	// we setup a separate bucket for "missing" IPs with empty key
-	// with a different burst, assuming a misconfiguration on our side
-	buckets.SetDefaultBucket(leakybucket.NewConstBucket(netip.Addr{}, 1 /*capacity*/, leakInterval, time.Now()))
-
-	return buckets
+	return leakybucket.NewManager[netip.Addr, leakybucket.ConstLeakyBucket[netip.Addr]](maxBuckets, bucketCap, leakInterval)
 }
 
-func NewIPAddrRateLimiter(name, header string, buckets *IPAddrBuckets) *httpRateLimiter[netip.Addr] {
+func NewIPAddrRateLimiter(header string, buckets *IPAddrBuckets) *httpRateLimiter[netip.Addr] {
 	var strategy realclientip.Strategy
 
 	if len(header) > 0 {
@@ -53,20 +45,12 @@ func NewIPAddrRateLimiter(name, header string, buckets *IPAddrBuckets) *httpRate
 	}
 
 	limiter := &httpRateLimiter[netip.Addr]{
-		name:               name,
 		rejectedHandler:    defaultRejectedHandler,
 		strategy:           strategy,
 		buckets:            buckets,
 		keyFunc:            func(r *http.Request) netip.Addr { return clientIPAddr(strategy, r) },
 		retryJitterPercent: 0.2, // 20%
 	}
-
-	name = strings.ToLower(name)
-
-	var cancelCtx context.Context
-	cancelCtx, limiter.cleanupCancel = context.WithCancel(
-		context.WithValue(context.Background(), common.TraceIDContextKey, name+"_ip_rate_limiter_cleanup"))
-	go limiter.cleanup(cancelCtx)
 
 	return limiter
 }

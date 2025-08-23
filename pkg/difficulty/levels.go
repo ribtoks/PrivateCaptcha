@@ -25,7 +25,6 @@ type Levels struct {
 	backfillChan    chan *common.BackfillRequest
 	batchSize       int
 	accessLogCancel context.CancelFunc
-	cleanupCancel   context.CancelFunc
 }
 
 func NewLevels(timeSeries common.TimeSeriesStore, batchSize int, bucketSize time.Duration) *Levels {
@@ -51,7 +50,6 @@ func NewLevels(timeSeries common.TimeSeriesStore, batchSize int, bucketSize time
 		backfillChan:    make(chan *common.BackfillRequest, batchSize),
 		batchSize:       batchSize,
 		accessLogCancel: func() {},
-		cleanupCancel:   func() {},
 	}
 
 	return levels
@@ -106,25 +104,12 @@ func (levels *Levels) Init(accessLogInterval, backfillInterval time.Duration) {
 
 	go levels.backfillDifficulty(context.WithValue(context.Background(), common.TraceIDContextKey, "backfill_difficulty"),
 		backfillInterval)
-
-	var cancelCtx context.Context
-	cancelCtx, levels.cleanupCancel = context.WithCancel(
-		context.WithValue(context.Background(), common.TraceIDContextKey, "cleanup_stats"))
-	// bucket window is currently 5 minutes so it may change at a minute step
-	// here we have 30 seconds since 1 minute sounds like way too long
-	go common.ChunkedCleanup(cancelCtx, 1*time.Second, 30*time.Second, 100 /*chunkSize*/, func(ctx context.Context, t time.Time, size int) int {
-		return levels.propertyBuckets.Cleanup(ctx, t, size, nil /*cleanup callback*/)
-	})
-	go common.ChunkedCleanup(cancelCtx, 1*time.Second, 30*time.Second, 100 /*chunkSize*/, func(ctx context.Context, t time.Time, size int) int {
-		return levels.userBuckets.Cleanup(ctx, t, size, nil /*cleanup callback*/)
-	})
 }
 
 func (l *Levels) Shutdown() {
 	slog.Debug("Shutting down levels routines")
 	l.accessLogCancel()
 	close(l.accessChan)
-	l.cleanupCancel()
 	close(l.backfillChan)
 }
 

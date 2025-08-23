@@ -13,8 +13,6 @@ type LeakyBucket[TKey comparable] interface {
 	Add(tnow time.Time, n TLevel) (TLevel, TLevel)
 	Update(capacity TLevel, leakInterval time.Duration)
 	Key() TKey
-	Index() int
-	SetIndex(i int)
 	LastAccessTime() time.Time
 	LeakInterval() time.Duration
 	Capacity() TLevel
@@ -32,8 +30,6 @@ type ConstLeakyBucket[TKey comparable] struct {
 	// each {leakInterval} we loose 1 bucket level
 	// e.g. to have 5 levels/second leak rate use {leakInterval = time.Second / 5}
 	leakInterval time.Duration
-	// index of this bucket in the priority queue (needed to implement it "the Go way")
-	index int
 }
 
 func (lb *ConstLeakyBucket[TKey]) Init(key TKey, capacity TLevel, leakInterval time.Duration, tnow time.Time) {
@@ -41,14 +37,6 @@ func (lb *ConstLeakyBucket[TKey]) Init(key TKey, capacity TLevel, leakInterval t
 	lb.capacity = capacity
 	lb.leakInterval = leakInterval
 	lb.lastAccessTime = tnow
-}
-
-func (lb *ConstLeakyBucket[TKey]) Index() int {
-	return lb.index
-}
-
-func (lb *ConstLeakyBucket[TKey]) SetIndex(i int) {
-	lb.index = i
 }
 
 func (lb *ConstLeakyBucket[TKey]) LeakInterval() time.Duration {

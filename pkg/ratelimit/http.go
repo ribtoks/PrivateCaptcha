@@ -39,7 +39,6 @@ func clientIP(strategy realclientip.Strategy, r *http.Request) string {
 }
 
 type HTTPRateLimiter interface {
-	Shutdown()
 	RateLimit(next http.Handler) http.Handler
 	// this API allows to create a "view" (in SQL sense) to underlying rate limiter with other defaults for new buckets
 	RateLimitExFunc(initCapacity leakybucket.TLevel, initLeakInterval time.Duration) func(next http.Handler) http.Handler
@@ -48,11 +47,9 @@ type HTTPRateLimiter interface {
 }
 
 type httpRateLimiter[TKey comparable] struct {
-	name            string
 	rejectedHandler http.HandlerFunc
 	buckets         *leakybucket.Manager[TKey, leakybucket.ConstLeakyBucket[TKey], *leakybucket.ConstLeakyBucket[TKey]]
 	strategy        realclientip.Strategy
-	cleanupCancel   context.CancelFunc
 	keyFunc         func(r *http.Request) TKey
 	// prevent stampeding herds problem with random increase to Retry-After
 	retryJitterPercent float64
@@ -60,22 +57,8 @@ type httpRateLimiter[TKey comparable] struct {
 
 var _ HTTPRateLimiter = (*httpRateLimiter[string])(nil)
 
-func (l *httpRateLimiter[TKey]) Shutdown() {
-	l.cleanupCancel()
-}
-
 func (l *httpRateLimiter[TKey]) UpdateLimits(capacity leakybucket.TLevel, leakInterval time.Duration) {
 	l.buckets.SetGlobalLimits(capacity, leakInterval)
-}
-
-func (l *httpRateLimiter[TKey]) cleanup(ctx context.Context) {
-	const jitter = 4 * time.Second
-	// don't overload server on start
-	time.Sleep(10*time.Second + time.Duration(randv2.Int64N(int64(jitter))))
-
-	common.ChunkedCleanup(ctx, 1*time.Second, 10*time.Second, 100 /*chunkSize*/, func(ctx context.Context, t time.Time, size int) int {
-		return l.buckets.Cleanup(ctx, t, size, nil /*callback*/)
-	})
 }
 
 func (l *httpRateLimiter[TKey]) RateLimitExFunc(initCapacity leakybucket.TLevel, initLeakInterval time.Duration) func(next http.Handler) http.Handler {
@@ -95,7 +78,7 @@ func (l *httpRateLimiter[TKey]) RateLimitExFunc(initCapacity leakybucket.TLevel,
 				ctx := context.WithValue(r.Context(), common.RateLimitKeyContextKey, key)
 				next.ServeHTTP(w, r.WithContext(ctx))
 			} else {
-				slog.Log(r.Context(), common.LevelTrace, "Rate limiting request", "ratelimiter", l.name,
+				slog.Log(r.Context(), common.LevelTrace, "Rate limiting request",
 					"key", key, "host", r.Host, "path", r.URL.Path, "method", r.Method,
 					"level", addResult.CurrLevel, "capacity", addResult.Capacity, "resetAfter", addResult.ResetAfter.String(),
 					"retryAfter", addResult.RetryAfter.String(), "found", addResult.Found)
@@ -122,7 +105,7 @@ func (l *httpRateLimiter[TKey]) RateLimit(next http.Handler) http.Handler {
 			ctx := context.WithValue(r.Context(), common.RateLimitKeyContextKey, key)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		} else {
-			slog.Log(r.Context(), common.LevelTrace, "Rate limiting request", "ratelimiter", l.name,
+			slog.Log(r.Context(), common.LevelTrace, "Rate limiting request",
 				"key", key, "host", r.Host, "path", r.URL.Path, "method", r.Method,
 				"level", addResult.CurrLevel, "capacity", addResult.Capacity, "resetAfter", addResult.ResetAfter.String(),
 				"retryAfter", addResult.RetryAfter.String(), "found", addResult.Found)
