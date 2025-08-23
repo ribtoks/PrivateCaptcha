@@ -281,7 +281,7 @@ func (s *Server) puzzleForRequest(r *http.Request) (*puzzle.Puzzle, *dbgen.Prope
 	tnow := time.Now()
 	puzzleDifficulty := s.Levels.Difficulty(fingerprint, property, tnow)
 
-	puzzleID := puzzle.RandomPuzzleID()
+	puzzleID := puzzle.NextPuzzleID()
 	result := puzzle.NewPuzzle(puzzleID, property.ExternalID.Bytes, puzzleDifficulty)
 	if err := result.Init(property.ValidityInterval); err != nil {
 		slog.ErrorContext(ctx, "Failed to init puzzle", common.ErrAttr(err))

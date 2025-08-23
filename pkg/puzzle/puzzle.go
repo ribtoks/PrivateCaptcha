@@ -11,11 +11,11 @@ import (
 	"hash/fnv"
 	"io"
 	"log/slog"
-	randv2 "math/rand/v2"
 	"strconv"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
+	"github.com/rs/xid"
 )
 
 const (
@@ -80,15 +80,13 @@ func (p *Puzzle) HashValue() uint32 {
 	return hasher.Sum32()
 }
 
-func RandomPuzzleID() uint64 {
-	const maxTries = 10
-	var puzzleID uint64
+func NextPuzzleID() uint64 {
+	hasher := fnv.New64a()
 
-	for i := 0; (i < maxTries) && (puzzleID == 0); i++ {
-		puzzleID = randv2.Uint64()
-	}
+	// we need to compress xid as it's 12 bytes
+	hasher.Write(xid.New().Bytes())
 
-	return puzzleID
+	return hasher.Sum64()
 }
 
 func (p *Puzzle) IsStub() bool {

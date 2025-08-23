@@ -25,7 +25,7 @@ func TestNewPuzzleIsZero(t *testing.T) {
 func TestPuzzleUnmarshalFail(t *testing.T) {
 	t.Parallel()
 
-	puzzle := NewPuzzle(RandomPuzzleID(), [16]byte{}, 123)
+	puzzle := NewPuzzle(NextPuzzleID(), [16]byte{}, 123)
 
 	randInit(puzzle.PropertyID[:])
 
@@ -80,7 +80,7 @@ func TestPuzzleMarshalling(t *testing.T) {
 	randInit(propertyID[:])
 
 	// Create a sample Puzzle
-	puzzle := NewPuzzle(RandomPuzzleID(), propertyID, 123)
+	puzzle := NewPuzzle(NextPuzzleID(), propertyID, 123)
 	_ = puzzle.Init(DefaultValidityPeriod)
 
 	// Marshal the Puzzle to a byte slice
