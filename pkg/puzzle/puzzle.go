@@ -21,7 +21,7 @@ import (
 const (
 	PropertyIDSize        = 16
 	UserDataSize          = 16
-	DefaultValidityPeriod = 6 * time.Hour
+	DefaultValidityPeriod = 30 * time.Minute
 	puzzleVersion         = 1
 	solutionsCount        = 16
 )

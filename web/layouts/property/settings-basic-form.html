@@ -69,12 +69,15 @@
         <label for="{{ .Const.ValidityInterval }}" class="pc-internal-form-label tooltip" data-tooltip="Period during which a single captcha puzzle can be verified"> Verification window </label>
         <div class="mt-2">
             <select name="{{ .Const.ValidityInterval }}" {{ if not .Params.CanEdit }}disabled{{ end }} class="pc-internal-form-select {{ if not .Params.CanEdit }}pc-internal-form-select-disabled{{ end }}">
-                <option value="0" {{ if eq $.Params.Property.ValidityInterval 0 }}selected="selected"{{end}}>1 hour</option>
-                <option value="1" {{ if eq $.Params.Property.ValidityInterval 1 }}selected="selected"{{end}}>6 hours</option>
-                <option value="2" {{ if eq $.Params.Property.ValidityInterval 2 }}selected="selected"{{end}}>12 hours</option>
-                <option value="3" {{ if eq $.Params.Property.ValidityInterval 3 }}selected="selected"{{end}}>1 day</option>
-                <option value="4" {{ if eq $.Params.Property.ValidityInterval 4 }}selected="selected"{{end}}>2 days</option>
-                <option value="4" {{ if eq $.Params.Property.ValidityInterval 5 }}selected="selected"{{end}}>1 week</option>
+                <option value="0" {{ if eq $.Params.Property.ValidityInterval 0 }}selected="selected"{{end}}>5 minutes</option>
+                <option value="1" {{ if eq $.Params.Property.ValidityInterval 1 }}selected="selected"{{end}}>10 minutes</option>
+                <option value="2" {{ if eq $.Params.Property.ValidityInterval 2 }}selected="selected"{{end}}>30 minutes</option>
+                <option value="3" {{ if eq $.Params.Property.ValidityInterval 3 }}selected="selected"{{end}}>1 hour</option>
+                <option value="4" {{ if eq $.Params.Property.ValidityInterval 4 }}selected="selected"{{end}}>6 hours</option>
+                <option value="5" {{ if eq $.Params.Property.ValidityInterval 5 }}selected="selected"{{end}}>12 hours</option>
+                <option value="6" {{ if eq $.Params.Property.ValidityInterval 6 }}selected="selected"{{end}}>1 day</option>
+                <option value="7" {{ if eq $.Params.Property.ValidityInterval 7 }}selected="selected"{{end}}>2 days</option>
+                <option value="8" {{ if eq $.Params.Property.ValidityInterval 8 }}selected="selected"{{end}}>1 week</option>
             </select>
         </div>
 

@@ -32,6 +32,18 @@ const (
 	activeSubscriptionForPropertyError    = "You need an active subscription to create new properties."
 )
 
+var validityDurations = []time.Duration{
+	5 * time.Minute,
+	10 * time.Minute,
+	30 * time.Minute,
+	1 * time.Hour,
+	6 * time.Hour,
+	12 * time.Hour,
+	24 * time.Hour,
+	2 * 24 * time.Hour,
+	7 * 24 * time.Hour,
+}
+
 type difficultyLevelsRenderContext struct {
 	EasyLevel   int
 	NormalLevel int
@@ -178,22 +190,13 @@ func growthLevelFromIndex(ctx context.Context, index string) dbgen.DifficultyGro
 }
 
 func validityIntervalToIndex(period time.Duration) int {
-	switch period {
-	case 1 * time.Hour:
-		return 0
-	case 6 * time.Hour:
-		return 1
-	case 12 * time.Hour:
-		return 2
-	case 24 * time.Hour:
-		return 3
-	case 2 * 24 * time.Hour:
-		return 4
-	case 7 * 24 * time.Hour:
-		return 5
-	default:
-		return 1
+	for i, d := range validityDurations {
+		if d == period {
+			return i
+		}
 	}
+
+	return 3
 }
 
 func validityIntervalFromIndex(ctx context.Context, index string) time.Duration {
@@ -203,23 +206,12 @@ func validityIntervalFromIndex(ctx context.Context, index string) time.Duration 
 		return puzzle.DefaultValidityPeriod
 	}
 
-	switch i {
-	case 0:
-		return 1 * time.Hour
-	case 1:
-		return 6 * time.Hour
-	case 2:
-		return 12 * time.Hour
-	case 3:
-		return 24 * time.Hour
-	case 4:
-		return 2 * 24 * time.Hour
-	case 5:
-		return 7 * 24 * time.Hour
-	default:
-		slog.WarnContext(ctx, "Invalid validity period index", "index", i)
-		return puzzle.DefaultValidityPeriod
+	if i >= 0 && i < len(validityDurations) {
+		return validityDurations[i]
 	}
+
+	slog.WarnContext(ctx, "Invalid validity period index", "index", i)
+	return puzzle.DefaultValidityPeriod
 }
 
 func parseMaxReplayCount(ctx context.Context, value string) int32 {
