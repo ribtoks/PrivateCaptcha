@@ -45,7 +45,7 @@ type BusinessStore struct {
 	cacheOnlyImpl *BusinessStoreImpl
 	Cache         common.Cache[CacheKey, any]
 	// this could have been a bloom/cuckoo filter with expiration, if they existed
-	puzzleCache     common.Cache[uint32, uint32]
+	puzzleCache     *puzzleCache
 	MaintenanceMode atomic.Bool
 }
 
@@ -53,8 +53,8 @@ type Implementor interface {
 	Impl() *BusinessStoreImpl
 	WithTx(ctx context.Context, fn func(*BusinessStoreImpl) error) error
 	Ping(ctx context.Context) error
-	CheckPuzzleCached(ctx context.Context, p *puzzle.Puzzle) bool
-	CachePuzzle(ctx context.Context, p *puzzle.Puzzle, tnow time.Time) error
+	CheckVerifiedPuzzle(ctx context.Context, p *puzzle.Puzzle, maxCount uint32) bool
+	CacheVerifiedPuzzle(ctx context.Context, p *puzzle.Puzzle, tnow time.Time)
 	CacheHitRatio() float64
 }
 
@@ -74,21 +74,12 @@ func NewBusiness(pool *pgxpool.Pool) *BusinessStore {
 }
 
 func NewBusinessEx(pool *pgxpool.Pool, cache common.Cache[CacheKey, any]) *BusinessStore {
-	const maxPuzzleCacheSize = 100_000
-	var puzzleCache common.Cache[uint32, uint32]
-	var err error
-	puzzleCache, err = NewMemoryCache[uint32, uint32]("puzzle", maxPuzzleCacheSize, 0 /*missing value*/, defaultCacheTTL, defaultCacheRefresh, negativeCacheTTL)
-	if err != nil {
-		slog.Error("Failed to create puzzle memory cache", common.ErrAttr(err))
-		puzzleCache = NewStaticCache[uint32, uint32](maxPuzzleCacheSize, 0 /*missing value*/)
-	}
-
 	return &BusinessStore{
 		Pool:          pool,
 		defaultImpl:   &BusinessStoreImpl{cache: cache, querier: dbgen.New(pool)},
 		cacheOnlyImpl: &BusinessStoreImpl{cache: cache},
 		Cache:         cache,
-		puzzleCache:   puzzleCache,
+		puzzleCache:   newPuzzleCache(puzzle.DefaultValidityPeriod),
 	}
 }
 
@@ -150,28 +141,28 @@ func (s *BusinessStore) CacheHitRatio() float64 {
 	return s.Cache.HitRatio()
 }
 
-func (s *BusinessStore) CheckPuzzleCached(ctx context.Context, p *puzzle.Puzzle) bool {
+func (s *BusinessStore) CheckVerifiedPuzzle(ctx context.Context, p *puzzle.Puzzle, maxCount uint32) bool {
 	if p == nil || p.IsZero() {
 		return false
 	}
 
 	// purely theoretically there's still a chance of cache collision, but it's so negligible that it's allowed
-	// (HashKey() and HashValue() have to match during puzzle.DefaultValidityPeriod on the same server
-	value, err := s.puzzleCache.Get(ctx, p.HashKey())
-	return (err == nil) && (p.HashValue() == value)
+	// (HashKey() has to match during puzzle.DefaultValidityPeriod on the same server)
+	return !s.puzzleCache.CheckCount(ctx, p.HashKey(), maxCount)
 }
 
-func (s *BusinessStore) CachePuzzle(ctx context.Context, p *puzzle.Puzzle, tnow time.Time) error {
+func (s *BusinessStore) CacheVerifiedPuzzle(ctx context.Context, p *puzzle.Puzzle, tnow time.Time) {
 	if p == nil || p.IsZero() {
 		slog.Log(ctx, common.LevelTrace, "Skipping caching zero puzzle")
-		return nil
+		return
 	}
 
 	// this check should have been done before in the pipeline. Here the check only to safeguard storing in cache
 	if !tnow.Before(p.Expiration) {
 		slog.WarnContext(ctx, "Skipping caching expired puzzle", "now", tnow, "expiration", p.Expiration)
-		return nil
+		return
 	}
 
-	return s.puzzleCache.SetWithTTL(ctx, p.HashKey(), p.HashValue(), p.Expiration.Sub(tnow))
+	value := s.puzzleCache.Inc(ctx, p.HashKey(), p.Expiration.Sub(tnow))
+	slog.Log(ctx, common.LevelTrace, "Cached verified puzzle", "times", value)
 }

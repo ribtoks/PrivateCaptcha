@@ -56,6 +56,7 @@ type userProperty struct {
 	Level            int
 	Growth           int
 	ValidityInterval int
+	MaxReplayCount   int
 	AllowSubdomains  bool
 	AllowLocalhost   bool
 	AllowReplay      bool
@@ -107,7 +108,7 @@ func createDifficultyLevelsRenderContext() difficultyLevelsRenderContext {
 }
 
 func propertyToUserProperty(p *dbgen.Property) *userProperty {
-	return &userProperty{
+	up := &userProperty{
 		ID:               strconv.Itoa(int(p.ID)),
 		OrgID:            strconv.Itoa(int(p.OrgID.Int32)),
 		Name:             p.Name,
@@ -115,10 +116,13 @@ func propertyToUserProperty(p *dbgen.Property) *userProperty {
 		Level:            int(p.Level.Int16),
 		Growth:           growthLevelToIndex(p.Growth),
 		ValidityInterval: validityIntervalToIndex(p.ValidityInterval),
-		AllowReplay:      p.AllowReplay,
+		AllowReplay:      (p.MaxReplayCount > 1),
+		MaxReplayCount:   max(1, int(p.MaxReplayCount)),
 		AllowSubdomains:  p.AllowSubdomains,
 		AllowLocalhost:   p.AllowLocalhost,
 	}
+
+	return up
 }
 
 func propertiesToUserProperties(ctx context.Context, properties []*dbgen.Property) []*userProperty {
@@ -216,6 +220,23 @@ func validityIntervalFromIndex(ctx context.Context, index string) time.Duration 
 		slog.WarnContext(ctx, "Invalid validity period index", "index", i)
 		return puzzle.DefaultValidityPeriod
 	}
+}
+
+func parseMaxReplayCount(ctx context.Context, value string) int32 {
+	i, err := strconv.Atoi(value)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to parse max replay count", "value", value, common.ErrAttr(err))
+		return 1
+	}
+
+	const maxValue = 1_000_000
+	const minValue = 1
+
+	if (i < minValue) || (i > maxValue) {
+		slog.ErrorContext(ctx, "Invalid value of max replay count", "value", value)
+	}
+
+	return max(minValue, min(int32(i), maxValue))
 }
 
 func difficultyLevelFromValue(ctx context.Context, value string) common.DifficultyLevel {
@@ -761,16 +782,20 @@ func (s *Server) putProperty(w http.ResponseWriter, r *http.Request) (Model, str
 	validityInterval := validityIntervalFromIndex(ctx, r.FormValue(common.ParamValidityInterval))
 	_, allowSubdomains := r.Form[common.ParamAllowSubdomains]
 	_, allowLocalhost := r.Form[common.ParamAllowLocalhost]
-	_, allowReplay := r.Form[common.ParamAllowReplay]
+
+	var maxReplayCount int32 = 1
+	if _, allowReplay := r.Form[common.ParamAllowReplay]; allowReplay {
+		maxReplayCount = parseMaxReplayCount(ctx, r.FormValue(common.ParamMaxReplayCount))
+	}
 
 	if (name != property.Name) ||
 		(int16(difficulty) != property.Level.Int16) ||
 		(growth != property.Growth) ||
 		(validityInterval != property.ValidityInterval) ||
-		(allowReplay != property.AllowReplay) ||
+		(maxReplayCount != property.MaxReplayCount) ||
 		(allowSubdomains != property.AllowSubdomains) ||
 		(allowLocalhost != property.AllowLocalhost) {
-		if updatedProperty, err := s.Store.Impl().UpdateProperty(ctx, &dbgen.UpdatePropertyParams{
+		params := &dbgen.UpdatePropertyParams{
 			ID:               property.ID,
 			Name:             name,
 			Level:            db.Int2(int16(difficulty)),
@@ -778,8 +803,10 @@ func (s *Server) putProperty(w http.ResponseWriter, r *http.Request) (Model, str
 			ValidityInterval: validityInterval,
 			AllowSubdomains:  allowSubdomains,
 			AllowLocalhost:   allowLocalhost,
-			AllowReplay:      allowReplay,
-		}); err != nil {
+			MaxReplayCount:   maxReplayCount,
+		}
+
+		if updatedProperty, err := s.Store.Impl().UpdateProperty(ctx, params); err != nil {
 			renderCtx.ErrorMessage = "Failed to update settings. Please try again."
 		} else {
 			slog.DebugContext(ctx, "Edited property", "propID", property.ID, "orgID", org.ID)

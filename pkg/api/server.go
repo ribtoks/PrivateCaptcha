@@ -413,10 +413,8 @@ func (s *Server) Verify(ctx context.Context, data []byte, expectedOwner puzzle.O
 		return result, nil
 	}
 
-	if (puzzleObject != nil) && (property != nil) && !property.AllowReplay {
-		if cerr := s.BusinessDB.CachePuzzle(ctx, puzzleObject, tnow); cerr != nil {
-			slog.ErrorContext(ctx, "Failed to cache puzzle", "puzzleID", puzzleObject.PuzzleID, common.ErrAttr(cerr))
-		}
+	if (puzzleObject != nil) && (property != nil) && (property.MaxReplayCount > 0) {
+		s.BusinessDB.CacheVerifiedPuzzle(ctx, puzzleObject, tnow)
 	} else if puzzleObject != nil {
 		slog.Log(ctx, common.LevelTrace, "Skipping caching puzzle", "puzzleID", puzzleObject.PuzzleID)
 	}
@@ -561,11 +559,6 @@ func (s *Server) verifyPuzzleValid(ctx context.Context, payload *puzzle.VerifyPa
 		}
 	}
 
-	if s.BusinessDB.CheckPuzzleCached(ctx, p) {
-		plog.WarnContext(ctx, "Puzzle is already cached")
-		return p, nil, puzzle.VerifiedBeforeError
-	}
-
 	// the reason we delay accessing DB for API key and not for sitekey is that sitekey comes from a signed puzzle payload
 	// and API key is a rather random string in HTTP header so has a higher chance of misuse
 	sitekey := db.UUIDToSiteKey(pgtype.UUID{Valid: true, Bytes: p.PropertyID})
@@ -580,6 +573,16 @@ func (s *Server) verifyPuzzleValid(ctx context.Context, payload *puzzle.VerifyPa
 			plog.ErrorContext(ctx, "Failed to find property by sitekey", "sitekey", sitekey, common.ErrAttr(err))
 			return p, nil, puzzle.VerifyErrorOther
 		}
+	}
+
+	var maxCount uint32 = 1
+	if (property != nil) && (property.MaxReplayCount > 0) {
+		maxCount = uint32(property.MaxReplayCount)
+	}
+
+	if s.BusinessDB.CheckVerifiedPuzzle(ctx, p, maxCount) {
+		plog.WarnContext(ctx, "Puzzle is already cached", "count", maxCount)
+		return p, nil, puzzle.VerifiedBeforeError
 	}
 
 	if payload.NeedsExtraSalt() {

@@ -65,7 +65,7 @@
         </div>
     </div>
 
-    <div class="col-span-full">
+    <div class="col-span-full" x-data="{replayEnabled: {{ $.Params.Property.AllowReplay }}}">
         <label for="{{ .Const.ValidityInterval }}" class="pc-internal-form-label tooltip" data-tooltip="Period during which a single captcha puzzle can be verified"> Verification window </label>
         <div class="mt-2">
             <select name="{{ .Const.ValidityInterval }}" {{ if not .Params.CanEdit }}disabled{{ end }} class="pc-internal-form-select {{ if not .Params.CanEdit }}pc-internal-form-select-disabled{{ end }}">
@@ -81,7 +81,7 @@
         <div class="mt-2 flex gap-3">
             <div class="flex h-6 shrink-0 items-center">
                 <div class="group grid size-4 grid-cols-1">
-                    <input id="{{ .Const.AllowReplay }}" aria-describedby="{{ .Const.AllowReplay }}-description" name="{{ .Const.AllowReplay }}" type="checkbox" {{ if $.Params.Property.AllowReplay }}checked{{ end }} class="col-start-1 row-start-1 pc-internal-form-checkbox">
+                    <input id="{{ .Const.AllowReplay }}" x-model="replayEnabled" aria-describedby="{{ .Const.AllowReplay }}-description" name="{{ .Const.AllowReplay }}" type="checkbox" class="col-start-1 row-start-1 pc-internal-form-checkbox">
                     <svg class="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-[:disabled]:stroke-gray-950/25" viewBox="0 0 14 14" fill="none">
                         <path class="opacity-0 group-has-[:checked]:opacity-100" d="M3 8L6 11L11 3.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                         <path class="opacity-0 group-has-[:indeterminate]:opacity-100" d="M3 7H11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -96,6 +96,10 @@
                 <span id="{{ .Const.AllowReplay }}-description" class="text-gray-500"><span class="sr-only">Accept repeated solutions</span>during verification window</span>
                 {{- end }}
             </div>
+        </div>
+
+        <div class="mt-2">
+            <input type="number" :disabled="!replayEnabled" name="{{ .Const.MaxReplayCount }}" min="1" max="1000000" placeholder="2" value="{{ $.Params.Property.MaxReplayCount }}" class="pc-internal-form-input-base" :class="replayEnabled ? 'pc-form-input-normal' : 'pc-form-input-disabled'" />
         </div>
     </div>
 

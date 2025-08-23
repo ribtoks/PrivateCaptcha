@@ -62,22 +62,17 @@ func (p *Puzzle) Init(validityPeriod time.Duration) error {
 	return nil
 }
 
-func (p *Puzzle) HashKey() uint32 {
-	hasher := fnv.New32a()
+func (p *Puzzle) HashKey() uint64 {
+	hasher := fnv.New64a()
 
 	hasher.Write(p.PropertyID[:])
 
 	var pidBytes [8]byte
 	binary.LittleEndian.PutUint64(pidBytes[:], p.PuzzleID)
 	hasher.Write(pidBytes[:])
-
-	return hasher.Sum32()
-}
-
-func (p *Puzzle) HashValue() uint32 {
-	hasher := fnv.New32a()
 	hasher.Write(p.UserData[:])
-	return hasher.Sum32()
+
+	return hasher.Sum64()
 }
 
 func NextPuzzleID() uint64 {

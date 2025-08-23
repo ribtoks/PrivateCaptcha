@@ -329,9 +329,26 @@ func TestVerifyPuzzleAllowReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	const maxReplayCount = 3
 	// this should be still cached so we don't need to actually update DB
-	property.AllowReplay = true
+	property.MaxReplayCount = maxReplayCount
 
+	for _ = range maxReplayCount {
+		resp, err := verifySuite(payload, apiKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("Unexpected submit status code %d", resp.StatusCode)
+		}
+
+		if err := checkVerifyError(resp, puzzle.VerifyNoError); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// now it should trigger an error
 	resp, err := verifySuite(payload, apiKey)
 	if err != nil {
 		t.Fatal(err)
@@ -341,13 +358,7 @@ func TestVerifyPuzzleAllowReplay(t *testing.T) {
 		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
 	}
 
-	// now second time the same
-	resp, err = verifySuite(payload, apiKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := checkVerifyError(resp, puzzle.VerifyNoError); err != nil {
+	if err := checkVerifyError(resp, puzzle.VerifiedBeforeError); err != nil {
 		t.Fatal(err)
 	}
 }

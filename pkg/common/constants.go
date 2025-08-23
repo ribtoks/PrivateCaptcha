@@ -43,6 +43,7 @@ const (
 	ParamVersion          = "version"
 	ParamPortalSolution   = "pc_portal_solution"
 	ParamTerms            = "terms"
+	ParamMaxReplayCount   = "max_replay_count"
 )
 
 var (
