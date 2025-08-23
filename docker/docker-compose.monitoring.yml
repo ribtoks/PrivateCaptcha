@@ -13,6 +13,15 @@ services:
         EXTRA_BUILD_FLAGS: '-tags profile -gcflags=all=-N'
         GO_LDFLAGS: ''
 
+  postgres:
+    ports:
+      - '127.0.0.1:5432:5432'
+
+  clickhouse:
+    ports:
+      - '127.0.0.1:9000:9000' # Native client interface
+      - '127.0.0.1:8123:8123' # HTTP interface
+
   prometheus:
     image: prom/prometheus:v3.4.1
     pull_policy: if_not_present
