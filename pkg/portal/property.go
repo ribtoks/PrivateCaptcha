@@ -315,6 +315,7 @@ func (s *Server) validateDomainName(ctx context.Context, domain string, ignoreRe
 	}
 
 	if ignoreResolveError {
+		slog.WarnContext(ctx, "Skipping resolving domain name", "domain", domain)
 		return ""
 	}
 
