@@ -31,13 +31,24 @@ type memcache[TKey comparable, TValue comparable] struct {
 	missingTTL   time.Duration
 }
 
+type pcOtterLogger struct{}
+
+func (pcOtterLogger) Warn(ctx context.Context, msg string, err error) {
+	slog.WarnContext(ctx, msg, "source", "otter", common.ErrAttr(err))
+}
+func (pcOtterLogger) Error(ctx context.Context, msg string, err error) {
+	slog.ErrorContext(ctx, msg, "source", "otter", common.ErrAttr(err))
+}
+
 func NewMemoryCache[TKey comparable, TValue comparable](name string, maxCacheSize int, missingValue TValue, expiryTTL, refreshTTL, missingTTL time.Duration) (*memcache[TKey, TValue], error) {
 	counter := stats.NewCounter()
 	store, err := otter.New(&otter.Options[TKey, TValue]{
 		MaximumSize:       maxCacheSize,
+		InitialCapacity:   max(100, maxCacheSize/1000),
 		ExpiryCalculator:  otter.ExpiryAccessing[TKey, TValue](expiryTTL),
 		RefreshCalculator: otter.RefreshWriting[TKey, TValue](refreshTTL),
 		StatsRecorder:     counter,
+		Logger:            &pcOtterLogger{},
 	})
 
 	if err != nil {

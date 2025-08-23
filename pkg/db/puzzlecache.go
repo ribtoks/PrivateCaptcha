@@ -20,6 +20,7 @@ func newPuzzleCache(expiryTTL time.Duration) *puzzleCache {
 			MaximumSize:      maxSize,
 			InitialCapacity:  initialSize,
 			ExpiryCalculator: otter.ExpiryAccessing[uint64, uint32](expiryTTL),
+			Logger:           &pcOtterLogger{},
 		}),
 	}
 }
