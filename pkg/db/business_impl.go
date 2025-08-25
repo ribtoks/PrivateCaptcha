@@ -182,6 +182,10 @@ func (impl *BusinessStoreImpl) createNewSubscription(ctx context.Context, params
 }
 
 func (impl *BusinessStoreImpl) createNewUser(ctx context.Context, email, name string, subscriptionID *int32) (*dbgen.User, error) {
+	if (len(name) == 0) || (len(email) == 0) {
+		return nil, ErrInvalidInput
+	}
+
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
@@ -213,6 +217,10 @@ func (impl *BusinessStoreImpl) createNewUser(ctx context.Context, email, name st
 }
 
 func (impl *BusinessStoreImpl) CreateNewOrganization(ctx context.Context, name string, userID int32) (*dbgen.Organization, error) {
+	if len(name) == 0 {
+		return nil, ErrInvalidInput
+	}
+
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
@@ -657,12 +665,12 @@ func (impl *BusinessStoreImpl) FindOrg(ctx context.Context, name string, userID 
 }
 
 func (impl *BusinessStoreImpl) CreateNewProperty(ctx context.Context, params *dbgen.CreatePropertyParams) (*dbgen.Property, error) {
-	if impl.querier == nil {
-		return nil, ErrMaintenance
-	}
-
 	if (params == nil) || (len(params.Domain) == 0) || (len(params.Name) == 0) {
 		return nil, ErrInvalidInput
+	}
+
+	if impl.querier == nil {
+		return nil, ErrMaintenance
 	}
 
 	property, err := impl.querier.CreateProperty(ctx, params)
@@ -1004,6 +1012,10 @@ func (impl *BusinessStoreImpl) UpdateAPIKey(ctx context.Context, externalID pgty
 }
 
 func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, userID int32, name string, expiration time.Time, requestsPerSecond float64) (*dbgen.APIKey, error) {
+	if len(name) == 0 {
+		return nil, ErrInvalidInput
+	}
+
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
@@ -1362,6 +1374,10 @@ func (impl *BusinessStoreImpl) RetrieveSystemUserNotification(ctx context.Contex
 }
 
 func (impl *BusinessStoreImpl) CreateSystemNotification(ctx context.Context, message string, tnow time.Time, duration *time.Duration, userID *int32) (*dbgen.SystemNotification, error) {
+	if len(message) == 0 {
+		return nil, ErrInvalidInput
+	}
+
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
@@ -1504,6 +1520,10 @@ func (s *BusinessStoreImpl) RetrieveOrgProperty(ctx context.Context, orgID, prop
 }
 
 func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.CreateSubscriptionParams, email, name, orgName string, existingUserID int32) (*dbgen.User, *dbgen.Organization, error) {
+	if (len(name) == 0) || (len(email) == 0) || (len(orgName) == 0) {
+		return nil, nil, ErrInvalidInput
+	}
+
 	if s.querier == nil {
 		return nil, nil, ErrMaintenance
 	}
