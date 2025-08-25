@@ -36,6 +36,9 @@ build-tests-ee: build-tests
 build-server:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go build -ldflags="-s -w -X main.GitCommit=$(GIT_COMMIT)" $(EXTRA_BUILD_FLAGS) -o bin/server ./cmd/server
 
+build-server-profile: EXTRA_BUILD_FLAGS = -tags profile -gcflags=all=-N
+build-server-profile: build-server
+
 build-server-ee: EXTRA_BUILD_FLAGS = -tags enterprise
 build-server-ee: build-server
 

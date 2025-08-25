@@ -2,13 +2,14 @@ package db
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/maypok86/otter/v2"
 )
 
 type puzzleCache struct {
-	store *otter.Cache[uint64, uint32]
+	store *otter.Cache[uint64, *uint32]
 }
 
 func newPuzzleCache(expiryTTL time.Duration) *puzzleCache {
@@ -16,10 +17,10 @@ func newPuzzleCache(expiryTTL time.Duration) *puzzleCache {
 	const initialSize = 1_000
 
 	return &puzzleCache{
-		store: otter.Must(&otter.Options[uint64, uint32]{
+		store: otter.Must(&otter.Options[uint64, *uint32]{
 			MaximumSize:      maxSize,
 			InitialCapacity:  initialSize,
-			ExpiryCalculator: otter.ExpiryAccessing[uint64, uint32](expiryTTL),
+			ExpiryCalculator: otter.ExpiryAccessing[uint64, *uint32](expiryTTL),
 			Logger:           &pcOtterLogger{},
 		}),
 	}
@@ -27,26 +28,23 @@ func newPuzzleCache(expiryTTL time.Duration) *puzzleCache {
 
 func (pc *puzzleCache) CheckCount(ctx context.Context, key uint64, maxCount uint32) bool {
 	if count, ok := pc.store.GetIfPresent(key); ok {
-		return count < maxCount
+		return *count < maxCount
 	}
 
 	return true
 }
 
-func puzzleCacheRemapInc(oldValue uint32, found bool) (newValue uint32, op otter.ComputeOp) {
-	if !found {
-		return 1, otter.WriteOp
-	}
-
-	return oldValue + 1, otter.WriteOp
+func puzzleCacheMap() (newValue *uint32, cancel bool) {
+	return new(uint32), false
 }
 
 func (pc *puzzleCache) Inc(ctx context.Context, key uint64, ttl time.Duration) uint32 {
-	value, _ := pc.store.Compute(key, puzzleCacheRemapInc)
+	value, _ := pc.store.ComputeIfAbsent(key, puzzleCacheMap)
+	result := atomic.AddUint32(value, 1)
 
-	if value == 1 {
+	if result == 1 {
 		pc.store.SetExpiresAfter(key, ttl)
 	}
 
-	return value
+	return result
 }

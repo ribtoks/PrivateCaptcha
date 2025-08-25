@@ -81,6 +81,7 @@ type bucketUpdater[TKey comparable, T any, TBucket BucketConstraint[TKey, T]] st
 	result       AddResult
 }
 
+// NOTE: we use (abuse?) the fact that otter locks this cache bucket so we avoid having a mutex inside LeakyBucket(s) itself
 func (bl *bucketUpdater[TKey, T, TBucket]) ComputeFunc(oldValue TBucket, found bool) (TBucket, otter.ComputeOp) {
 	var bucket TBucket
 

@@ -28,15 +28,15 @@ func TestManagerAdd(t *testing.T) {
 
 func TestManagerAddParallel(t *testing.T) {
 	const maxBuckets = 8
-	const cap = 5
+	const count = 500_000
 	const key = 123
 
-	manager := NewManager[int32, ConstLeakyBucket[int32]](maxBuckets, cap, 1*time.Second)
+	manager := NewManager[int32, ConstLeakyBucket[int32]](maxBuckets, count, 1*time.Second)
 	tnow := time.Now().Truncate(1 * time.Second)
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < cap; i++ {
+	for i := 0; i < count; i++ {
 		wg.Add(1)
 
 		go func() {
@@ -52,7 +52,7 @@ func TestManagerAddParallel(t *testing.T) {
 	wg.Wait()
 
 	result := manager.Add(key, 1, tnow)
-	if result.CurrLevel != cap {
+	if result.CurrLevel != count {
 		t.Errorf("Unexpected level after full: %v", result.CurrLevel)
 	}
 	if result.Added != 0 {
