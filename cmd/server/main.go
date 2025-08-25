@@ -217,6 +217,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		CheckInterval: cfg.Get(common.HealthCheckIntervalKey),
 		Metrics:       metrics,
 	}
+	jobs := maintenance.NewJobs(businessDB)
 
 	updateConfigFunc := func(ctx context.Context) {
 		cfg.Update(ctx)
@@ -225,6 +226,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		businessDB.UpdateConfig(maintenanceMode)
 		timeSeriesDB.UpdateConfig(maintenanceMode)
 		portalServer.UpdateConfig(ctx, cfg)
+		jobs.UpdateConfig(cfg)
 		verboseLogs := config.AsBool(cfg.Get(common.VerboseKey))
 		common.SetLogLevel(logLevel, verboseLogs)
 	}
@@ -308,7 +310,6 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	}()
 
 	// start maintenance jobs
-	jobs := maintenance.NewJobs(businessDB)
 	jobs.Add(healthCheck)
 	jobs.Add(&maintenance.SessionsCleanupJob{
 		Session: portalServer.Sessions,
@@ -372,7 +373,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	if localAddress := cfg.Get(common.LocalAddressKey).Value(); len(localAddress) > 0 {
 		localRouter := http.NewServeMux()
 		metrics.Setup(localRouter)
-		jobs.Setup(localRouter)
+		jobs.Setup(localRouter, cfg)
 		localRouter.Handle(http.MethodGet+" /"+common.LiveEndpoint, common.Recovered(http.HandlerFunc(healthCheck.LiveHandler)))
 		localRouter.Handle(http.MethodGet+" /"+common.ReadyEndpoint, common.Recovered(http.HandlerFunc(healthCheck.ReadyHandler)))
 		localServer = &http.Server{

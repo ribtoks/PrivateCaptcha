@@ -28,6 +28,7 @@ type jobs struct {
 	oneOffJobs        []common.OneOffJob
 	maintenanceCancel context.CancelFunc
 	maintenanceCtx    context.Context
+	apiKey            string
 	mux               sync.Mutex
 }
 
@@ -71,10 +72,43 @@ func (j *jobs) Run() {
 	}
 }
 
-func (j *jobs) Setup(mux *http.ServeMux) {
+func (j *jobs) UpdateConfig(cfg common.ConfigStore) {
+	j.apiKey = cfg.Get(common.LocalAPIKeyKey).Value()
+}
+
+func (j *jobs) Setup(mux *http.ServeMux, cfg common.ConfigStore) {
+	j.apiKey = cfg.Get(common.LocalAPIKeyKey).Value()
+
 	const maxBytes = 256 * 1024
-	mux.Handle(http.MethodPost+" /maintenance/periodic/{job}", common.Recovered(http.MaxBytesHandler(http.HandlerFunc(j.handlePeriodicJob), maxBytes)))
-	mux.Handle(http.MethodPost+" /maintenance/oneoff/{job}", common.Recovered(http.MaxBytesHandler(http.HandlerFunc(j.handleOneoffJob), maxBytes)))
+	mux.Handle(http.MethodPost+" /maintenance/periodic/{job}", common.Recovered(http.MaxBytesHandler(j.security(http.HandlerFunc(j.handlePeriodicJob)), maxBytes)))
+	mux.Handle(http.MethodPost+" /maintenance/oneoff/{job}", common.Recovered(http.MaxBytesHandler(j.security(http.HandlerFunc(j.handleOneoffJob)), maxBytes)))
+}
+
+func (j *jobs) security(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+
+		if len(j.apiKey) == 0 {
+			slog.WarnContext(ctx, "Endpoint is not allowed without a configured API key")
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+
+		secret := r.Header.Get(common.HeaderAPIKey)
+		if len(secret) == 0 {
+			slog.WarnContext(ctx, "Request API key is empty")
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+
+		if secret != j.apiKey {
+			slog.WarnContext(ctx, "Request API key does not match", "value", secret)
+			http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (j *jobs) handlePeriodicJob(w http.ResponseWriter, r *http.Request) {

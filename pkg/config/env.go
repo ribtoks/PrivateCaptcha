@@ -60,6 +60,7 @@ func init() {
 	configKeyToEnvName[common.EmailFromKey] = "PC_EMAIL_FROM"
 	configKeyToEnvName[common.ReplyToEmailKey] = "PC_REPLY_TO_EMAIL"
 	configKeyToEnvName[common.LocalAddressKey] = "PC_LOCAL_ADDRESS"
+	configKeyToEnvName[common.LocalAPIKeyKey] = "PC_LOCAL_API_KEY"
 	configKeyToEnvName[common.MaintenanceModeKey] = "PC_MAINTENANCE_MODE"
 	configKeyToEnvName[common.RegistrationAllowedKey] = "PC_REGISTRATION_ALLOWED"
 	configKeyToEnvName[common.HealthCheckIntervalKey] = "PC_HEALTHCHECK_INTERVAL"
