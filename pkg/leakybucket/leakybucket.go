@@ -108,13 +108,17 @@ type VarLeakyBucket[TKey comparable] struct {
 }
 
 func NewVarBucket[TKey comparable](key TKey, capacity TLevel, leakInterval time.Duration, t time.Time) *VarLeakyBucket[TKey] {
-	b := &VarLeakyBucket[TKey]{
-		leakRate:   1.0, // to start like the ConstLeakyBucket, we leak 1 level per leakInterval
-		pendingSum: 0,
-		count:      1, // this is needed to have "previous" empty bucket for averages
-	}
+	b := &VarLeakyBucket[TKey]{}
 	b.Init(key, capacity, leakInterval, t)
 	return b
+}
+
+func (lb *VarLeakyBucket[TKey]) Init(key TKey, capacity TLevel, leakInterval time.Duration, tnow time.Time) {
+	lb.ConstLeakyBucket.Init(key, capacity, leakInterval, tnow)
+
+	lb.leakRate = 1.0 // to start like the ConstLeakyBucket, we leak 1 level per leakInterval
+	lb.pendingSum = 0
+	lb.count = 1 // this is needed to have "previous" empty bucket for averages
 }
 
 func (lb *VarLeakyBucket[TKey]) LeakInterval() time.Duration {
