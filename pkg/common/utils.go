@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -16,6 +17,7 @@ import (
 
 var (
 	HeaderValueContentTypeJSON = []string{ContentTypeJSON}
+	errEmptyDomain             = errors.New("domain name is empty")
 )
 
 func RelURL(prefix, url string) string {
@@ -184,6 +186,10 @@ func ChunkedCleanup(ctx context.Context, minInterval, maxInterval time.Duration,
 }
 
 func ParseDomainName(input string) (string, error) {
+	if len(input) == 0 {
+		return "", errEmptyDomain
+	}
+
 	parsedURL, err := url.Parse(input)
 	if err != nil {
 		return "", err
