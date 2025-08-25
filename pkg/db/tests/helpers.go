@@ -90,6 +90,7 @@ func CreateNewBareAccount(ctx context.Context, store db.Implementor, testName st
 func CreatePropertyForOrg(ctx context.Context, store db.Implementor, org *dbgen.Organization) (*dbgen.Property, error) {
 	return store.Impl().CreateNewProperty(ctx, &dbgen.CreatePropertyParams{
 		Name:       fmt.Sprintf("user %v property", org.UserID.Int32),
+		Domain:     fmt.Sprintf("%s.org", strings.ReplaceAll(strings.ToLower(org.Name), " ", "-")),
 		OrgID:      db.Int(org.ID),
 		CreatorID:  db.Int(org.UserID.Int32),
 		OrgOwnerID: db.Int(org.UserID.Int32),
