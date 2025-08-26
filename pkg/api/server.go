@@ -377,7 +377,11 @@ func (s *Server) Verify(ctx context.Context, data []byte, expectedOwner puzzle.O
 	puzzleObject, property, perr := s.verifyPuzzleValid(ctx, verifyPayload, tnow)
 	result.SetError(perr)
 	if puzzleObject != nil && !puzzleObject.IsZero() {
-		result.CreatedAt = puzzleObject.Expiration.Add(-puzzle.DefaultValidityPeriod)
+		validityPeriod := puzzle.DefaultValidityPeriod
+		if !puzzleObject.IsStub() && property != nil {
+			validityPeriod = property.ValidityInterval
+		}
+		result.CreatedAt = puzzleObject.Expiration().Add(-validityPeriod)
 	}
 	if property != nil {
 		result.Domain = property.Domain
