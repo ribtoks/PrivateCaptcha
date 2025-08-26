@@ -17,7 +17,7 @@ func randInit(data []byte) {
 func TestNewPuzzleIsZero(t *testing.T) {
 	t.Parallel()
 
-	if !new(Puzzle).IsZero() {
+	if !new(ComputePuzzle).IsZero() {
 		t.Error("new puzzle is not zero!")
 	}
 }
@@ -25,43 +25,43 @@ func TestNewPuzzleIsZero(t *testing.T) {
 func TestPuzzleUnmarshalFail(t *testing.T) {
 	t.Parallel()
 
-	puzzle := NewPuzzle(NextPuzzleID(), [16]byte{}, 123)
+	puzzle := NewComputePuzzle(NextPuzzleID(), [16]byte{}, 123)
 
-	randInit(puzzle.PropertyID[:])
+	randInit(puzzle.propertyID[:])
 
 	data, err := puzzle.MarshalBinary()
 	if err != nil {
 		t.Fatalf("Error marshalling: %v", err)
 	}
 
-	var newPuzzle Puzzle
+	var newPuzzle ComputePuzzle
 	if err := newPuzzle.UnmarshalBinary(data[:len(data)-1]); err != io.ErrShortBuffer {
 		t.Error("Buffer is not too short")
 	}
 }
 
-func checkPuzzles(oldPuzzle, newPuzzle *Puzzle, t *testing.T) {
-	if !bytes.Equal(oldPuzzle.PropertyID[:], newPuzzle.PropertyID[:]) {
+func checkPuzzles(oldPuzzle, newPuzzle *ComputePuzzle, t *testing.T) {
+	if !bytes.Equal(oldPuzzle.propertyID[:], newPuzzle.propertyID[:]) {
 		t.Errorf("PropertyID does not match")
 	}
 
-	if oldPuzzle.PuzzleID != newPuzzle.PuzzleID {
+	if oldPuzzle.PuzzleID() != newPuzzle.PuzzleID() {
 		t.Errorf("PuzzleID does not match")
 	}
 
-	if oldPuzzle.Expiration.Unix() != newPuzzle.Expiration.Unix() {
-		t.Errorf("Expiration does not match: old (%v), new (%v)", oldPuzzle.Expiration, newPuzzle.Expiration)
+	if oldPuzzle.Expiration().Unix() != newPuzzle.Expiration().Unix() {
+		t.Errorf("Expiration does not match: old (%v), new (%v)", oldPuzzle.Expiration(), newPuzzle.Expiration())
 	}
 
-	if oldPuzzle.Difficulty != newPuzzle.Difficulty {
+	if oldPuzzle.Difficulty() != newPuzzle.Difficulty() {
 		t.Errorf("Difficulty does not match")
 	}
 
-	if oldPuzzle.SolutionsCount != newPuzzle.SolutionsCount {
+	if oldPuzzle.SolutionsCount() != newPuzzle.SolutionsCount() {
 		t.Errorf("SolutionsCount does not match")
 	}
 
-	if oldPuzzle.Version != newPuzzle.Version {
+	if oldPuzzle.version != newPuzzle.version {
 		t.Errorf("Version does not match")
 	}
 
@@ -69,7 +69,7 @@ func checkPuzzles(oldPuzzle, newPuzzle *Puzzle, t *testing.T) {
 		t.Errorf("Stub flag does not match")
 	}
 
-	if !bytes.Equal(oldPuzzle.UserData, newPuzzle.UserData) {
+	if !bytes.Equal(oldPuzzle.userData, newPuzzle.userData) {
 		t.Errorf("UserData does not match")
 	}
 }
@@ -80,7 +80,7 @@ func TestPuzzleMarshalling(t *testing.T) {
 	randInit(propertyID[:])
 
 	// Create a sample Puzzle
-	puzzle := NewPuzzle(NextPuzzleID(), propertyID, 123)
+	puzzle := NewComputePuzzle(NextPuzzleID(), propertyID, 123)
 	_ = puzzle.Init(DefaultValidityPeriod)
 
 	// Marshal the Puzzle to a byte slice
@@ -90,7 +90,7 @@ func TestPuzzleMarshalling(t *testing.T) {
 	}
 
 	// Unmarshal the byte slice into a new Puzzle
-	var newPuzzle Puzzle
+	var newPuzzle ComputePuzzle
 	if err := newPuzzle.UnmarshalBinary(data); err != nil {
 		t.Fatalf("Error unmarshalling: %v", err)
 	}
@@ -101,8 +101,8 @@ func TestPuzzleMarshalling(t *testing.T) {
 func TestZeroPuzzleMarshalling(t *testing.T) {
 	t.Parallel()
 	// Create a sample Puzzle
-	puzzle := new(Puzzle)
-	puzzle.UserData = make([]byte, UserDataSize)
+	puzzle := new(ComputePuzzle)
+	puzzle.userData = make([]byte, UserDataSize)
 
 	//puzzle.Init(propertyID, 123)
 
@@ -113,7 +113,7 @@ func TestZeroPuzzleMarshalling(t *testing.T) {
 	}
 
 	// Unmarshal the byte slice into a new Puzzle
-	var newPuzzle Puzzle
+	var newPuzzle ComputePuzzle
 	if err := newPuzzle.UnmarshalBinary(data); err != nil {
 		t.Fatalf("Error unmarshalling: %v", err)
 	}
@@ -133,9 +133,9 @@ func TestPuzzlePayloadSuffix(t *testing.T) {
 
 	propertyID := [16]byte{}
 	randInit(propertyID[:])
-	p := NewPuzzle(0 /*puzzle ID*/, propertyID, 0 /*difficulty*/)
+	p := NewComputePuzzle(0 /*puzzle ID*/, propertyID, 0 /*difficulty*/)
 
-	solver := &Solver{}
+	solver := &ComputeSolver{}
 	solutions, err := solver.Solve(p)
 	if err != nil {
 		t.Fatal(err)

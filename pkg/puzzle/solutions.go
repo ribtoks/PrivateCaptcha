@@ -126,16 +126,17 @@ func emptySolutions(count int) *Solutions {
 	}
 }
 
-func NewSolutions(data string) (*Solutions, error) {
+func NewSolutions(data []byte) (*Solutions, error) {
 	if len(data) == 0 {
 		return nil, errEmptyEncodedSolutions
 	}
 
-	decodedBytes, err := base64.StdEncoding.DecodeString(data)
+	decodedBytes := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
+	n, err := base64.StdEncoding.Decode(decodedBytes, data)
 	if err != nil {
 		return nil, err
 	}
-
+	decodedBytes = decodedBytes[:n]
 	if len(decodedBytes) == 0 {
 		return nil, errEmptyDecodedSolutions
 	}
@@ -197,8 +198,13 @@ func (s *Solutions) Verify(ctx context.Context, puzzleBytes []byte, difficulty u
 		return 0, ErrInvalidPuzzleBytes
 	}
 
+	if difficulty == 0 {
+		slog.Log(ctx, common.LevelTrace, "Checking solutions with zero difficulty")
+		return len(s.Buffer) / SolutionLength, nil
+	}
+
 	validSolutions := 0
-	threshold := thresholdFromDifficulty((difficulty))
+	threshold := thresholdFromDifficulty(difficulty)
 
 	// TODO: Shuffle solutions before checking
 	// (to decrease resource exhaustion attack surface)

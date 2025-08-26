@@ -438,7 +438,7 @@ func (s *Server) echoPuzzle(w http.ResponseWriter, r *http.Request) {
 	sitekey := r.URL.Query().Get(common.ParamSiteKey)
 	uuid := db.UUIDFromSiteKey(sitekey)
 
-	p := puzzle.NewPuzzle(0 /*puzzle ID*/, uuid.Bytes, uint8(level))
+	p := puzzle.NewComputePuzzle(0 /*puzzle ID*/, uuid.Bytes, uint8(level))
 	if err := p.Init(puzzle.DefaultValidityPeriod); err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		return

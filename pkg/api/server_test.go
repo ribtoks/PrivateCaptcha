@@ -75,18 +75,17 @@ func TestMain(m *testing.M) {
 	testPlan = planService.GetInternalTrialPlan()
 
 	s = &Server{
-		Stage:              common.StageTest,
-		BusinessDB:         store,
-		TimeSeries:         timeSeries,
-		RateLimiter:        &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
-		Auth:               NewAuthMiddleware(store, NewUserLimiter(store), planService),
-		VerifyLogChan:      make(chan *common.VerifyRecord, 10*VerifyBatchSize),
-		Salt:               NewPuzzleSalt(cfg.Get(common.APISaltKey)),
-		UserFingerprintKey: NewUserFingerprintKey(cfg.Get(common.UserFingerprintIVKey)),
-		Metrics:            metrics,
-		Mailer:             &email.StubMailer{},
-		Levels:             difficulty.NewLevels(timeSeries, 100 /*levelsBatchSize*/, PropertyBucketSize),
-		VerifyLogCancel:    func() {},
+		Stage:           common.StageTest,
+		BusinessDB:      store,
+		TimeSeries:      timeSeries,
+		RateLimiter:     &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
+		Auth:            NewAuthMiddleware(store, NewUserLimiter(store), planService),
+		VerifyLogChan:   make(chan *common.VerifyRecord, 10*VerifyBatchSize),
+		Verifier:        NewVerifier(cfg, store),
+		Metrics:         metrics,
+		Mailer:          &email.StubMailer{},
+		Levels:          difficulty.NewLevels(timeSeries, 100 /*levelsBatchSize*/, PropertyBucketSize),
+		VerifyLogCancel: func() {},
 	}
 	if err := s.Init(context.TODO(), verifyFlushInterval, authBackfillDelay); err != nil {
 		panic(err)

@@ -26,7 +26,7 @@ func main() {
 		os.Exit(2)
 	}
 
-	p := new(puzzle.Puzzle)
+	p := new(puzzle.ComputePuzzle)
 	err = p.UnmarshalBinary(decodedData)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error parsing puzzle: %v\n", err)

@@ -53,8 +53,8 @@ type Implementor interface {
 	Impl() *BusinessStoreImpl
 	WithTx(ctx context.Context, fn func(*BusinessStoreImpl) error) error
 	Ping(ctx context.Context) error
-	CheckVerifiedPuzzle(ctx context.Context, p *puzzle.Puzzle, maxCount uint32) bool
-	CacheVerifiedPuzzle(ctx context.Context, p *puzzle.Puzzle, tnow time.Time)
+	CheckVerifiedPuzzle(ctx context.Context, p puzzle.Puzzle, maxCount uint32) bool
+	CacheVerifiedPuzzle(ctx context.Context, p puzzle.Puzzle, tnow time.Time)
 	CacheHitRatio() float64
 }
 
@@ -141,7 +141,7 @@ func (s *BusinessStore) CacheHitRatio() float64 {
 	return s.Cache.HitRatio()
 }
 
-func (s *BusinessStore) CheckVerifiedPuzzle(ctx context.Context, p *puzzle.Puzzle, maxCount uint32) bool {
+func (s *BusinessStore) CheckVerifiedPuzzle(ctx context.Context, p puzzle.Puzzle, maxCount uint32) bool {
 	if p == nil || p.IsZero() {
 		return false
 	}
@@ -151,18 +151,19 @@ func (s *BusinessStore) CheckVerifiedPuzzle(ctx context.Context, p *puzzle.Puzzl
 	return !s.puzzleCache.CheckCount(ctx, p.HashKey(), maxCount)
 }
 
-func (s *BusinessStore) CacheVerifiedPuzzle(ctx context.Context, p *puzzle.Puzzle, tnow time.Time) {
+func (s *BusinessStore) CacheVerifiedPuzzle(ctx context.Context, p puzzle.Puzzle, tnow time.Time) {
 	if p == nil || p.IsZero() {
 		slog.Log(ctx, common.LevelTrace, "Skipping caching zero puzzle")
 		return
 	}
 
+	expiration := p.Expiration()
 	// this check should have been done before in the pipeline. Here the check only to safeguard storing in cache
-	if !tnow.Before(p.Expiration) {
+	if !tnow.Before(expiration) {
 		slog.WarnContext(ctx, "Skipping caching expired puzzle", "now", tnow, "expiration", p.Expiration)
 		return
 	}
 
-	value := s.puzzleCache.Inc(ctx, p.HashKey(), p.Expiration.Sub(tnow))
+	value := s.puzzleCache.Inc(ctx, p.HashKey(), expiration.Sub(tnow))
 	slog.Log(ctx, common.LevelTrace, "Cached verified puzzle", "times", value)
 }

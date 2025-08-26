@@ -103,7 +103,7 @@ func solutionsSuite(ctx context.Context, sitekey, domain string) (string, string
 		return puzzleStr, "", err
 	}
 
-	solver := &puzzle.Solver{}
+	solver := &puzzle.ComputeSolver{}
 	solutions, err := solver.Solve(p)
 	if err != nil {
 		return puzzleStr, "", err
@@ -566,18 +566,25 @@ func TestVerifyTestShortcut(t *testing.T) {
 
 	ctx := context.TODO()
 
-	solver := &puzzle.Solver{}
-	solutions, _ := solver.Solve(s.TestPuzzle)
+	solver := &puzzle.ComputeSolver{}
+	solutions, _ := solver.Solve(s.Verifier.TestPuzzle)
 
 	var buf bytes.Buffer
 
 	buf.WriteString(solutions.String())
 	buf.Write([]byte("."))
-	s.TestPuzzleData.Write(&buf)
+	s.Verifier.WriteTestPuzzle(&buf)
 
-	payload := buf.String()
+	payload, err := s.Verifier.ParseSolutionPayload(ctx, buf.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if result, _ := s.Verify(ctx, []byte(payload), nil /*expectedOwner*/, time.Now().UTC()); result != verifyResultErrorTest {
+	if payload.Puzzle() != s.Verifier.TestPuzzle {
 		t.Fatal("verify result is not short circuited")
+	}
+
+	if result, _ := s.Verifier.Verify(ctx, payload, nil /*expectedOwner*/, time.Now().UTC()); result.Error != puzzle.TestPropertyError {
+		t.Errorf("Unexpected verification result: %v", result.Error.String())
 	}
 }

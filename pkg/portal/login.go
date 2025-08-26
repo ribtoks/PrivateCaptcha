@@ -16,11 +16,12 @@ import (
 )
 
 const (
-	loginStepSignInVerify = 1
-	loginStepSignUpVerify = 2
-	loginStepCompleted    = 3
-	loginFormTemplate     = "login/form.html"
-	loginTemplate         = "login/login.html"
+	loginStepSignInVerify     = 1
+	loginStepSignUpVerify     = 2
+	loginStepCompleted        = 3
+	loginFormTemplate         = "login/form.html"
+	loginTemplate             = "login/login.html"
+	captchaVerificationFailed = "Captcha verification failed."
 )
 
 var (
@@ -87,11 +88,18 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	payload, err := s.PuzzleEngine.ParseSolutionPayload(ctx, []byte(captchaSolution))
+	if err != nil {
+		data.CaptchaError = captchaVerificationFailed
+		s.render(w, r, loginFormTemplate, data)
+		return
+	}
+
 	ownerSource := &portalPropertyOwnerSource{Store: s.Store, Sitekey: data.CaptchaSitekey}
-	verifyResult, err := s.PuzzleEngine.Verify(ctx, []byte(captchaSolution), ownerSource, time.Now().UTC())
+	verifyResult, err := s.PuzzleEngine.Verify(ctx, payload, ownerSource, time.Now().UTC())
 	if err != nil || !verifyResult.Success() {
 		slog.ErrorContext(ctx, "Failed to verify captcha", "verify", verifyResult.Error.String(), common.ErrAttr(err))
-		data.CaptchaError = "Captcha verification failed"
+		data.CaptchaError = captchaVerificationFailed
 		s.render(w, r, loginFormTemplate, data)
 		return
 	}

@@ -131,7 +131,7 @@ func TestGetPuzzleWithoutSubscription(t *testing.T) {
 	puzzleSuiteWithBackfillWait(t, ctx, sitekey, property.Domain)
 }
 
-func parsePuzzle(resp *http.Response) (*puzzle.Puzzle, string, error) {
+func parsePuzzle(resp *http.Response) (*puzzle.ComputePuzzle, string, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, "", err
@@ -143,7 +143,7 @@ func parsePuzzle(resp *http.Response) (*puzzle.Puzzle, string, error) {
 		return nil, "", err
 	}
 
-	p := new(puzzle.Puzzle)
+	p := new(puzzle.ComputePuzzle)
 	err = p.UnmarshalBinary(decodedData)
 	if err != nil {
 		return nil, "", err

@@ -145,6 +145,8 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	businessDB := db.NewBusiness(pool)
 	timeSeriesDB := db.NewTimeSeries(clickhouse)
 
+	puzzleVerifier := api.NewVerifier(cfg, businessDB)
+
 	metrics := monitoring.NewService()
 
 	cdnURLConfig := config.AsURL(ctx, cfg.Get(common.CDNBaseURLKey))
@@ -157,18 +159,17 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	ipRateLimiter := ratelimit.NewIPAddrRateLimiter(rateLimitHeader, newIPAddrBuckets(cfg))
 
 	apiServer := &api.Server{
-		Stage:              stage,
-		BusinessDB:         businessDB,
-		TimeSeries:         timeSeriesDB,
-		RateLimiter:        ipRateLimiter,
-		Auth:               api.NewAuthMiddleware(businessDB, api.NewUserLimiter(businessDB), planService),
-		VerifyLogChan:      make(chan *common.VerifyRecord, 10*api.VerifyBatchSize),
-		Salt:               api.NewPuzzleSalt(cfg.Get(common.APISaltKey)),
-		UserFingerprintKey: api.NewUserFingerprintKey(cfg.Get(common.UserFingerprintIVKey)),
-		Metrics:            metrics,
-		Mailer:             mailer,
-		Levels:             difficulty.NewLevels(timeSeriesDB, 100 /*levelsBatchSize*/, api.PropertyBucketSize),
-		VerifyLogCancel:    func() {},
+		Stage:           stage,
+		BusinessDB:      businessDB,
+		TimeSeries:      timeSeriesDB,
+		RateLimiter:     ipRateLimiter,
+		Auth:            api.NewAuthMiddleware(businessDB, api.NewUserLimiter(businessDB), planService),
+		VerifyLogChan:   make(chan *common.VerifyRecord, 10*api.VerifyBatchSize),
+		Verifier:        puzzleVerifier,
+		Metrics:         metrics,
+		Mailer:          mailer,
+		Levels:          difficulty.NewLevels(timeSeriesDB, 100 /*levelsBatchSize*/, api.PropertyBucketSize),
+		VerifyLogCancel: func() {},
 	}
 	if err := apiServer.Init(ctx, 10*time.Second /*flush interval*/, 1*time.Second /*backfill duration*/); err != nil {
 		return err
@@ -195,7 +196,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		PlanService:  planService,
 		APIURL:       apiURLConfig.URL(),
 		CDNURL:       cdnURLConfig.URL(),
-		PuzzleEngine: apiServer,
+		PuzzleEngine: puzzleVerifier,
 		Metrics:      metrics,
 		Mailer:       mailer,
 		RateLimiter:  ipRateLimiter,

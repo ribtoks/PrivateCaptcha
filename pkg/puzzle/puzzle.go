@@ -11,7 +11,6 @@ import (
 	"hash/fnv"
 	"io"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -30,47 +29,55 @@ var (
 	dotBytes = []byte(".")
 )
 
-type Puzzle struct {
-	Version        uint8
-	Difficulty     uint8
-	SolutionsCount uint8
-	PropertyID     [PropertyIDSize]byte
-	PuzzleID       uint64
-	Expiration     time.Time
-	UserData       []byte
+type ComputePuzzle struct {
+	version        uint8
+	difficulty     uint8
+	solutionsCount uint8
+	propertyID     [PropertyIDSize]byte
+	puzzleID       uint64
+	expiration     time.Time
+	userData       []byte
 }
 
-func NewPuzzle(puzzleID uint64, propertyID [16]byte, difficulty uint8) *Puzzle {
-	return &Puzzle{
-		Version:        puzzleVersion,
-		Difficulty:     difficulty,
-		SolutionsCount: solutionsCount,
-		PropertyID:     propertyID,
-		PuzzleID:       puzzleID,
-		UserData:       make([]byte, UserDataSize),
-		Expiration:     time.Time{},
+var _ Puzzle = (*ComputePuzzle)(nil)
+
+func NewComputePuzzle(puzzleID uint64, propertyID [PropertyIDSize]byte, difficulty uint8) *ComputePuzzle {
+	return &ComputePuzzle{
+		version:        puzzleVersion,
+		difficulty:     difficulty,
+		solutionsCount: solutionsCount,
+		propertyID:     propertyID,
+		puzzleID:       puzzleID,
+		userData:       make([]byte, UserDataSize),
+		expiration:     time.Time{},
 	}
 }
 
-func (p *Puzzle) Init(validityPeriod time.Duration) error {
-	if _, err := io.ReadFull(rand.Reader, p.UserData); err != nil {
+func (p *ComputePuzzle) Init(validityPeriod time.Duration) error {
+	if _, err := io.ReadFull(rand.Reader, p.userData); err != nil {
 		return err
 	}
 
-	p.Expiration = time.Now().UTC().Add(validityPeriod)
+	p.expiration = time.Now().UTC().Add(validityPeriod)
 
 	return nil
 }
 
-func (p *Puzzle) HashKey() uint64 {
+func (p *ComputePuzzle) PuzzleID() uint64                 { return p.puzzleID }
+func (p *ComputePuzzle) Difficulty() uint8                { return p.difficulty }
+func (p *ComputePuzzle) SolutionsCount() int              { return int(p.solutionsCount) }
+func (p *ComputePuzzle) Expiration() time.Time            { return p.expiration }
+func (p *ComputePuzzle) PropertyID() [PropertyIDSize]byte { return p.propertyID }
+
+func (p *ComputePuzzle) HashKey() uint64 {
 	hasher := fnv.New64a()
 
-	hasher.Write(p.PropertyID[:])
+	hasher.Write(p.propertyID[:])
 
 	var pidBytes [8]byte
-	binary.LittleEndian.PutUint64(pidBytes[:], p.PuzzleID)
+	binary.LittleEndian.PutUint64(pidBytes[:], p.puzzleID)
 	hasher.Write(pidBytes[:])
-	hasher.Write(p.UserData[:])
+	hasher.Write(p.userData[:])
 
 	return hasher.Sum64()
 }
@@ -84,63 +91,59 @@ func NextPuzzleID() uint64 {
 	return hasher.Sum64()
 }
 
-func (p *Puzzle) IsStub() bool {
-	return p.PuzzleID == 0
+func (p *ComputePuzzle) IsStub() bool {
+	return p.puzzleID == 0
 }
 
-func (p *Puzzle) IsZero() bool {
-	return (p.Difficulty == 0) && (p.PuzzleID == 0) && p.Expiration.IsZero()
+func (p *ComputePuzzle) IsZero() bool {
+	return (p.difficulty == 0) && (p.puzzleID == 0) && p.expiration.IsZero()
 }
 
-func (p *Puzzle) PuzzleIDString() string {
-	return strconv.FormatUint(p.PuzzleID, 16)
-}
-
-func (p *Puzzle) WriteTo(w io.Writer) (int64, error) {
+func (p *ComputePuzzle) WriteTo(w io.Writer) (int64, error) {
 	var n int64
-	if err := binary.Write(w, binary.LittleEndian, p.Version); err != nil {
+	if err := binary.Write(w, binary.LittleEndian, p.version); err != nil {
 		return n, err
 	}
 	n++
 
-	if nn, err := w.Write(p.PropertyID[:]); err != nil {
+	if nn, err := w.Write(p.propertyID[:]); err != nil {
 		return n + int64(nn), err
 	}
-	n += int64(len(p.PropertyID))
+	n += int64(len(p.propertyID))
 
-	if err := binary.Write(w, binary.LittleEndian, p.PuzzleID); err != nil {
+	if err := binary.Write(w, binary.LittleEndian, p.puzzleID); err != nil {
 		return n, err
 	}
 	n += 8
 
-	if err := binary.Write(w, binary.LittleEndian, p.Difficulty); err != nil {
+	if err := binary.Write(w, binary.LittleEndian, p.difficulty); err != nil {
 		return n, err
 	}
 	n++
 
-	if err := binary.Write(w, binary.LittleEndian, p.SolutionsCount); err != nil {
+	if err := binary.Write(w, binary.LittleEndian, p.solutionsCount); err != nil {
 		return n, err
 	}
 	n++
 
 	var expiration uint32
-	if !p.Expiration.IsZero() {
-		expiration = uint32(p.Expiration.Unix())
+	if !p.expiration.IsZero() {
+		expiration = uint32(p.expiration.Unix())
 	}
 	if err := binary.Write(w, binary.LittleEndian, expiration); err != nil {
 		return n, err
 	}
 	n += 4
 
-	if nn, err := w.Write(p.UserData); err != nil {
+	if nn, err := w.Write(p.userData); err != nil {
 		return n + int64(nn), err
 	}
-	n += int64(len(p.UserData))
+	n += int64(len(p.userData))
 
 	return n, nil
 }
 
-func (p *Puzzle) MarshalBinary() ([]byte, error) {
+func (p *ComputePuzzle) MarshalBinary() ([]byte, error) {
 	var buf bytes.Buffer
 	if _, err := p.WriteTo(&buf); err != nil {
 		return nil, err
@@ -148,36 +151,36 @@ func (p *Puzzle) MarshalBinary() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (p *Puzzle) UnmarshalBinary(data []byte) error {
+func (p *ComputePuzzle) UnmarshalBinary(data []byte) error {
 	if len(data) < (PropertyIDSize + 8 + UserDataSize + 7) {
 		return io.ErrShortBuffer
 	}
 
 	var offset int
 
-	p.Version = data[0]
+	p.version = data[0]
 	offset += 1
 
-	copy(p.PropertyID[:], data[offset:offset+PropertyIDSize])
+	copy(p.propertyID[:], data[offset:offset+PropertyIDSize])
 	offset += PropertyIDSize
 
-	p.PuzzleID = binary.LittleEndian.Uint64(data[offset : offset+8])
+	p.puzzleID = binary.LittleEndian.Uint64(data[offset : offset+8])
 	offset += 8
 
-	p.Difficulty = data[offset]
+	p.difficulty = data[offset]
 	offset += 1
 
-	p.SolutionsCount = data[offset]
+	p.solutionsCount = data[offset]
 	offset += 1
 
 	unixExpiration := int64(binary.LittleEndian.Uint32(data[offset : offset+4]))
 	if unixExpiration != 0 {
-		p.Expiration = time.Unix(unixExpiration, 0)
+		p.expiration = time.Unix(unixExpiration, 0)
 	}
 	offset += 4
 
-	p.UserData = make([]byte, UserDataSize)
-	copy(p.UserData, data[offset:offset+UserDataSize])
+	p.userData = make([]byte, UserDataSize)
+	copy(p.userData, data[offset:offset+UserDataSize])
 	//offset += UserDataSize
 
 	return nil
@@ -188,7 +191,7 @@ type PuzzlePayload struct {
 	signatureBase64 []byte
 }
 
-func (p *Puzzle) Serialize(ctx context.Context, salt *Salt, extraSalt []byte) (*PuzzlePayload, error) {
+func (p *ComputePuzzle) Serialize(ctx context.Context, salt *Salt, extraSalt []byte) (*PuzzlePayload, error) {
 	// First write to hasher
 	hasher := hmac.New(sha1.New, salt.Data())
 	puzzleSize, err := p.WriteTo(hasher)

@@ -72,7 +72,7 @@ func (s *server) puzzle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p := puzzle.NewPuzzle(0 /*puzzle ID*/, [16]byte{}, uint8(common.DifficultyLevelMedium))
+	p := puzzle.NewComputePuzzle(0 /*puzzle ID*/, [16]byte{}, uint8(common.DifficultyLevelMedium))
 	if err := p.Init(puzzle.DefaultValidityPeriod); err != nil {
 		slog.ErrorContext(ctx, "Failed to create puzzle", common.ErrAttr(err))
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -95,13 +95,13 @@ func (s *server) zeroPuzzle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p := puzzle.NewPuzzle(0, db.TestPropertyUUID.Bytes, uint8(common.DifficultyLevelSmall))
+	p := puzzle.NewComputePuzzle(0, db.TestPropertyUUID.Bytes, uint8(common.DifficultyLevelSmall))
 
 	s.writePuzzle(ctx, p, nil /*extra salt*/, w)
 }
 
 // mostly copy-paste from api/server.go
-func (s *server) writePuzzle(ctx context.Context, p *puzzle.Puzzle, extraSalt []byte, w http.ResponseWriter) {
+func (s *server) writePuzzle(ctx context.Context, p puzzle.Puzzle, extraSalt []byte, w http.ResponseWriter) {
 	payload, err := p.Serialize(ctx, s.salt, extraSalt)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to serialize puzzle", common.ErrAttr(err))
@@ -117,7 +117,7 @@ func (s *server) submit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	payload := r.FormValue("private-captcha-solution")
 
-	verifyPayload, err := puzzle.ParseVerifyPayload(ctx, payload)
+	verifyPayload, err := puzzle.ParseVerifyPayload[puzzle.ComputePuzzle](ctx, []byte(payload))
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to parse verify payload", common.ErrAttr(err))
 		fmt.Fprintln(w, redPage)
@@ -132,7 +132,7 @@ func (s *server) submit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tnow := time.Now().UTC()
-	if !tnow.Before(p.Expiration) {
+	if !tnow.Before(p.Expiration()) {
 		slog.WarnContext(ctx, "Puzzle is expired", "expiration", p.Expiration, "now", tnow)
 		return
 	}

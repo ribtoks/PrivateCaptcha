@@ -10,10 +10,10 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-type Solver struct {
+type ComputeSolver struct {
 }
 
-func (s *Solver) solveOne(buf []byte, threshold uint32) []byte {
+func (s *ComputeSolver) solveOne(buf []byte, threshold uint32) []byte {
 	size := len(buf)
 	for i := 0; i < 256; i++ {
 		buf[size-1-3] = byte(i)
@@ -56,9 +56,9 @@ func normalizePuzzleBuffer(buf []byte) []byte {
 	return buf
 }
 
-func (s *Solver) Solve(p *Puzzle) (*Solutions, error) {
+func (s *ComputeSolver) Solve(p Puzzle) (*Solutions, error) {
 	if p.IsZero() {
-		return emptySolutions(max(int(p.SolutionsCount), solutionsCount)), nil
+		return emptySolutions(max(p.SolutionsCount(), solutionsCount)), nil
 	}
 
 	var wg sync.WaitGroup
@@ -74,10 +74,10 @@ func (s *Solver) Solve(p *Puzzle) (*Solutions, error) {
 	size := 0
 	var mux sync.Mutex
 
-	threshold := thresholdFromDifficulty(p.Difficulty)
+	threshold := thresholdFromDifficulty(p.Difficulty())
 	startTime := time.Now()
 
-	for i := 0; i < int(p.SolutionsCount); i++ {
+	for i := 0; i < p.SolutionsCount(); i++ {
 		wg.Add(1)
 
 		bufCopy := make([]byte, len(buf))

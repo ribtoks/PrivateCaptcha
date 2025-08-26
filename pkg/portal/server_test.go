@@ -42,11 +42,19 @@ type fakePuzzleEngine struct {
 	result *puzzle.VerifyResult
 }
 
-func (f *fakePuzzleEngine) Write(ctx context.Context, p *puzzle.Puzzle, extraSalt []byte, w http.ResponseWriter) error {
+func (f *fakePuzzleEngine) ParseSolutionPayload(ctx context.Context, data []byte) (puzzle.SolutionPayload, error) {
+	return puzzle.NewStubPayload(puzzle.NewComputePuzzle(0, [puzzle.PropertyIDSize]byte{}, 0)), nil
+}
+
+func (f *fakePuzzleEngine) Create(puzzleID uint64, propertyID [puzzle.PropertyIDSize]byte, difficulty uint8) puzzle.Puzzle {
+	return puzzle.NewComputePuzzle(puzzleID, propertyID, difficulty)
+}
+
+func (f *fakePuzzleEngine) Write(ctx context.Context, p puzzle.Puzzle, extraSalt []byte, w http.ResponseWriter) error {
 	return nil
 }
 
-func (f *fakePuzzleEngine) Verify(ctx context.Context, payload []byte, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.VerifyResult, error) {
+func (f *fakePuzzleEngine) Verify(ctx context.Context, payload puzzle.SolutionPayload, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.VerifyResult, error) {
 	return f.result, nil
 }
 

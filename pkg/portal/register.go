@@ -85,11 +85,18 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	payload, err := s.PuzzleEngine.ParseSolutionPayload(ctx, []byte(captchaSolution))
+	if err != nil {
+		data.CaptchaError = captchaVerificationFailed
+		s.render(w, r, registerFormTemplate, data)
+		return
+	}
+
 	ownerSource := &portalPropertyOwnerSource{Store: s.Store, Sitekey: data.CaptchaSitekey}
-	verifyResult, err := s.PuzzleEngine.Verify(ctx, []byte(captchaSolution), ownerSource, time.Now().UTC())
+	verifyResult, err := s.PuzzleEngine.Verify(ctx, payload, ownerSource, time.Now().UTC())
 	if err != nil || !verifyResult.Success() {
 		slog.ErrorContext(ctx, "Failed to verify captcha", "errors", verifyResult.Error.String(), common.ErrAttr(err))
-		data.CaptchaError = "Captcha verification failed."
+		data.CaptchaError = captchaVerificationFailed
 		s.render(w, r, registerFormTemplate, data)
 		return
 	}

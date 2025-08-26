@@ -8,7 +8,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"log/slog"
-	"strings"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -21,6 +20,7 @@ var (
 	errEmptyPayloadPart  = errors.New("payload part is empty")
 	errEmptySignature    = errors.New("empty signature")
 	errEmptyPuzzle       = errors.New("empty puzzle")
+	errStubPayload       = errors.New("stub payload")
 	ErrSignKeyMismatch   = errors.New("signature fingerprint mismatch")
 )
 
@@ -79,52 +79,62 @@ type OwnerIDSource interface {
 }
 
 type VerifyPayload struct {
-	puzzle     *Puzzle
+	puzzle     Puzzle
 	signature  *signature
-	solutions  string
+	solutions  []byte
 	puzzleData []byte
 }
 
-func ParseVerifyPayload(ctx context.Context, payload string) (*VerifyPayload, error) {
+var _ SolutionPayload = (*VerifyPayload)(nil)
+
+type PuzzleConstraint[T any] interface {
+	Puzzle
+	*T
+}
+
+func ParseVerifyPayload[T any, TPuzzle PuzzleConstraint[T]](ctx context.Context, payload []byte) (*VerifyPayload, error) {
 	if len(payload) == 0 {
 		return nil, errPayloadEmpty
 	}
 
-	if dotsCount := strings.Count(payload, "."); dotsCount != 2 {
+	if dotsCount := bytes.Count(payload, dotBytes); dotsCount != 2 {
 		slog.WarnContext(ctx, "Unexpected number of dots in payload", "dots", dotsCount)
 		return nil, errWrongPartsNumber
 	}
 
-	parts := strings.Split(payload, ".")
-	solutionsStr, puzzleStr, signatureStr := parts[0], parts[1], parts[2]
-	if len(solutionsStr) == 0 || len(puzzleStr) == 0 || len(signatureStr) == 0 {
-		slog.WarnContext(ctx, "Parts of the payload are missing", "solutions", len(solutionsStr), "puzzle", len(puzzleStr),
-			"signature", len(signatureStr))
+	parts := bytes.SplitN(payload, []byte{'.'}, 3)
+	solutionsBytes, puzzleBytesB64, signatureBytesB64 := parts[0], parts[1], parts[2]
+	if len(solutionsBytes) == 0 || len(puzzleBytesB64) == 0 || len(signatureBytesB64) == 0 {
+		slog.WarnContext(ctx, "Parts of the payload are missing", "solutions", len(solutionsBytes), "puzzle", len(puzzleBytesB64), "signature", len(signatureBytesB64))
 		return nil, errEmptyPayloadPart
 	}
 
-	puzzleBytes, err := base64.StdEncoding.DecodeString(puzzleStr)
+	puzzleBytes := make([]byte, base64.StdEncoding.DecodedLen(len(puzzleBytesB64)))
+	n, err := base64.StdEncoding.Decode(puzzleBytes, puzzleBytesB64)
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to base64 decode puzzle bytes", common.ErrAttr(err))
 		return nil, err
 	}
 
+	puzzleBytes = puzzleBytes[:n]
 	if len(puzzleBytes) == 0 {
 		return nil, errEmptyPuzzle
 	}
 
-	signatureBytes, err := base64.StdEncoding.DecodeString(signatureStr)
+	signatureBytes := make([]byte, base64.StdEncoding.DecodedLen(len(signatureBytesB64)))
+	n, err = base64.StdEncoding.Decode(signatureBytes, signatureBytesB64)
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to base64 decode signature bytes", common.ErrAttr(err))
 		return nil, err
 	}
-
-	signatureLen := len(signatureBytes)
-	if signatureLen == 0 {
+	signatureBytes = signatureBytes[:n]
+	if len(signatureBytes) == 0 {
 		return nil, errEmptySignature
 	}
 
-	p := new(Puzzle)
+	t := new(T)
+	p := TPuzzle(t)
+
 	if uerr := p.UnmarshalBinary(puzzleBytes); uerr != nil {
 		slog.ErrorContext(ctx, "Failed to unmarshal binary puzzle", common.ErrAttr(uerr))
 		return nil, uerr
@@ -137,7 +147,7 @@ func ParseVerifyPayload(ctx context.Context, payload string) (*VerifyPayload, er
 	}
 
 	return &VerifyPayload{
-		solutions:  solutionsStr,
+		solutions:  solutionsBytes,
 		puzzleData: puzzleBytes,
 		puzzle:     p,
 		signature:  s,
@@ -178,7 +188,7 @@ func (vp *VerifyPayload) VerifySignature(ctx context.Context, salt *Salt, extraS
 	return nil
 }
 
-func (vp *VerifyPayload) Puzzle() *Puzzle {
+func (vp *VerifyPayload) Puzzle() Puzzle {
 	return vp.puzzle
 }
 
@@ -201,16 +211,37 @@ func (vp *VerifyPayload) VerifySolutions(ctx context.Context) (*Metadata, Verify
 		puzzleBytes = extendedPuzzleBytes
 	}
 
-	solutionsCount, err := solutions.Verify(ctx, puzzleBytes, vp.puzzle.Difficulty)
+	solutionsActual, err := solutions.Verify(ctx, puzzleBytes, vp.puzzle.Difficulty())
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to verify solutions", common.ErrAttr(err))
 		return solutions.Metadata, InvalidSolutionError
 	}
 
-	if solutionsCount != int(vp.puzzle.SolutionsCount) {
-		slog.WarnContext(ctx, "Invalid solutions count", "expected", vp.puzzle.SolutionsCount, "actual", solutionsCount)
+	if solutionsExpected := vp.puzzle.SolutionsCount(); solutionsActual != solutionsExpected {
+		slog.WarnContext(ctx, "Invalid solutions count", "expected", solutionsExpected, "actual", solutionsActual)
 		return solutions.Metadata, InvalidSolutionError
 	}
 
 	return solutions.Metadata, VerifyNoError
+}
+
+func NewStubPayload(p Puzzle) *stubVerifyPayload {
+	return &stubVerifyPayload{p: p}
+}
+
+type stubVerifyPayload struct {
+	p Puzzle
+}
+
+func (p *stubVerifyPayload) VerifySolutions(ctx context.Context) (*Metadata, VerifyError) {
+	return &Metadata{}, TestPropertyError
+}
+func (p *stubVerifyPayload) Puzzle() Puzzle {
+	return p.p
+}
+func (p *stubVerifyPayload) NeedsExtraSalt() bool {
+	return false
+}
+func (p *stubVerifyPayload) VerifySignature(ctx context.Context, salt *Salt, extraSalt []byte) error {
+	return errStubPayload
 }

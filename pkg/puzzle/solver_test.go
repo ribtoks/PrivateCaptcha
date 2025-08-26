@@ -36,16 +36,19 @@ func TestSolver(t *testing.T) {
 		difficulty = 160
 	}
 
+	propertyID := [16]byte{}
+	randInit(propertyID[:])
+
 	for i := 0; i < times; i++ {
 		t.Run(fmt.Sprintf("solver_%v", i), func(t *testing.T) {
 			t.Parallel()
 
-			p := NewPuzzle(0, [16]byte{}, difficulty)
+			p := NewComputePuzzle(NextPuzzleID(), propertyID, difficulty)
 			if err := p.Init(DefaultValidityPeriod); err != nil {
 				t.Fatal(err)
 			}
 
-			solver := &Solver{}
+			solver := &ComputeSolver{}
 			solutions, err := solver.Solve(p)
 			if err != nil {
 				t.Fatal(err)
@@ -62,8 +65,8 @@ func TestSolver(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if found != int(p.SolutionsCount) {
-				t.Errorf("Found %v solutions, but expected %v", found, p.SolutionsCount)
+			if found != p.SolutionsCount() {
+				t.Errorf("Found %v solutions, but expected %v", found, p.SolutionsCount())
 			}
 		})
 	}
@@ -71,12 +74,12 @@ func TestSolver(t *testing.T) {
 
 func benchmarkDifficulty(difficulty uint8, b *testing.B) {
 	for n := 0; n < b.N; n++ {
-		p := NewPuzzle(0, [16]byte{}, difficulty)
+		p := NewComputePuzzle(0, [16]byte{}, difficulty)
 		if err := p.Init(DefaultValidityPeriod); err != nil {
 			b.Fatal(err)
 		}
 
-		solver := &Solver{}
+		solver := &ComputeSolver{}
 		solutions, err := solver.Solve(p)
 		if err != nil {
 			b.Fatal(err)
