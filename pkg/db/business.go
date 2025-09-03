@@ -160,7 +160,7 @@ func (s *BusinessStore) CacheVerifiedPuzzle(ctx context.Context, p puzzle.Puzzle
 	expiration := p.Expiration()
 	// this check should have been done before in the pipeline. Here the check only to safeguard storing in cache
 	if !tnow.Before(expiration) {
-		slog.WarnContext(ctx, "Skipping caching expired puzzle", "now", tnow, "expiration", p.Expiration)
+		slog.WarnContext(ctx, "Skipping caching expired puzzle", "now", tnow, "expiration", p.Expiration())
 		return
 	}
 
