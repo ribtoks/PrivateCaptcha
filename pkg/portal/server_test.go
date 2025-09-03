@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"flag"
-	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -17,6 +16,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/maintenance"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/monitoring"
+	portal_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/portal/tests"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
@@ -38,26 +38,6 @@ func portalDomain() string {
 	return config.AsURL(context.TODO(), cfg.Get(common.PortalBaseURLKey)).Domain()
 }
 
-type fakePuzzleEngine struct {
-	result *puzzle.VerifyResult
-}
-
-func (f *fakePuzzleEngine) ParseSolutionPayload(ctx context.Context, data []byte) (puzzle.SolutionPayload, error) {
-	return puzzle.NewStubPayload(puzzle.NewComputePuzzle(0, [puzzle.PropertyIDSize]byte{}, 0)), nil
-}
-
-func (f *fakePuzzleEngine) Create(puzzleID uint64, propertyID [puzzle.PropertyIDSize]byte, difficulty uint8) puzzle.Puzzle {
-	return puzzle.NewComputePuzzle(puzzleID, propertyID, difficulty)
-}
-
-func (f *fakePuzzleEngine) Write(ctx context.Context, p puzzle.Puzzle, extraSalt []byte, w http.ResponseWriter) error {
-	return nil
-}
-
-func (f *fakePuzzleEngine) Verify(ctx context.Context, payload puzzle.SolutionPayload, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.VerifyResult, error) {
-	return f.result, nil
-}
-
 func TestMain(m *testing.M) {
 	flag.Parse()
 
@@ -69,6 +49,8 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
+	puzzleEngine := &portal_tests.StubPuzzleEngine{Result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}}
+
 	if testing.Short() {
 		server = &Server{
 			Stage:  common.StageTest,
@@ -78,7 +60,7 @@ func TestMain(m *testing.M) {
 				CookieName:  "pcsid",
 				MaxLifetime: 1 * time.Minute,
 			},
-			PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}},
+			PuzzleEngine: puzzleEngine,
 			PlanService:  planService,
 			DataCtx:      dataCtx,
 		}
@@ -134,7 +116,7 @@ func TestMain(m *testing.M) {
 		},
 		Mailer:       &email.StubMailer{},
 		RateLimiter:  &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
-		PuzzleEngine: &fakePuzzleEngine{result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}},
+		PuzzleEngine: puzzleEngine,
 		Metrics:      monitoring.NewStub(),
 		PlanService:  planService,
 		DataCtx:      dataCtx,

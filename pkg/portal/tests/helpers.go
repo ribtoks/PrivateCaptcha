@@ -15,12 +15,34 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	emailpkg "github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 	"github.com/PuerkitoBio/goquery"
 	"golang.org/x/net/html"
 )
+
+type StubPuzzleEngine struct {
+	Result *puzzle.VerifyResult
+}
+
+func (f *StubPuzzleEngine) ParseSolutionPayload(ctx context.Context, data []byte) (puzzle.SolutionPayload, error) {
+	return puzzle.NewStubPayload(puzzle.NewComputePuzzle(0, [puzzle.PropertyIDSize]byte{}, 0)), nil
+}
+
+func (f *StubPuzzleEngine) Create(puzzleID uint64, propertyID [puzzle.PropertyIDSize]byte, difficulty uint8) puzzle.Puzzle {
+	return puzzle.NewComputePuzzle(puzzleID, propertyID, difficulty)
+}
+
+func (f *StubPuzzleEngine) Write(ctx context.Context, p puzzle.Puzzle, extraSalt []byte, w http.ResponseWriter) error {
+	return nil
+}
+
+func (f *StubPuzzleEngine) Verify(ctx context.Context, payload puzzle.SolutionPayload, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.VerifyResult, error) {
+	return f.Result, nil
+}
 
 // courtesy of https://martinfowler.com/articles/tdd-html-templates.html
 func AssertWellFormedHTML(t *testing.T, buf bytes.Buffer) {
