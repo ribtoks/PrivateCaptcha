@@ -250,6 +250,12 @@ func (s *Server) puzzleHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	if err := r.ParseForm(); err != nil {
+		slog.ErrorContext(ctx, "Failed to read request form", common.ErrAttr(err))
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		return
+	}
+
 	data := r.FormValue(common.ParamResponse)
 	if len(data) == 0 {
 		slog.ErrorContext(ctx, "Empty captcha response")
