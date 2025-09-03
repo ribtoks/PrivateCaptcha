@@ -109,10 +109,11 @@ func ParseVerifyPayload[T any, TPuzzle PuzzleConstraint[T]](ctx context.Context,
 		return nil, errEmptyPayloadPart
 	}
 
-	puzzleBytes := make([]byte, base64.StdEncoding.DecodedLen(len(puzzleBytesB64)))
+	puzzleBytesLength := base64.StdEncoding.DecodedLen(len(puzzleBytesB64))
+	puzzleBytes := make([]byte, puzzleBytesLength)
 	n, err := base64.StdEncoding.Decode(puzzleBytes, puzzleBytesB64)
 	if err != nil {
-		slog.WarnContext(ctx, "Failed to base64 decode puzzle bytes", common.ErrAttr(err))
+		slog.WarnContext(ctx, "Failed to base64 decode puzzle bytes", "length", puzzleBytesLength, common.ErrAttr(err))
 		return nil, err
 	}
 
@@ -121,10 +122,11 @@ func ParseVerifyPayload[T any, TPuzzle PuzzleConstraint[T]](ctx context.Context,
 		return nil, errEmptyPuzzle
 	}
 
-	signatureBytes := make([]byte, base64.StdEncoding.DecodedLen(len(signatureBytesB64)))
+	signatureBytesLength := base64.StdEncoding.DecodedLen(len(signatureBytesB64))
+	signatureBytes := make([]byte, signatureBytesLength)
 	n, err = base64.StdEncoding.Decode(signatureBytes, signatureBytesB64)
 	if err != nil {
-		slog.WarnContext(ctx, "Failed to base64 decode signature bytes", common.ErrAttr(err))
+		slog.WarnContext(ctx, "Failed to base64 decode signature bytes", "length", signatureBytesLength, common.ErrAttr(err))
 		return nil, err
 	}
 	signatureBytes = signatureBytes[:n]
