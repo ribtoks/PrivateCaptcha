@@ -402,6 +402,8 @@ func (br *StoreBulkReader[TArg, TKey, T]) Read(ctx context.Context, args map[TAr
 		if key, err := br.QueryKeyFunc(arg); err == nil {
 			queryKeys = append(queryKeys, key)
 			argsMap[arg] = struct{}{}
+		} else {
+			slog.ErrorContext(ctx, "Failed to create query key", "arg", arg, common.ErrAttr(err))
 		}
 	}
 
