@@ -320,6 +320,7 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 
 	payload, err := s.Verifier.ParseSolutionPayload(ctx, data)
 	if err != nil {
+		slog.Log(ctx, common.LevelTrace, "Failed to parse solution payload", common.ErrAttr(err))
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
