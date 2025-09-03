@@ -310,8 +310,8 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		}
 	}()
 
+	jobs.Spawn(healthCheck)
 	// start maintenance jobs
-	jobs.Add(healthCheck)
 	jobs.Add(&maintenance.SessionsCleanupJob{
 		Session: portalServer.Sessions,
 	})
@@ -368,7 +368,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		BusinessDB:   businessDB,
 		PlanService:  planService,
 	})
-	jobs.Run()
+	jobs.RunAll()
 
 	var localServer *http.Server
 	if localAddress := cfg.Get(common.LocalAddressKey).Value(); len(localAddress) > 0 {

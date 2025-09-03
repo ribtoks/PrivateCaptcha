@@ -15,11 +15,16 @@ import (
 )
 
 func NewJobs(store db.Implementor) *jobs {
-	return &jobs{
+	j := &jobs{
 		store:        store,
 		periodicJobs: make([]common.PeriodicJob, 0),
 		oneOffJobs:   make([]common.OneOffJob, 0),
 	}
+
+	j.maintenanceCtx, j.maintenanceCancel = context.WithCancel(
+		context.WithValue(context.Background(), common.TraceIDContextKey, "maintenance"))
+
+	return j
 }
 
 type jobs struct {
@@ -54,14 +59,16 @@ func (j *jobs) AddOneOff(job common.OneOffJob) {
 	j.oneOffJobs = append(j.oneOffJobs, job)
 }
 
-func (j *jobs) Run() {
-	j.maintenanceCtx, j.maintenanceCancel = context.WithCancel(
-		context.WithValue(context.Background(), common.TraceIDContextKey, "maintenance"))
+// spawned jobs only share common cancellation context and are not exclusive
+func (j *jobs) Spawn(job common.PeriodicJob) {
+	go common.RunPeriodicJob(j.maintenanceCtx, job)
+}
 
+func (j *jobs) RunAll() {
 	slog.DebugContext(j.maintenanceCtx, "Starting maintenance jobs", "periodic", len(j.periodicJobs), "oneoff", len(j.oneOffJobs))
 
 	// NOTE: we run jobs mutually exclusive to preserve resources for main server (those are _maintenance_ jobs anyways)
-	// NOTE 2: this does not apply for on-demand ones below
+	// NOTE 2: this does not apply for on-demand ones below - that's why we wrap them only here, unlike AddLocked()
 
 	for _, job := range j.periodicJobs {
 		go common.RunPeriodicJob(j.maintenanceCtx, &mutexPeriodicJob{job: job, mux: &j.mux})

@@ -71,7 +71,7 @@ func TestOneOffJobExecution(t *testing.T) {
 
 	jobsManager.AddOneOff(stubJob)
 
-	jobsManager.Run()
+	jobsManager.RunAll()
 
 	time.Sleep(50 * time.Millisecond)
 
@@ -90,7 +90,7 @@ func TestPeriodicJobExecution(t *testing.T) {
 
 	jobsManager.Add(stubJob)
 
-	jobsManager.Run()
+	jobsManager.RunAll()
 
 	time.Sleep(stubJob.interval * 10)
 
