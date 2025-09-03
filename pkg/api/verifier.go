@@ -253,7 +253,7 @@ func (v *Verifier) PuzzleForRequest(r *http.Request, levels *difficulty.Levels) 
 		}
 
 		slog.Log(ctx, common.LevelTrace, "Returning stub puzzle before auth is backfilled", "puzzleID", stubPuzzle.PuzzleID(),
-			"sitekey", sitekey, "difficulty", stubPuzzle.Difficulty)
+			"sitekey", sitekey, "difficulty", stubPuzzle.Difficulty())
 		return stubPuzzle, nil, nil
 	}
 
@@ -288,7 +288,7 @@ func (v *Verifier) PuzzleForRequest(r *http.Request, levels *difficulty.Levels) 
 		slog.ErrorContext(ctx, "Failed to init puzzle", common.ErrAttr(err))
 	}
 
-	slog.Log(ctx, common.LevelTrace, "Prepared new puzzle", "propertyID", property.ID, "difficulty", result.Difficulty,
+	slog.Log(ctx, common.LevelTrace, "Prepared new puzzle", "propertyID", property.ID, "difficulty", result.Difficulty(),
 		"puzzleID", result.PuzzleID(), "userID", property.OrgOwnerID.Int32)
 
 	return result, property, nil
