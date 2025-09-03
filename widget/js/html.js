@@ -86,12 +86,7 @@ export class CaptchaElement extends SafeHTMLElement {
             console.warn(`[privatecaptcha][progress] Localization not found. lang=${this._lang}`);
             this._lang = 'en';
         }
-        // custom click event
-        this.checkEvent = new CustomEvent("check", {
-            bubbles: true,
-            cancelable: false,
-            composed: true
-        });
+
         // add CSS
         const sheet = new CSSStyleSheet();
         sheet.replace(styles);
@@ -208,7 +203,12 @@ export class CaptchaElement extends SafeHTMLElement {
             console.debug("[privatecaptcha][progress] checkbox was clicked");
         }
         if (event.target.checked) {
-            this.dispatchEvent(this.checkEvent);
+            const checkEvent = new CustomEvent("privatecaptcha:checked", {
+                bubbles: true,
+                composed: true
+            });
+
+            this.dispatchEvent(checkEvent);
         } else {
             console.warn('[privatecaptcha][progress] checkbox was unchecked');
         }

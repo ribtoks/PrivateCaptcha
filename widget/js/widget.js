@@ -57,7 +57,7 @@ export class CaptchaWidget {
             // "once" means listener will be removed after being called, "passive" - cannot use preventDefault()
             form.addEventListener('focusin', this.onFocusIn.bind(this), { once: true, passive: true });
             this._element.innerHTML = `<private-captcha display-mode="${this._options.displayMode}" lang="${this._options.lang}" theme="${this._options.theme}" extra-styles="${this._options.styles}"${this._options.debug ? ' debug="true"' : ''}></private-captcha>`;
-            this._element.addEventListener('check', this.onChecked.bind(this));
+            this._element.addEventListener('privatecaptcha:checked', this.onChecked.bind(this));
 
             if (this._options.storeVariable) {
                 this._element[this._options.storeVariable] = this;
@@ -101,10 +101,6 @@ export class CaptchaWidget {
             theme: this._element.dataset["theme"] || "light",
             styles: this._element.dataset["styles"] || "",
             storeVariable: this._element.dataset["storeVariable"] || null,
-            initCallback: () => this.trace('init callback'),
-            startedCallback: () => this.trace('started callback'),
-            finishedCallback: () => this.trace('finished callback'),
-            erroredCallback: () => this.trace('errored callback'),
         }, options);
     }
 
@@ -191,10 +187,16 @@ export class CaptchaWidget {
         }
     }
 
+    dispatchEvent(eventName, detail = {}) {
+        const event = new CustomEvent(`privatecaptcha:${eventName}`, {
+            bubbles: false,
+            detail: { widget: this, element: this._element, ...detail }
+        });
+        this._element.dispatchEvent(event);
+    }
+
     signalInit() {
-        if (this._options.initCallback) {
-            this._options.initCallback(this);
-        }
+        this.dispatchEvent("init");
 
         const callback = this._element.dataset['initCallback'];
         if (callback) {
@@ -207,9 +209,7 @@ export class CaptchaWidget {
     }
 
     signalStarted() {
-        if (this._options.startedCallback) {
-            this._options.startedCallback(this);
-        }
+        this.dispatchEvent("start");
 
         const callback = this._element.dataset['startedCallback'];
         if (callback) {
@@ -222,9 +222,7 @@ export class CaptchaWidget {
     }
 
     signalFinished() {
-        if (this._options.finishedCallback) {
-            this._options.finishedCallback(this);
-        }
+        this.dispatchEvent("finish");
 
         const callback = this._element.dataset['finishedCallback'];
         if (callback) {
@@ -237,9 +235,7 @@ export class CaptchaWidget {
     }
 
     signalErrored() {
-        if (this._options.erroredCallback) {
-            this._options.erroredCallback(this);
-        }
+        this.dispatchEvent("error");
 
         const callback = this._element.dataset['erroredCallback'];
         if (callback) {
@@ -323,7 +319,9 @@ export class CaptchaWidget {
         return new Promise(() => { });
     }
 
-    onChecked() {
+    onChecked(event) {
+        event.stopPropagation();
+
         this.trace(`onChecked event handler. state=${this._state}`);
         this._userStarted = true;
 
