@@ -94,6 +94,9 @@
         <div>
             <h2 class="text-base font-semibold leading-7 text-gray-900">Basic settings</h2>
             <p class="mt-1 text-sm leading-6 text-gray-600">Change property's difficulty configuration or property name. To change the domain, you need to create another property.</p>
+            <p class="mt-1">
+              <a href="https://docs.privatecaptcha.com/docs/reference/property-settings/" target="_blank" class="text-sm/6 font-semibold text-green-600 hover:text-green-500">Docs <span aria-hidden="true">&rarr;</span></a>
+            </p>
         </div>
         <form
             hx-put='{{ partsURL .Const.OrgEndpoint .Params.Org.ID .Const.PropertyEndpoint .Params.Property.ID .Const.EditEndpoint }}'
