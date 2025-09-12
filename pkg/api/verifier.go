@@ -114,7 +114,7 @@ func (v *Verifier) verifyPuzzleValid(ctx context.Context, payload puzzle.Solutio
 
 	propertyID := p.PropertyID()
 	if p.IsZero() && bytes.Equal(propertyID[:], db.TestPropertyUUID.Bytes[:]) {
-		plog.DebugContext(ctx, "Verifying test puzzle")
+		plog.Log(ctx, common.LevelTrace, "Verifying test puzzle")
 		return p, nil, puzzle.TestPropertyError
 	}
 

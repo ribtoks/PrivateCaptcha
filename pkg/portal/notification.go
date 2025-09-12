@@ -38,7 +38,7 @@ func (s *Server) dismissNotification(w http.ResponseWriter, r *http.Request) {
 		if derr := sess.Delete(session.KeyNotificationID); derr != nil {
 			slog.ErrorContext(ctx, "Failed to dismiss notification", "id", id, common.ErrAttr(derr))
 		} else {
-			slog.DebugContext(ctx, "Dismissed notification", "id", id)
+			slog.InfoContext(ctx, "Dismissed notification", "id", id)
 		}
 		w.WriteHeader(http.StatusOK)
 	} else {

@@ -623,7 +623,7 @@ func (s *Server) createUsageSettingsModel(ctx context.Context, user *dbgen.User)
 			}
 		}
 	} else {
-		slog.DebugContext(ctx, "User does not have a subscription (usage tab)", "userID", user.ID)
+		slog.DebugContext(ctx, "User does not have a subscription", "tab", "usage", "userID", user.ID)
 		renderCtx.WarningMessage = "You don't have an active subscription."
 	}
 

@@ -144,7 +144,7 @@ func (ts *TimeSeriesDB) WriteAccessLogBatch(ctx context.Context, records []*comm
 
 	err = scope.Commit()
 	if err == nil {
-		slog.DebugContext(ctx, "Inserted batch of access records", "size", len(records))
+		slog.InfoContext(ctx, "Inserted batch of access records", "size", len(records))
 	} else {
 		slog.ErrorContext(ctx, "Failed to insert access log batch", common.ErrAttr(err))
 	}
@@ -184,7 +184,7 @@ func (ts *TimeSeriesDB) WriteVerifyLogBatch(ctx context.Context, records []*comm
 
 	err = scope.Commit()
 	if err == nil {
-		slog.DebugContext(ctx, "Inserted batch of verify records", "size", len(records))
+		slog.InfoContext(ctx, "Inserted batch of verify records", "size", len(records))
 	} else {
 		slog.ErrorContext(ctx, "Failed to insert verify log batch", common.ErrAttr(err))
 	}
@@ -398,7 +398,7 @@ func (ts *TimeSeriesDB) lightDelete(ctx context.Context, tables []string, column
 			slog.ErrorContext(ctx, "Failed to delete data", "table", table, "column", column, common.ErrAttr(err))
 			return err
 		}
-		slog.DebugContext(ctx, "Deleted data in ClickHouse", "column", column, "table", table)
+		slog.InfoContext(ctx, "Deleted data in ClickHouse", "column", column, "table", table)
 	}
 
 	return nil

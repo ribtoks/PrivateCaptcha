@@ -805,7 +805,7 @@ func (s *Server) putProperty(w http.ResponseWriter, r *http.Request) (Model, str
 		if updatedProperty, err := s.Store.Impl().UpdateProperty(ctx, params); err != nil {
 			renderCtx.ErrorMessage = "Failed to update settings. Please try again."
 		} else {
-			slog.DebugContext(ctx, "Edited property", "propID", property.ID, "orgID", org.ID)
+			slog.InfoContext(ctx, "Edited property", "propID", property.ID, "orgID", org.ID)
 			renderCtx.SuccessMessage = "Settings were updated"
 			renderCtx.Property = propertyToUserProperty(updatedProperty)
 		}

@@ -128,7 +128,7 @@ func (j *jobs) handlePeriodicJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	slog.DebugContext(ctx, "Handling on-demand periodic job launch", "job", jobName)
+	slog.InfoContext(ctx, "Handling on-demand periodic job launch", "job", jobName)
 	found := false
 
 	for _, job := range j.periodicJobs {
@@ -168,7 +168,7 @@ func (j *jobs) handleOneoffJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	slog.DebugContext(ctx, "Handling on-demand one-off job launch", "job", jobName)
+	slog.InfoContext(ctx, "Handling on-demand one-off job launch", "job", jobName)
 	found := false
 
 	for _, job := range j.oneOffJobs {

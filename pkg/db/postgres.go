@@ -47,7 +47,7 @@ func (tracer *myQueryTracer) TraceQueryEnd(ctx context.Context, conn *pgx.Conn, 
 		if !ok {
 			t = time.Now()
 		}
-		slog.DebugContext(ctx, "SQL command finished", "source", "postgres", "duration", time.Since(t).Milliseconds())
+		slog.Log(ctx, common.LevelTrace, "SQL command finished", "source", "postgres", "duration", time.Since(t).Milliseconds())
 	}
 }
 

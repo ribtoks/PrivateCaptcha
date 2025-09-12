@@ -206,7 +206,7 @@ func (impl *BusinessStoreImpl) createNewUser(ctx context.Context, email, name st
 	}
 
 	if user != nil {
-		slog.DebugContext(ctx, "Created user in DB", "email", email, "id", user.ID)
+		slog.InfoContext(ctx, "Created user in DB", "email", email, "id", user.ID)
 
 		// we need to update cache as we just set user as missing when checking for it's existence
 		cacheKey := userCacheKey(user.ID)
@@ -235,7 +235,7 @@ func (impl *BusinessStoreImpl) CreateNewOrganization(ctx context.Context, name s
 	}
 
 	if org != nil {
-		slog.DebugContext(ctx, "Created organization in DB", "name", name, "id", org.ID)
+		slog.InfoContext(ctx, "Created organization in DB", "name", name, "id", org.ID)
 
 		cacheKey := orgCacheKey(org.ID)
 		_ = impl.cache.Set(ctx, cacheKey, org)
@@ -257,21 +257,21 @@ func (impl *BusinessStoreImpl) SoftDeleteUser(ctx context.Context, userID int32)
 		slog.ErrorContext(ctx, "Failed to soft-delete user", "userID", userID, common.ErrAttr(err))
 		return err
 	} else {
-		slog.DebugContext(ctx, "Soft-deleted user", "userID", userID)
+		slog.InfoContext(ctx, "Soft-deleted user", "userID", userID)
 	}
 
 	if err := impl.querier.SoftDeleteUserOrganizations(ctx, Int(userID)); err != nil {
 		slog.ErrorContext(ctx, "Failed to soft-delete user organizations", "userID", userID, common.ErrAttr(err))
 		return err
 	} else {
-		slog.DebugContext(ctx, "Soft-deleted user organizations", "userID", userID)
+		slog.InfoContext(ctx, "Soft-deleted user organizations", "userID", userID)
 	}
 
 	if err := impl.querier.DeleteUserAPIKeys(ctx, Int(userID)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete user API keys", "userID", userID, common.ErrAttr(err))
 		return err
 	} else {
-		slog.DebugContext(ctx, "Deleted user API keys", "userID", userID)
+		slog.InfoContext(ctx, "Deleted user API keys", "userID", userID)
 	}
 
 	// TODO: Delete user API keys from cache
@@ -679,7 +679,7 @@ func (impl *BusinessStoreImpl) CreateNewProperty(ctx context.Context, params *db
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, "Created new property", "id", property.ID, "name", params.Name, "org", params.OrgID)
+	slog.InfoContext(ctx, "Created new property", "id", property.ID, "name", params.Name, "org", params.OrgID)
 
 	impl.cacheProperty(ctx, property)
 	// invalidate org properties in cache as we just created a new property
@@ -699,7 +699,7 @@ func (impl *BusinessStoreImpl) UpdateProperty(ctx context.Context, params *dbgen
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, "Updated property", "name", params.Name, "propID", params.ID)
+	slog.InfoContext(ctx, "Updated property", "name", params.Name, "propID", params.ID)
 
 	impl.cacheProperty(ctx, property)
 	// invalidate org properties in cache as we just created a new property
@@ -719,7 +719,7 @@ func (impl *BusinessStoreImpl) SoftDeleteProperty(ctx context.Context, propID in
 		return err
 	}
 
-	slog.DebugContext(ctx, "Soft-deleted property", "propID", propID)
+	slog.InfoContext(ctx, "Soft-deleted property", "propID", propID)
 
 	// update caches
 	sitekey := UUIDToSiteKey(property.ExternalID)
@@ -761,7 +761,7 @@ func (impl *BusinessStoreImpl) UpdateOrganization(ctx context.Context, orgID int
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, "Updated organization", "name", name, "orgID", orgID)
+	slog.InfoContext(ctx, "Updated organization", "name", name, "orgID", orgID)
 
 	cacheKey := orgCacheKey(org.ID)
 	_ = impl.cache.Set(ctx, cacheKey, org)
@@ -784,7 +784,7 @@ func (impl *BusinessStoreImpl) SoftDeleteOrganization(ctx context.Context, orgID
 		return err
 	}
 
-	slog.DebugContext(ctx, "Soft-deleted organization", "orgID", orgID)
+	slog.InfoContext(ctx, "Soft-deleted organization", "orgID", orgID)
 
 	// update caches
 	_ = impl.cache.SetMissing(ctx, orgCacheKey(orgID))
@@ -828,7 +828,7 @@ func (impl *BusinessStoreImpl) InviteUserToOrg(ctx context.Context, orgID int32,
 	_ = impl.cache.Delete(ctx, userOrgsCacheKey(userID))
 	_ = impl.cache.Delete(ctx, orgUsersCacheKey(orgID))
 
-	slog.DebugContext(ctx, "Added org membership invite", "orgID", orgID, "userID", userID)
+	slog.InfoContext(ctx, "Added org membership invite", "orgID", orgID, "userID", userID)
 
 	return nil
 }
@@ -850,7 +850,7 @@ func (impl *BusinessStoreImpl) JoinOrg(ctx context.Context, orgID int32, userID 
 		return err
 	}
 
-	slog.DebugContext(ctx, "Accepted org invite", "orgID", orgID, "userID", userID)
+	slog.InfoContext(ctx, "Accepted org invite", "orgID", orgID, "userID", userID)
 
 	// invalidate relevant caches
 	_ = impl.cache.Delete(ctx, userOrgsCacheKey(userID))
@@ -876,7 +876,7 @@ func (impl *BusinessStoreImpl) LeaveOrg(ctx context.Context, orgID int32, userID
 		return err
 	}
 
-	slog.DebugContext(ctx, "Left organization", "orgID", orgID, "userID", userID)
+	slog.InfoContext(ctx, "Left organization", "orgID", orgID, "userID", userID)
 
 	// invalidate relevant caches
 	_ = impl.cache.Delete(ctx, userOrgsCacheKey(userID))
@@ -900,7 +900,7 @@ func (impl *BusinessStoreImpl) RemoveUserFromOrg(ctx context.Context, orgID int3
 		return err
 	}
 
-	slog.DebugContext(ctx, "Removed user from org", "orgID", orgID, "userID", userID)
+	slog.InfoContext(ctx, "Removed user from org", "orgID", orgID, "userID", userID)
 
 	// invalidate relevant caches
 	_ = impl.cache.Delete(ctx, userOrgsCacheKey(userID))
@@ -924,7 +924,7 @@ func (impl *BusinessStoreImpl) updateUserSubscription(ctx context.Context, userI
 		return err
 	}
 
-	slog.DebugContext(ctx, "Updated user subscription", "userID", userID, "subscriptionID", subscriptionID)
+	slog.InfoContext(ctx, "Updated user subscription", "userID", userID, "subscriptionID", subscriptionID)
 
 	if user != nil {
 		_ = impl.cache.Set(ctx, userCacheKey(user.ID), user)
@@ -949,7 +949,7 @@ func (impl *BusinessStoreImpl) UpdateUser(ctx context.Context, userID int32, nam
 		return err
 	}
 
-	slog.DebugContext(ctx, "Updated user", "userID", userID)
+	slog.InfoContext(ctx, "Updated user", "userID", userID)
 
 	if user != nil {
 		_ = impl.cache.Set(ctx, userCacheKey(user.ID), user)
@@ -998,7 +998,7 @@ func (impl *BusinessStoreImpl) UpdateAPIKey(ctx context.Context, externalID pgty
 		return err
 	}
 
-	slog.DebugContext(ctx, "Updated API key", "externalID", UUIDToSecret(externalID))
+	slog.InfoContext(ctx, "Updated API key", "externalID", UUIDToSecret(externalID))
 
 	if key != nil {
 		secret := UUIDToSecret(key.ExternalID)
@@ -1072,7 +1072,7 @@ func (impl *BusinessStoreImpl) DeleteAPIKey(ctx context.Context, userID, keyID i
 		return err
 	}
 
-	slog.DebugContext(ctx, "Deleted API Key", "keyID", keyID, "userID", userID)
+	slog.InfoContext(ctx, "Deleted API Key", "keyID", keyID, "userID", userID)
 
 	// invalidate keys cache
 	if key != nil {
@@ -1108,7 +1108,7 @@ func (impl *BusinessStoreImpl) UpdateUserAPIKeysRateLimits(ctx context.Context, 
 		return err
 	}
 
-	slog.DebugContext(ctx, "Updated user API keys rate limit", "userID", userID)
+	slog.InfoContext(ctx, "Updated user API keys rate limit", "userID", userID)
 
 	// invalidate keys cache
 	_ = impl.cache.Delete(ctx, userAPIKeysCacheKey(userID))
@@ -1410,7 +1410,7 @@ func (impl *BusinessStoreImpl) CreateSystemNotification(ctx context.Context, mes
 		_ = impl.cache.Set(ctx, cacheKey, n)
 	}
 
-	slog.DebugContext(ctx, "Created system notification", "notifID", n.ID)
+	slog.InfoContext(ctx, "Created system notification", "notifID", n.ID)
 
 	return n, err
 }
@@ -1585,7 +1585,7 @@ func (s *BusinessStoreImpl) CreateNotificationTemplate(ctx context.Context, name
 		return nil, err
 	}
 
-	slog.DebugContext(ctx, "Upserted notification template", "name", name, "hash", hash)
+	slog.InfoContext(ctx, "Upserted notification template", "name", name, "hash", hash)
 
 	return t, nil
 }
@@ -1649,7 +1649,7 @@ func (s *BusinessStoreImpl) CreateUserNotification(ctx context.Context, n *commo
 		return nil, err
 	}
 
-	rlog.DebugContext(ctx, "Created user notification", "notifID", notif.ID)
+	rlog.InfoContext(ctx, "Created user notification", "notifID", notif.ID)
 
 	return notif, nil
 }
@@ -1698,7 +1698,7 @@ func (s *BusinessStoreImpl) MarkUserNotificationsAttempted(ctx context.Context, 
 		return err
 	}
 
-	slog.DebugContext(ctx, "Updated attempted user notifications", "count", len(ids))
+	slog.InfoContext(ctx, "Updated attempted user notifications", "count", len(ids))
 
 	return nil
 }
@@ -1720,7 +1720,7 @@ func (s *BusinessStoreImpl) MarkUserNotificationsProcessed(ctx context.Context, 
 		return err
 	}
 
-	slog.DebugContext(ctx, "Updated processed user notifications", "count", len(ids), "processed_at", t)
+	slog.InfoContext(ctx, "Updated processed user notifications", "count", len(ids), "processed_at", t)
 
 	return nil
 }
@@ -1738,7 +1738,7 @@ func (s *BusinessStoreImpl) DeleteUnusedNotificationTemplates(ctx context.Contex
 		return err
 	}
 
-	slog.DebugContext(ctx, "Deleted unused notification templates", "delivered_before", processedBefore, "updated_before", updatedBefore)
+	slog.InfoContext(ctx, "Deleted unused notification templates", "delivered_before", processedBefore, "updated_before", updatedBefore)
 
 	return nil
 }
@@ -1753,7 +1753,7 @@ func (s *BusinessStoreImpl) DeleteSentUserNotifications(ctx context.Context, bef
 		return err
 	}
 
-	slog.DebugContext(ctx, "Deleted sent user notifications", "before", before)
+	slog.InfoContext(ctx, "Deleted sent user notifications", "before", before)
 
 	return nil
 }
@@ -1768,7 +1768,7 @@ func (s *BusinessStoreImpl) DeleteUnsentUserNotifications(ctx context.Context, b
 		return err
 	}
 
-	slog.DebugContext(ctx, "Deleted UNsent user notifications", "before", before)
+	slog.InfoContext(ctx, "Deleted UNsent user notifications", "before", before)
 
 	return nil
 }
@@ -1786,7 +1786,7 @@ func (s *BusinessStoreImpl) DeletePendingUserNotification(ctx context.Context, u
 		return err
 	}
 
-	slog.DebugContext(ctx, "Deleted pending user notification", "userID", userID, "refID", referenceID)
+	slog.InfoContext(ctx, "Deleted pending user notification", "userID", userID, "refID", referenceID)
 
 	return nil
 }
@@ -1842,7 +1842,7 @@ func (s *BusinessStoreImpl) ExpireInternalTrials(ctx context.Context, from, to t
 
 	// NOTE: we don't update caches in this case
 
-	slog.DebugContext(ctx, "Expired internal trials", "from", from, "to", to)
+	slog.InfoContext(ctx, "Expired internal trials", "from", from, "to", to)
 
 	return nil
 }

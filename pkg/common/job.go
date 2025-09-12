@@ -93,7 +93,7 @@ func RunPeriodicJob(ctx context.Context, j PeriodicJob) {
 			running = false
 			// introduction of jitter is supposed to help in case we have multiple workers to distribute the load
 		case <-time.After(interval + time.Duration(randv2.Int64N(int64(jitter)))):
-			slog.Log(ctx, LevelTrace, "Running periodic job once", "interval", interval.String(), "jitter", jitter.String())
+			slog.DebugContext(ctx, "Running periodic job once", "interval", interval.String(), "jitter", jitter.String())
 			_ = j.RunOnce(ctx, j.NewParams())
 		}
 	}
@@ -110,7 +110,7 @@ func RunPeriodicJobOnce(ctx context.Context, j PeriodicJob, params any) error {
 		}
 	}()
 
-	slog.Log(ctx, LevelTrace, "Running periodic job once")
+	slog.DebugContext(ctx, "Running periodic job once")
 	err := j.RunOnce(ctx, params)
 	if err != nil {
 		slog.ErrorContext(ctx, "Periodic job failed", ErrAttr(err))
