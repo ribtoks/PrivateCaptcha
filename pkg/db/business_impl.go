@@ -820,7 +820,8 @@ func (impl *BusinessStoreImpl) InviteUserToOrg(ctx context.Context, orgID int32,
 	})
 
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to add user to org", "orgID", orgID, "userID", userID, common.ErrAttr(err))
+		slog.ErrorContext(ctx, "Failed to invite user to org", "orgID", orgID, "userID", userID, common.ErrAttr(err))
+		return err
 	}
 
 	// invalidate relevant caches

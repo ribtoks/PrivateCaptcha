@@ -17,6 +17,13 @@ import (
 	"github.com/badoux/checkmail"
 )
 
+const (
+	errorMessageSelfAlreadyMember = "You are already a member of this organization."
+	errorMessageUserAlreadyMember = "User with this email is already a member of this organization."
+	errorMessageOrgMembersLimit   = "Organization members limit reached on your current plan, please upgrade to invite more."
+	errorMessageOrgSubscription   = "You need an active subscription to invite organization members."
+)
+
 func (s *Server) validateOrgsLimit(ctx context.Context, user *dbgen.User) string {
 	var subscr *dbgen.Subscription
 	var err error
@@ -101,9 +108,9 @@ func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
 }
 
 // here we know that user is already organization owner
-func (s *Server) validateAddOrgMember(ctx context.Context, user *dbgen.User, members []*dbgen.GetOrganizationUsersRow, inviteEmail string) string {
+func (s *Server) validateAddOrgMemberEmail(ctx context.Context, user *dbgen.User, members []*dbgen.GetOrganizationUsersRow, inviteEmail string) string {
 	if inviteEmail == user.Email {
-		return "You are already a member of this organization."
+		return errorMessageSelfAlreadyMember
 	}
 
 	if err := checkmail.ValidateFormat(inviteEmail); err != nil {
@@ -115,7 +122,7 @@ func (s *Server) validateAddOrgMember(ctx context.Context, user *dbgen.User, mem
 	if existingIndex != -1 {
 		member := members[existingIndex]
 		slog.WarnContext(ctx, "User is already a member", "userID", member.User.ID, "level", member.Level)
-		return "User with this email is already a member of this organization."
+		return errorMessageUserAlreadyMember
 	}
 
 	var subscr *dbgen.Subscription
@@ -130,7 +137,7 @@ func (s *Server) validateAddOrgMember(ctx context.Context, user *dbgen.User, mem
 	}
 
 	if (subscr == nil) || !s.PlanService.IsSubscriptionActive(subscr.Status) {
-		return "You need an active subscription to invite organization members."
+		return errorMessageOrgSubscription
 	}
 
 	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
@@ -141,7 +148,49 @@ func (s *Server) validateAddOrgMember(ctx context.Context, user *dbgen.User, mem
 	}
 
 	if !plan.CheckOrgMembersLimit(len(members)) {
-		return "Organization members limit reached on your current plan, please upgrade to invite more."
+		return errorMessageOrgMembersLimit
+	}
+
+	return ""
+}
+
+// here we know that user is already organization owner
+func (s *Server) validateAddOrgMemberID(ctx context.Context, user *dbgen.User, members []*dbgen.GetOrganizationUsersRow, inviteUserID int32) string {
+	if inviteUserID == user.ID {
+		return errorMessageSelfAlreadyMember
+	}
+
+	existingIndex := slices.IndexFunc(members, func(r *dbgen.GetOrganizationUsersRow) bool { return r.User.ID == inviteUserID })
+	if existingIndex != -1 {
+		member := members[existingIndex]
+		slog.WarnContext(ctx, "User is already a member", "userID", member.User.ID, "level", member.Level)
+		return errorMessageUserAlreadyMember
+	}
+
+	var subscr *dbgen.Subscription
+	var err error
+
+	if user.SubscriptionID.Valid {
+		subscr, err = s.Store.Impl().RetrieveSubscription(ctx, user.SubscriptionID.Int32)
+		if err != nil {
+			slog.ErrorContext(ctx, "Failed to retrieve user subscription", "userID", user.ID, common.ErrAttr(err))
+			return ""
+		}
+	}
+
+	if (subscr == nil) || !s.PlanService.IsSubscriptionActive(subscr.Status) {
+		return errorMessageOrgSubscription
+	}
+
+	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
+	plan, err := s.PlanService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, s.Stage, isInternalSubscription)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
+		return ""
+	}
+
+	if !plan.CheckOrgMembersLimit(len(members)) {
+		return errorMessageOrgMembersLimit
 	}
 
 	return ""
@@ -184,7 +233,7 @@ func (s *Server) postOrgMembers(w http.ResponseWriter, r *http.Request) (Model, 
 	}
 
 	inviteEmail := strings.TrimSpace(r.FormValue(common.ParamEmail))
-	if errorMsg := s.validateAddOrgMember(ctx, user, members, inviteEmail); len(errorMsg) > 0 {
+	if errorMsg := s.validateAddOrgMemberEmail(ctx, user, members, inviteEmail); len(errorMsg) > 0 {
 		renderCtx.ErrorMessage = errorMsg
 		return renderCtx, orgMembersTemplate, nil
 	}
@@ -192,6 +241,11 @@ func (s *Server) postOrgMembers(w http.ResponseWriter, r *http.Request) (Model, 
 	inviteUser, err := s.Store.Impl().FindUserByEmail(ctx, inviteEmail)
 	if err != nil {
 		renderCtx.ErrorMessage = fmt.Sprintf("Cannot find user account with email '%s'.", inviteEmail)
+		return renderCtx, orgMembersTemplate, nil
+	}
+
+	if errorMsg := s.validateAddOrgMemberID(ctx, user, members, inviteUser.ID); len(errorMsg) > 0 {
+		renderCtx.ErrorMessage = errorMsg
 		return renderCtx, orgMembersTemplate, nil
 	}
 
