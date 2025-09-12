@@ -132,10 +132,14 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sess := s.Sessions.SessionStart(w, r)
+	ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.SessionID())
+
 	_ = sess.Set(session.KeyLoginStep, loginStepSignUpVerify)
 	_ = sess.Set(session.KeyUserEmail, email)
 	_ = sess.Set(session.KeyUserName, name)
 	_ = sess.Set(session.KeyTwoFactorCode, code)
+
+	slog.DebugContext(ctx, "Started 2FA registration flow", "email", email)
 
 	common.Redirect(s.RelURL(common.TwoFactorEndpoint), http.StatusOK, w, r)
 }

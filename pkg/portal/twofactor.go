@@ -64,6 +64,8 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sess := s.Sessions.SessionStart(w, r)
+	ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.SessionID())
+
 	step, ok := sess.Get(session.KeyLoginStep).(int)
 	if !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
 		slog.WarnContext(ctx, "User session is not valid", "step", step)

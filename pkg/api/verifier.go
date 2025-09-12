@@ -209,7 +209,7 @@ func (v *Verifier) Verify(ctx context.Context, verifyPayload puzzle.SolutionPayl
 		// NOTE: unlike solutions/puzzle, diagnostics bytes can be totally tampered
 		vlog := slog.With("result", verr.String(), "clientError", metadata.ErrorCode(), "elapsedMillis", metadata.ElapsedMillis(), "puzzleID", puzzleObject.PuzzleID())
 		if property != nil {
-			vlog = vlog.With("userID", property.OrgOwnerID.Int32, "propertyID", property.ID)
+			vlog = vlog.With("userID", property.OrgOwnerID.Int32, "propID", property.ID)
 		}
 		vlog.WarnContext(ctx, "Failed to verify solutions")
 
@@ -288,7 +288,7 @@ func (v *Verifier) PuzzleForRequest(r *http.Request, levels *difficulty.Levels) 
 		slog.ErrorContext(ctx, "Failed to init puzzle", common.ErrAttr(err))
 	}
 
-	slog.Log(ctx, common.LevelTrace, "Prepared new puzzle", "propertyID", property.ID, "difficulty", result.Difficulty(),
+	slog.Log(ctx, common.LevelTrace, "Prepared new puzzle", "propID", property.ID, "difficulty", result.Difficulty(),
 		"puzzleID", result.PuzzleID(), "userID", property.OrgOwnerID.Int32)
 
 	return result, property, nil
