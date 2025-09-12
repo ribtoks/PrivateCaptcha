@@ -25,6 +25,10 @@ func (h *contextHandler) Handle(ctx context.Context, r slog.Record) error {
 		if sid, ok := ctx.Value(SessionIDContextKey).(string); ok && (len(sid) > 0) {
 			r.AddAttrs(SessionIDAttr(sid))
 		}
+
+		if svc, ok := ctx.Value(ServiceContextKey).(string); ok && (len(svc) > 0) {
+			r.AddAttrs(ServiceAttr(svc))
+		}
 	}
 
 	return h.Handler.Handle(ctx, r)
@@ -127,6 +131,13 @@ func SessionIDAttr(sid string) slog.Attr {
 	return slog.Attr{
 		Key:   "sessID",
 		Value: slog.StringValue(sid),
+	}
+}
+
+func ServiceAttr(svc string) slog.Attr {
+	return slog.Attr{
+		Key:   "service",
+		Value: slog.StringValue(svc),
 	}
 }
 

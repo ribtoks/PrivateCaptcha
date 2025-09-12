@@ -168,7 +168,8 @@ func (s *Server) Shutdown() {
 func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandler, security alice.Constructor) {
 	prefix := domain + "/"
 	slog.Debug("Setting up the API routes", "prefix", prefix)
-	publicChain := alice.New(common.Recovered, security, s.Metrics.Handler)
+	svc := common.ServiceMiddleware("api")
+	publicChain := alice.New(svc, common.Recovered, security, s.Metrics.Handler)
 	// NOTE: auth middleware provides rate limiting internally
 	puzzleChain := publicChain.Append(s.RateLimiter.RateLimit, monitoring.Traced, common.TimeoutHandler(1*time.Second))
 	router.Handle(http.MethodGet+" "+prefix+common.PuzzleEndpoint, puzzleChain.Append(corsHandler, s.Auth.Sitekey).ThenFunc(s.puzzleHandler))

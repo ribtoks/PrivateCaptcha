@@ -37,23 +37,23 @@ func (StubOneOffJob) NewParams() any                     { return struct{}{} }
 func (StubOneOffJob) RunOnce(context.Context, any) error { return nil }
 
 func RunOneOffJob(ctx context.Context, j OneOffJob, params any) {
-	jlog := slog.With("name", j.Name())
+	ctx = context.WithValue(ctx, TraceIDContextKey, j.Name())
 
 	defer func() {
 		if rvr := recover(); rvr != nil {
-			jlog.ErrorContext(ctx, "One-off job crashed", "panic", rvr, "stack", string(debug.Stack()))
+			slog.ErrorContext(ctx, "One-off job crashed", "panic", rvr, "stack", string(debug.Stack()))
 		}
 	}()
 
 	time.Sleep(j.InitialPause())
 
-	jlog.DebugContext(ctx, "Running one-off job")
+	slog.DebugContext(ctx, "Running one-off job")
 
 	if err := j.RunOnce(ctx, params); err != nil {
-		jlog.ErrorContext(ctx, "One-off job failed", ErrAttr(err))
+		slog.ErrorContext(ctx, "One-off job failed", ErrAttr(err))
 	}
 
-	jlog.DebugContext(ctx, "One-off job finished")
+	slog.DebugContext(ctx, "One-off job finished")
 }
 
 // safe wrapper (with recover()) over `go f()`
@@ -74,15 +74,15 @@ func RunAdHocFunc(ctx context.Context, f func(ctx context.Context) error) {
 }
 
 func RunPeriodicJob(ctx context.Context, j PeriodicJob) {
-	jlog := slog.With("name", j.Name())
+	ctx = context.WithValue(ctx, TraceIDContextKey, j.Name())
 
 	defer func() {
 		if rvr := recover(); rvr != nil {
-			jlog.ErrorContext(ctx, "Periodic job crashed", "panic", rvr, "stack", string(debug.Stack()))
+			slog.ErrorContext(ctx, "Periodic job crashed", "panic", rvr, "stack", string(debug.Stack()))
 		}
 	}()
 
-	jlog.DebugContext(ctx, "Starting periodic job")
+	slog.DebugContext(ctx, "Starting periodic job")
 
 	for running := true; running; {
 		interval := j.Interval()
@@ -93,27 +93,27 @@ func RunPeriodicJob(ctx context.Context, j PeriodicJob) {
 			running = false
 			// introduction of jitter is supposed to help in case we have multiple workers to distribute the load
 		case <-time.After(interval + time.Duration(randv2.Int64N(int64(jitter)))):
-			jlog.Log(ctx, LevelTrace, "Running periodic job once", "interval", interval.String(), "jitter", jitter.String())
+			slog.Log(ctx, LevelTrace, "Running periodic job once", "interval", interval.String(), "jitter", jitter.String())
 			_ = j.RunOnce(ctx, j.NewParams())
 		}
 	}
 
-	jlog.DebugContext(ctx, "Periodic job finished")
+	slog.DebugContext(ctx, "Periodic job finished")
 }
 
 func RunPeriodicJobOnce(ctx context.Context, j PeriodicJob, params any) error {
-	jlog := slog.With("name", j.Name())
+	ctx = context.WithValue(ctx, TraceIDContextKey, j.Name())
 
 	defer func() {
 		if rvr := recover(); rvr != nil {
-			jlog.ErrorContext(ctx, "Periodic job crashed", "panic", rvr, "stack", string(debug.Stack()))
+			slog.ErrorContext(ctx, "Periodic job crashed", "panic", rvr, "stack", string(debug.Stack()))
 		}
 	}()
 
-	jlog.Log(ctx, LevelTrace, "Running periodic job once")
+	slog.Log(ctx, LevelTrace, "Running periodic job once")
 	err := j.RunOnce(ctx, params)
 	if err != nil {
-		jlog.ErrorContext(ctx, "Periodic job failed", ErrAttr(err))
+		slog.ErrorContext(ctx, "Periodic job failed", ErrAttr(err))
 	}
 	return err
 }

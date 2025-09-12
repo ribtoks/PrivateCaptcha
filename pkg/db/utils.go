@@ -327,6 +327,7 @@ func (sf *StoreArrayReader[TKey, T]) Read(ctx context.Context) ([]*T, error) {
 	}
 
 	if t, ok := data.([]*T); ok {
+		slog.Log(ctx, common.LevelTrace, "Found array in cache", "key", sf.Key, "count", len(t))
 		return t, nil
 	}
 

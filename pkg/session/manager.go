@@ -31,7 +31,7 @@ func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session 
 		sid := m.sessionID()
 		session = common.NewSession(sid, m.Store)
 		if err = m.Store.Init(ctx, session); err != nil {
-			slog.ErrorContext(ctx, "Failed to register session", "sid", sid, common.ErrAttr(err))
+			slog.ErrorContext(ctx, "Failed to register session", common.SessionIDAttr(sid), common.ErrAttr(err))
 		}
 		cookie := http.Cookie{
 			Name:     m.CookieName,
@@ -45,16 +45,17 @@ func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session 
 		w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
 	} else {
 		sid, _ := url.QueryUnescape(cookie.Value)
-		slog.Log(ctx, common.LevelTrace, "Session cookie found in the request", "sid", sid, "path", r.URL.Path, "method", r.Method)
+		sslog := slog.With(common.SessionIDAttr(sid))
+		sslog.Log(ctx, common.LevelTrace, "Session cookie found in the request", "path", r.URL.Path, "method", r.Method)
 		session, err = m.Store.Read(ctx, sid)
 		if err == common.ErrSessionMissing {
-			slog.WarnContext(ctx, "Session from cookie is missing", "sid", sid)
+			sslog.WarnContext(ctx, "Session from cookie is missing")
 			session = common.NewSession(sid, m.Store)
 			if err = m.Store.Init(ctx, session); err != nil {
-				slog.ErrorContext(ctx, "Failed to register session with existing cookie", "sid", sid, common.ErrAttr(err))
+				sslog.ErrorContext(ctx, "Failed to register session with existing cookie", common.ErrAttr(err))
 			}
 		} else if err != nil {
-			slog.ErrorContext(ctx, "Failed to read session from store", common.ErrAttr(err))
+			sslog.ErrorContext(ctx, "Failed to read session from store", common.ErrAttr(err))
 		}
 	}
 	return
@@ -67,7 +68,7 @@ func (m *Manager) SessionDestroy(w http.ResponseWriter, r *http.Request) {
 		return
 	} else {
 		ctx := r.Context()
-		slog.Log(ctx, common.LevelTrace, "Session cookie found in the request", "sid", cookie.Value, "path", r.URL.Path, "method", r.Method)
+		slog.Log(ctx, common.LevelTrace, "Session cookie found in the request", common.SessionIDAttr(cookie.Value), "path", r.URL.Path, "method", r.Method)
 		if err := m.Store.Destroy(ctx, cookie.Value); err != nil {
 			slog.ErrorContext(ctx, "Failed to delete session from storage", common.ErrAttr(err))
 		}

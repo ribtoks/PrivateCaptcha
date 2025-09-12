@@ -22,7 +22,7 @@ func NewJobs(store db.Implementor) *jobs {
 	}
 
 	j.maintenanceCtx, j.maintenanceCancel = context.WithCancel(
-		context.WithValue(context.Background(), common.TraceIDContextKey, "maintenance"))
+		context.WithValue(context.Background(), common.ServiceContextKey, "maintenance"))
 
 	return j
 }
@@ -86,9 +86,11 @@ func (j *jobs) UpdateConfig(cfg common.ConfigStore) {
 func (j *jobs) Setup(mux *http.ServeMux, cfg common.ConfigStore) {
 	j.apiKey = cfg.Get(common.LocalAPIKeyKey).Value()
 
+	svc := common.ServiceMiddleware("local")
+
 	const maxBytes = 256 * 1024
-	mux.Handle(http.MethodPost+" /maintenance/periodic/{job}", common.Recovered(http.MaxBytesHandler(j.security(http.HandlerFunc(j.handlePeriodicJob)), maxBytes)))
-	mux.Handle(http.MethodPost+" /maintenance/oneoff/{job}", common.Recovered(http.MaxBytesHandler(j.security(http.HandlerFunc(j.handleOneoffJob)), maxBytes)))
+	mux.Handle(http.MethodPost+" /maintenance/periodic/{job}", svc(common.Recovered(http.MaxBytesHandler(j.security(http.HandlerFunc(j.handlePeriodicJob)), maxBytes))))
+	mux.Handle(http.MethodPost+" /maintenance/oneoff/{job}", svc(common.Recovered(http.MaxBytesHandler(j.security(http.HandlerFunc(j.handleOneoffJob)), maxBytes))))
 }
 
 func (j *jobs) security(next http.Handler) http.Handler {

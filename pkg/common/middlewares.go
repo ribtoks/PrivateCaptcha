@@ -64,6 +64,15 @@ func Recovered(next http.Handler) http.Handler {
 	})
 }
 
+func ServiceMiddleware(svc string) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r = r.WithContext(context.WithValue(r.Context(), ServiceContextKey, svc))
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func TimeoutHandler(timeout time.Duration) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		h := func(w http.ResponseWriter, r *http.Request) {

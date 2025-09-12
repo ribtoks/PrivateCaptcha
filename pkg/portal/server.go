@@ -207,8 +207,9 @@ func (s *Server) MiddlewarePublicChain(rg *RouteGenerator, security alice.Constr
 	)
 
 	ratelimiter := s.RateLimiter.RateLimitExFunc(defaultLeakyBucketCap, defaultLeakInterval)
+	svc := common.ServiceMiddleware("portal")
 
-	return alice.New(common.Recovered, security, s.Metrics.HandlerIDFunc(rg.LastPath), ratelimiter, monitoring.Logged)
+	return alice.New(svc, common.Recovered, security, s.Metrics.HandlerIDFunc(rg.LastPath), ratelimiter, monitoring.Logged)
 }
 
 func (s *Server) MiddlewarePrivateRead(public alice.Chain) alice.Chain {
