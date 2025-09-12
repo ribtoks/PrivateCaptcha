@@ -249,7 +249,7 @@ func (s *Server) postOrgMembers(w http.ResponseWriter, r *http.Request) (Model, 
 		return renderCtx, orgMembersTemplate, nil
 	}
 
-	if err = s.Store.Impl().InviteUserToOrg(ctx, org.UserID.Int32, inviteUser.ID); err != nil {
+	if err = s.Store.Impl().InviteUserToOrg(ctx, org.ID, inviteUser.ID); err != nil {
 		renderCtx.ErrorMessage = "Failed to invite user. Please try again."
 	} else {
 		ou := userToOrgUser(inviteUser, string(dbgen.AccessLevelInvited))
