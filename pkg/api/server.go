@@ -25,6 +25,7 @@ const (
 	PropertyBucketSize    = 5 * time.Minute
 	updateLimitsBatchSize = 100
 	maxVerifyBatchSize    = 100_000
+	apiService            = "api"
 )
 
 var (
@@ -125,9 +126,9 @@ func (s *Server) Init(ctx context.Context, verifyFlushInterval, authBackfillDela
 	s.Levels.Init(2*time.Second /*access log interval*/, PropertyBucketSize /*backfill interval*/)
 	s.Auth.StartBackfill(authBackfillDelay)
 
+	baseVerifyCtx := context.WithValue(context.Background(), common.ServiceContextKey, apiService)
 	var cancelVerifyCtx context.Context
-	cancelVerifyCtx, s.VerifyLogCancel = context.WithCancel(
-		context.WithValue(context.Background(), common.TraceIDContextKey, "flush_verify_log"))
+	cancelVerifyCtx, s.VerifyLogCancel = context.WithCancel(context.WithValue(baseVerifyCtx, common.TraceIDContextKey, "flush_verify_log"))
 
 	go common.ProcessBatchArray(cancelVerifyCtx, s.VerifyLogChan, verifyFlushInterval, VerifyBatchSize, maxVerifyBatchSize, s.TimeSeries.WriteVerifyLogBatch)
 
@@ -148,7 +149,9 @@ func (s *Server) Setup(router *http.ServeMux, domain string, verbose bool, secur
 	}
 
 	if corsOpts.Debug {
-		corsOpts.Logger = &common.FmtLogger{Ctx: common.TraceContext(context.TODO(), "cors"), Level: common.LevelTrace}
+		ctx := common.TraceContext(context.TODO(), "cors")
+		ctx = context.WithValue(ctx, common.ServiceContextKey, apiService)
+		corsOpts.Logger = &common.FmtLogger{Ctx: ctx, Level: common.LevelTrace}
 	}
 
 	s.Cors = cors.New(corsOpts)
@@ -168,7 +171,7 @@ func (s *Server) Shutdown() {
 func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandler, security alice.Constructor) {
 	prefix := domain + "/"
 	slog.Debug("Setting up the API routes", "prefix", prefix)
-	svc := common.ServiceMiddleware("api")
+	svc := common.ServiceMiddleware(apiService)
 	publicChain := alice.New(svc, common.Recovered, security, s.Metrics.Handler)
 	// NOTE: auth middleware provides rate limiting internally
 	puzzleChain := publicChain.Append(s.RateLimiter.RateLimit, monitoring.Traced, common.TimeoutHandler(1*time.Second))

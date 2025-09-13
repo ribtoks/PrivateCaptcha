@@ -47,7 +47,7 @@ func connectClickhouse(ctx context.Context, opts ClickHouseConnectOpts) *sql.DB 
 		//},
 		Debug: opts.Verbose,
 		Debugf: func(format string, v ...any) {
-			slog.Log(ctx, common.LevelTrace, fmt.Sprintf(format, v...), "source", "clickhouse")
+			slog.Log(context.TODO(), common.LevelTrace, fmt.Sprintf(format, v...), common.TraceIDAttr("clickhouse"))
 		},
 		//BlockBufferSize:      10,
 		//MaxCompressionBuffer: 10240,

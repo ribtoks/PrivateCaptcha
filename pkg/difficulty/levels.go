@@ -96,13 +96,16 @@ func requestsToDifficulty(requests float64, minDifficulty uint8, level dbgen.Dif
 func (levels *Levels) Init(accessLogInterval, backfillInterval time.Duration) {
 	const (
 		maxPendingBatchSize = 100_000
+		levelsService       = "levels"
 	)
 	var accessCtx context.Context
+	accessBaseCtx := context.WithValue(context.Background(), common.ServiceContextKey, levelsService)
 	accessCtx, levels.accessLogCancel = context.WithCancel(
-		context.WithValue(context.Background(), common.TraceIDContextKey, "access_log"))
+		context.WithValue(accessBaseCtx, common.TraceIDContextKey, "access_log"))
 	go common.ProcessBatchArray(accessCtx, levels.accessChan, accessLogInterval, levels.batchSize, maxPendingBatchSize, levels.timeSeries.WriteAccessLogBatch)
 
-	go levels.backfillDifficulty(context.WithValue(context.Background(), common.TraceIDContextKey, "backfill_difficulty"),
+	difficultyBaseCtx := context.WithValue(context.Background(), common.ServiceContextKey, levelsService)
+	go levels.backfillDifficulty(context.WithValue(difficultyBaseCtx, common.TraceIDContextKey, "backfill_difficulty"),
 		backfillInterval)
 }
 

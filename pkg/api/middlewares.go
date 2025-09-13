@@ -15,6 +15,7 @@ import (
 const (
 	userLimitTTL     = 1 * time.Hour
 	userLimitRefresh = 3 * time.Hour
+	AuthService      = "auth"
 )
 
 type UserLimiter interface {
@@ -131,13 +132,15 @@ func NewAuthMiddleware(store db.Implementor,
 
 func (am *AuthMiddleware) StartBackfill(backfillDelay time.Duration) {
 	var sitekeyBackfillCtx context.Context
+	sitekeyBackfillBaseCtx := context.WithValue(context.Background(), common.ServiceContextKey, AuthService)
 	sitekeyBackfillCtx, am.SitekeyBackfillCancel = context.WithCancel(
-		context.WithValue(context.Background(), common.TraceIDContextKey, "sitekey_backfill"))
+		context.WithValue(sitekeyBackfillBaseCtx, common.TraceIDContextKey, "sitekey_backfill"))
 	go common.ProcessBatchMap(sitekeyBackfillCtx, am.SitekeyChan, backfillDelay, am.BatchSize, am.BatchSize*100, am.backfillSitekeyImpl)
 
 	var usersBackfillCtx context.Context
+	userBackfillBaseCtx := context.WithValue(context.Background(), common.ServiceContextKey, AuthService)
 	usersBackfillCtx, am.UsersBackfillCancel = context.WithCancel(
-		context.WithValue(context.Background(), common.TraceIDContextKey, "users_backfill"))
+		context.WithValue(userBackfillBaseCtx, common.TraceIDContextKey, "users_backfill"))
 	// NOTE: we use the same backfill delay because users processing is slower and sitekey channel will block on it
 	go common.ProcessBatchMap(usersBackfillCtx, am.UsersChan, backfillDelay, am.BatchSize, am.BatchSize*10, am.backfillUsersImpl)
 }
