@@ -25,6 +25,10 @@ type Store struct {
 
 var _ common.SessionStore = (*Store)(nil)
 
+func (p *Store) Start(ctx context.Context, interval time.Duration) {
+	/*BUMP*/
+}
+
 func (p *Store) Init(ctx context.Context, sess *common.Session) error {
 	sid := sess.SessionID()
 	slog.DebugContext(ctx, "Registering new session", common.SessionIDAttr(sid))

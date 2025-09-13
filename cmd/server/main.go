@@ -181,7 +181,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	}
 
 	apiURLConfig := config.AsURL(ctx, cfg.Get(common.APIBaseURLKey))
-	sessionStore := db.NewSessionStore(pool, memory.New(), 1*time.Minute, session.KeyPersistent)
+	sessionStore := db.NewSessionStore(pool, memory.New(), session.KeyPersistent)
 	portalServer := &portal.Server{
 		Stage:      stage,
 		Store:      businessDB,

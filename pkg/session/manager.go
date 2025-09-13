@@ -23,6 +23,11 @@ func (m *Manager) sessionID() string {
 	return xid.New().String()
 }
 
+func (m *Manager) Init(svc string, path string, interval time.Duration) {
+	m.Path = path
+	m.Store.Start(context.WithValue(context.Background(), common.ServiceContextKey, svc), interval)
+}
+
 func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session *common.Session) {
 	cookie, err := r.Cookie(m.CookieName)
 	ctx := r.Context()

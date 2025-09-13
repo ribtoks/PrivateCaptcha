@@ -24,6 +24,7 @@ type Cache[TKey comparable, TValue any] interface {
 }
 
 type SessionStore interface {
+	Start(ctx context.Context, interval time.Duration)
 	Init(ctx context.Context, session *Session) error
 	Read(ctx context.Context, sid string) (*Session, error)
 	Update(session *Session) error

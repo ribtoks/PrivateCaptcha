@@ -26,21 +26,22 @@ type SessionStore struct {
 	persistKey    common.SessionKey
 }
 
-func NewSessionStore(pool *pgxpool.Pool, fallback common.SessionStore, interval time.Duration, persistKey common.SessionKey) *SessionStore {
-	store := &SessionStore{
-		db:          dbgen.New(pool),
-		fallback:    fallback,
-		persistChan: make(chan string, sessionBatchSize),
-		batchSize:   sessionBatchSize,
-		persistKey:  persistKey,
+func NewSessionStore(pool *pgxpool.Pool, fallback common.SessionStore, persistKey common.SessionKey) *SessionStore {
+	return &SessionStore{
+		db:            dbgen.New(pool),
+		fallback:      fallback,
+		persistChan:   make(chan string, sessionBatchSize),
+		batchSize:     sessionBatchSize,
+		persistKey:    persistKey,
+		processCancel: func() {},
 	}
+}
 
+func (ss *SessionStore) Start(ctx context.Context, interval time.Duration) {
 	var cancelCtx context.Context
-	cancelCtx, store.processCancel = context.WithCancel(
-		context.WithValue(context.Background(), common.TraceIDContextKey, "persist_session"))
-	go common.ProcessBatchMap(cancelCtx, store.persistChan, interval, store.batchSize, store.batchSize*100, store.persistSessions)
-
-	return store
+	cancelCtx, ss.processCancel = context.WithCancel(
+		context.WithValue(ctx, common.TraceIDContextKey, "persist_session"))
+	go common.ProcessBatchMap(cancelCtx, ss.persistChan, interval, ss.batchSize, ss.batchSize*100, ss.persistSessions)
 }
 
 var _ common.SessionStore = (*SessionStore)(nil)

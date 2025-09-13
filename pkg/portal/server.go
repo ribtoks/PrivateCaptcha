@@ -30,6 +30,10 @@ var (
 	errPropertySoftDeleted = errors.New("property is deleted")
 )
 
+const (
+	PortalService = "portal"
+)
+
 func funcMap(prefix string) template.FuncMap {
 	return template.FuncMap{
 		"relURL": func(s string) any {
@@ -148,7 +152,7 @@ func (s *Server) Init(ctx context.Context, templateBuilder *TemplatesBuilder) er
 		return err
 	}
 
-	s.Sessions.Path = prefix
+	s.Sessions.Init(PortalService, prefix, 1*time.Minute)
 
 	s.Jobs = s
 	s.SettingsTabs = s.createSettingsTabs()
@@ -207,7 +211,7 @@ func (s *Server) MiddlewarePublicChain(rg *RouteGenerator, security alice.Constr
 	)
 
 	ratelimiter := s.RateLimiter.RateLimitExFunc(defaultLeakyBucketCap, defaultLeakInterval)
-	svc := common.ServiceMiddleware("portal")
+	svc := common.ServiceMiddleware(PortalService)
 
 	return alice.New(svc, common.Recovered, security, s.Metrics.HandlerIDFunc(rg.LastPath), ratelimiter, monitoring.Logged)
 }

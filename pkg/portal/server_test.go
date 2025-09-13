@@ -57,6 +57,7 @@ func TestMain(m *testing.M) {
 			Prefix: "",
 			XSRF:   &common.XSRFMiddleware{Key: "key", Timeout: 1 * time.Hour},
 			Sessions: &session.Manager{
+				Store:       memory.New(),
 				CookieName:  "pcsid",
 				MaxLifetime: 1 * time.Minute,
 			},
@@ -101,7 +102,8 @@ func TestMain(m *testing.M) {
 
 	store = db.NewBusinessEx(pool, cache)
 
-	sessionStore := db.NewSessionStore(pool, memory.New(), 1*time.Minute, session.KeyPersistent)
+	sessionStore := db.NewSessionStore(pool, memory.New(), session.KeyPersistent)
+	sessionStore.Start(context.Background(), 1*time.Minute)
 
 	server = &Server{
 		Stage:      common.StageTest,
