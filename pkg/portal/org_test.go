@@ -65,9 +65,15 @@ func TestInviteUser(t *testing.T) {
 	}
 
 	ctx := context.TODO()
-	user1, org1, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name()+"_1", testPlan)
+	user1, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name()+"_1", testPlan)
 	if err != nil {
 		t.Fatalf("Failed to create owner account: %v", err)
+	}
+
+	// we create extra org to create a difference in auto-incremented IDs for users and orgs
+	org1, err := store.Impl().CreateNewOrganization(ctx, t.Name()+"-actual-org", user1.ID)
+	if err != nil {
+		t.Fatalf("Failed to create extra org: %v", err)
 	}
 
 	// Create another user account
