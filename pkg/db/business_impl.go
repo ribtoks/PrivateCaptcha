@@ -14,6 +14,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/maypok86/otter/v2"
 )
 
 const (
@@ -307,17 +308,21 @@ func (impl *BusinessStoreImpl) doGetSessionbyID(ctx context.Context, sid string)
 		sslog.Log(ctx, common.LevelTrace, "Unmarshaled session data from binary", "fields", sd.Size())
 
 		return sd, nil
-	} else if err != pgx.ErrNoRows {
-		sslog.ErrorContext(ctx, "Failed to read session data from DB cache", common.ErrAttr(err))
-	} else {
-		sslog.DebugContext(ctx, "Session data not found cached in DB")
 	}
+
+	if err == pgx.ErrNoRows {
+		sslog.DebugContext(ctx, "Session data not found cached in DB")
+		// this will cause item to be purged from otter cache, should it still be there
+		return nil, otter.ErrNotFound
+	}
+
+	sslog.ErrorContext(ctx, "Failed to read session data from DB cache", "size", len(data), common.ErrAttr(err))
 
 	return nil, err
 }
 
 func (impl *BusinessStoreImpl) DeleteUserSession(ctx context.Context, sid string) error {
-	if err := impl.cache.Delete(ctx, sessionCacheKey(sid)); err != nil {
+	if err := impl.cache.Delete(ctx, SessionCacheKey(sid)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete user session from memory cache", common.ErrAttr(err))
 	}
 
@@ -339,7 +344,7 @@ func (impl *BusinessStoreImpl) CacheUserSession(ctx context.Context, data *sessi
 		return nil
 	}
 
-	return impl.cache.Set(ctx, sessionCacheKey(data.ID()), data)
+	return impl.cache.Set(ctx, SessionCacheKey(data.ID()), data)
 }
 
 func (impl *BusinessStoreImpl) RetrieveUserSession(ctx context.Context, sid string) (*session.SessionData, error) {
@@ -348,13 +353,13 @@ func (impl *BusinessStoreImpl) RetrieveUserSession(ctx context.Context, sid stri
 	}
 
 	reader := &StoreOneReader[string, session.SessionData]{
-		CacheKey: sessionCacheKey(sid),
+		CacheKey: SessionCacheKey(sid),
 		Cache:    impl.cache,
 	}
 
 	if impl.querier != nil {
 		reader.QueryFunc = impl.doGetSessionbyID
-		reader.QueryKeyFunc = queryKeySessionID
+		reader.QueryKeyFunc = queryKeyString
 	}
 
 	return reader.Read(ctx)
@@ -364,18 +369,26 @@ func (impl *BusinessStoreImpl) StoreUserSessions(ctx context.Context, batch map[
 	reader := &StoreBulkReader[string, string, session.SessionData]{
 		ArgFunc:         nil, // we shouldn't be using it
 		Cache:           impl.cache,
-		CacheKeyFunc:    sessionCacheKey,
+		CacheKeyFunc:    SessionCacheKey,
 		QueryKeyFunc:    sessionIDFunc,
 		MinMissingCount: 0,
 		QueryFunc:       nil, // explicitly set - we are only interested in cache
 	}
 
-	// NOTE: it does have the side-effect of extending them in our cache once again (which is a bug),
+	// NOTE: it does have the side-effect of extending session expiration in our cache once again (which _is_ a bug),
 	// but its impact is not large enough to bother
 	cached, _, err := reader.Read(ctx, batch)
-	if err != ErrMaintenance {
+	if (err != nil) && (err != ErrMaintenance) {
+		slog.Log(ctx, common.LevelTrace, "Failed to read cached sessions", common.ErrAttr(err))
 		return err
 	}
+
+	if len(cached) == 0 {
+		slog.DebugContext(ctx, "No sessions to save")
+		return nil
+	}
+
+	slog.DebugContext(ctx, "Read sessions chunk to save", "count", len(cached))
 
 	keys := make([]string, 0, len(batch))
 	values := make([][]byte, 0, len(batch))
@@ -402,7 +415,7 @@ func (impl *BusinessStoreImpl) StoreUserSessions(ctx context.Context, batch map[
 	}
 
 	if len(keys) == 0 {
-		slog.WarnContext(ctx, "No sessions to save")
+		slog.WarnContext(ctx, "No persistent sessions to save")
 		return nil
 	}
 
@@ -419,6 +432,8 @@ func (impl *BusinessStoreImpl) StoreUserSessions(ctx context.Context, batch map[
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to cache sessions", "count", len(keys), common.ErrAttr(err))
 	}
+
+	slog.DebugContext(ctx, "Saved persisted sessions to DB", "count", len(keys))
 
 	return err
 }

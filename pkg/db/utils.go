@@ -210,10 +210,6 @@ func stringKeySitekeyUUID(key string) (pgtype.UUID, error) {
 	return result, nil
 }
 
-func queryKeySessionID(key CacheKey) (string, error) {
-	return sessionCachePrefix + key.StrValue, nil
-}
-
 func sessionIDFunc(sid string) (string, error) {
 	return sessionCachePrefix + sid, nil
 }
@@ -265,7 +261,9 @@ func (sf *StoreOneReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any,
 			return sf.Cache.Missing(), nil
 		}
 
-		slog.ErrorContext(ctx, "Failed to query value from DB", "cacheKey", key, common.ErrAttr(err))
+		if err != otter.ErrNotFound {
+			slog.ErrorContext(ctx, "Failed to query value from DB", "cacheKey", key, common.ErrAttr(err))
+		}
 
 		return nil, err
 	}
@@ -319,7 +317,9 @@ func (sf *StoreArrayReader[TKey, T]) Load(ctx context.Context, key CacheKey) (an
 			return []*T{}, nil
 		}
 
-		slog.ErrorContext(ctx, "Failed to query entities from DB", "cacheKey", key, common.ErrAttr(err))
+		if err != otter.ErrNotFound {
+			slog.ErrorContext(ctx, "Failed to query entities from DB", "cacheKey", key, common.ErrAttr(err))
+		}
 
 		return nil, err
 	}

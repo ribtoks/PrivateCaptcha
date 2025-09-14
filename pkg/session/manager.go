@@ -78,9 +78,10 @@ func (m *Manager) SessionDestroy(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		slog.Log(ctx, common.LevelTrace, "Session cookie found in the request for destroy", common.SessionIDAttr(cookie.Value), "path", r.URL.Path, "method", r.Method)
 
-		go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-			return m.Store.Destroy(bctx, cookie.Value)
-		})
+		// NOTE: we can possibly do it in the background, but it's a rare action (only on logout) so it's not worth the complexity
+		if err := m.Store.Destroy(ctx, cookie.Value); err != nil {
+			slog.ErrorContext(ctx, "Failed to delete session from storage", common.ErrAttr(err))
+		}
 
 		expiration := time.Now()
 		cookie := http.Cookie{
