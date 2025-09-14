@@ -1061,18 +1061,20 @@ func (impl *BusinessStoreImpl) UpdateUser(ctx context.Context, user *dbgen.User,
 		return ErrMaintenance
 	}
 
-	user, err := impl.querier.UpdateUserData(ctx, &dbgen.UpdateUserDataParams{
+	params := &dbgen.UpdateUserDataParams{
 		Name:  name,
 		Email: newEmail,
 		ID:    user.ID,
-	})
+	}
+
+	user, err := impl.querier.UpdateUserData(ctx, params)
 
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to update user", "userID", user.ID, common.ErrAttr(err))
 		return err
 	}
 
-	slog.InfoContext(ctx, "Updated user", "userID", user.ID)
+	slog.InfoContext(ctx, "Updated user", "userID", params.ID)
 
 	if user != nil {
 		_ = impl.cache.Set(ctx, UserCacheKey(user.ID), user)
