@@ -23,15 +23,6 @@ type Cache[TKey comparable, TValue any] interface {
 	HitRatio() float64
 }
 
-type SessionStore interface {
-	Start(ctx context.Context, interval time.Duration)
-	Init(ctx context.Context, session *Session) error
-	Read(ctx context.Context, sid string) (*Session, error)
-	Update(session *Session) error
-	Destroy(ctx context.Context, sid string) error
-	GC(ctx context.Context, d time.Duration)
-}
-
 type ConfigItem interface {
 	Key() ConfigKey
 	Value() string

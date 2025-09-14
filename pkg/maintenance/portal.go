@@ -7,37 +7,8 @@ import (
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 	"github.com/jackc/pgx/v5/pgtype"
 )
-
-type SessionsCleanupJob struct {
-	Session *session.Manager
-}
-
-var _ common.PeriodicJob = (*SessionsCleanupJob)(nil)
-
-func (j *SessionsCleanupJob) Interval() time.Duration {
-	return j.Session.MaxLifetime
-}
-
-func (j *SessionsCleanupJob) Jitter() time.Duration {
-	return 1
-}
-
-func (j *SessionsCleanupJob) Name() string {
-	return "sessions_cleanup_job"
-}
-
-func (j *SessionsCleanupJob) NewParams() any {
-	return struct{}{}
-}
-
-func (j *SessionsCleanupJob) RunOnce(ctx context.Context, params any) error {
-	j.Session.GC(ctx)
-
-	return nil
-}
 
 type WarmupPortalAuthJob struct {
 	Store               db.Implementor

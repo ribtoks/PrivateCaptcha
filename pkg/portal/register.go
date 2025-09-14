@@ -132,7 +132,7 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sess := s.Sessions.SessionStart(w, r)
-	ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.SessionID())
+	ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.ID())
 
 	_ = sess.Set(session.KeyLoginStep, loginStepSignUpVerify)
 	_ = sess.Set(session.KeyUserEmail, email)
@@ -162,14 +162,14 @@ func createInternalTrial(plan billing.Plan, status string) *dbgen.CreateSubscrip
 	}
 }
 
-func (s *Server) doRegister(ctx context.Context, sess *common.Session) (*dbgen.User, *dbgen.Organization, error) {
-	email, ok := sess.Get(session.KeyUserEmail).(string)
+func (s *Server) doRegister(ctx context.Context, sess *session.Session) (*dbgen.User, *dbgen.Organization, error) {
+	email, ok := sess.Get(ctx, session.KeyUserEmail).(string)
 	if !ok {
 		slog.ErrorContext(ctx, "Failed to get email from session")
 		return nil, nil, errIncompleteSession
 	}
 
-	name, ok := sess.Get(session.KeyUserName).(string)
+	name, ok := sess.Get(ctx, session.KeyUserName).(string)
 	if !ok {
 		slog.ErrorContext(ctx, "Failed to get user name from session")
 		return nil, nil, errIncompleteSession

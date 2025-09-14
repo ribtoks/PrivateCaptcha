@@ -150,7 +150,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 	}
 
 	sess := s.Sessions.SessionStart(w, r)
-	if username, ok := sess.Get(session.KeyUserName).(string); ok {
+	if username, ok := sess.Get(ctx, session.KeyUserName).(string); ok {
 		reqCtx.UserName = username
 	}
 

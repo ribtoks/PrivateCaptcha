@@ -30,13 +30,13 @@ func (s *Server) getTwoFactor(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	sess := s.Sessions.SessionStart(w, r)
-	if step, ok := sess.Get(session.KeyLoginStep).(int); !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
+	if step, ok := sess.Get(ctx, session.KeyLoginStep).(int); !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
 		slog.WarnContext(ctx, "User session is not valid", "step", step, "found", ok)
 		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)
 		return
 	}
 
-	email, ok := sess.Get(session.KeyUserEmail).(string)
+	email, ok := sess.Get(ctx, session.KeyUserEmail).(string)
 	if !ok {
 		slog.ErrorContext(ctx, "Failed to get email from session")
 		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)
@@ -64,23 +64,23 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sess := s.Sessions.SessionStart(w, r)
-	ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.SessionID())
+	ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.ID())
 
-	step, ok := sess.Get(session.KeyLoginStep).(int)
+	step, ok := sess.Get(ctx, session.KeyLoginStep).(int)
 	if !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
 		slog.WarnContext(ctx, "User session is not valid", "step", step)
 		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)
 		return
 	}
 
-	email, ok := sess.Get(session.KeyUserEmail).(string)
+	email, ok := sess.Get(ctx, session.KeyUserEmail).(string)
 	if !ok {
 		slog.ErrorContext(ctx, "Failed to get email from session")
 		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)
 		return
 	}
 
-	sentCode, ok := sess.Get(session.KeyTwoFactorCode).(int)
+	sentCode, ok := sess.Get(ctx, session.KeyTwoFactorCode).(int)
 	if !ok {
 		slog.ErrorContext(ctx, "Failed to get verification code from session")
 		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)
@@ -116,7 +116,7 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-		if userID, ok := sess.Get(session.KeyUserID).(int32); ok {
+		if userID, ok := sess.Get(ctx, session.KeyUserID).(int32); ok {
 			slog.DebugContext(bctx, "Fetching system notification for user", "userID", userID)
 			if n, err := s.Store.Impl().RetrieveSystemUserNotification(bctx, time.Now().UTC(), userID); err == nil {
 				_ = sess.Set(session.KeyNotificationID, n.ID)
@@ -133,7 +133,7 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 	_ = sess.Delete(session.KeyUserEmail)
 	_ = sess.Set(session.KeyPersistent, true)
 
-	if returnURL, ok := sess.Get(session.KeyReturnURL).(string); ok && (len(returnURL) > 0) {
+	if returnURL, ok := sess.Get(ctx, session.KeyReturnURL).(string); ok && (len(returnURL) > 0) {
 		slog.DebugContext(ctx, "Found return URL in user session", "url", returnURL)
 		_ = sess.Delete(session.KeyReturnURL)
 		common.Redirect(s.RelURL(returnURL), http.StatusOK, w, r)
@@ -147,13 +147,13 @@ func (s *Server) resend2fa(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	sess := s.Sessions.SessionStart(w, r)
-	if step, ok := sess.Get(session.KeyLoginStep).(int); !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
+	if step, ok := sess.Get(ctx, session.KeyLoginStep).(int); !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
 		slog.WarnContext(ctx, "User session is not valid", "step", step)
 		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)
 		return
 	}
 
-	email, ok := sess.Get(session.KeyUserEmail).(string)
+	email, ok := sess.Get(ctx, session.KeyUserEmail).(string)
 	if !ok {
 		slog.ErrorContext(ctx, "Failed to get email from session")
 		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)

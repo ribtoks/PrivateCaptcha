@@ -369,9 +369,9 @@ func (s *Server) private(next http.Handler) http.Handler {
 		sess := s.Sessions.SessionStart(w, r)
 
 		ctx := r.Context()
-		ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.SessionID())
+		ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.ID())
 
-		if step, ok := sess.Get(session.KeyLoginStep).(int); ok {
+		if step, ok := sess.Get(ctx, session.KeyLoginStep).(int); ok {
 			if step == loginStepCompleted {
 				// update limits each time as rate limiting gets cleaned up frequently (impact shouldn't be much in portal)
 				s.RateLimiter.UpdateRequestLimits(r, authenticatedBucketCap, authenticatedLeakInterval)

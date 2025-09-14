@@ -15,9 +15,10 @@ import (
 )
 
 const (
-	SitekeyLen   = 32
-	APIKeyPrefix = "pc_"
-	SecretLen    = len(APIKeyPrefix) + SitekeyLen
+	SitekeyLen         = 32
+	APIKeyPrefix       = "pc_"
+	SecretLen          = len(APIKeyPrefix) + SitekeyLen
+	sessionCachePrefix = "session/"
 )
 
 var (
@@ -209,6 +210,14 @@ func stringKeySitekeyUUID(key string) (pgtype.UUID, error) {
 	return result, nil
 }
 
+func queryKeySessionID(key CacheKey) (string, error) {
+	return sessionCachePrefix + key.StrValue, nil
+}
+
+func sessionIDFunc(sid string) (string, error) {
+	return sessionCachePrefix + sid, nil
+}
+
 func IdentityKeyFunc[TKey any](key TKey) (TKey, error) {
 	return key, nil
 }
@@ -327,7 +336,7 @@ func (sf *StoreArrayReader[TKey, T]) Read(ctx context.Context) ([]*T, error) {
 	}
 
 	if t, ok := data.([]*T); ok {
-		slog.Log(ctx, common.LevelTrace, "Found array in cache", "key", sf.Key, "count", len(t))
+		slog.Log(ctx, common.LevelTrace, "Found array in cache", "cacheKey", sf.Key, "count", len(t))
 		return t, nil
 	}
 

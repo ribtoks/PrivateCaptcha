@@ -20,7 +20,6 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session/store/memory"
 	"github.com/PrivateCaptcha/PrivateCaptcha/web"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -49,15 +48,21 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
+	cache, err = db.NewMemoryCache[db.CacheKey, any]("default", 100, &struct{}{}, 1*time.Minute, 3*time.Minute, 30*time.Second)
+	if err != nil {
+		panic(err)
+	}
+
 	puzzleEngine := &portal_tests.StubPuzzleEngine{Result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}}
 
 	if testing.Short() {
+		store = db.NewBusinessEx(nil, cache)
 		server = &Server{
 			Stage:  common.StageTest,
 			Prefix: "",
 			XSRF:   &common.XSRFMiddleware{Key: "key", Timeout: 1 * time.Hour},
 			Sessions: &session.Manager{
-				Store:       memory.New(),
+				Store:       db.NewSessionStore(store, session.KeyPersistent),
 				CookieName:  "pcsid",
 				MaxLifetime: 1 * time.Minute,
 			},
@@ -95,14 +100,9 @@ func TestMain(m *testing.M) {
 	levels.Init(2*time.Second, 5*time.Minute)
 	defer levels.Shutdown()
 
-	cache, err = db.NewMemoryCache[db.CacheKey, any]("default", 100, &struct{}{}, 1*time.Minute, 3*time.Minute, 30*time.Second)
-	if err != nil {
-		panic(err)
-	}
-
 	store = db.NewBusinessEx(pool, cache)
 
-	sessionStore := db.NewSessionStore(pool, memory.New(), session.KeyPersistent)
+	sessionStore := db.NewSessionStore(store, session.KeyPersistent)
 	sessionStore.Start(context.Background(), 1*time.Minute)
 
 	server = &Server{
@@ -114,7 +114,7 @@ func TestMain(m *testing.M) {
 		Sessions: &session.Manager{
 			CookieName:  "pcsid",
 			Store:       sessionStore,
-			MaxLifetime: sessionStore.MaxLifetime(),
+			MaxLifetime: sessionStore.TTL(),
 		},
 		Mailer:       &email.StubMailer{},
 		RateLimiter:  &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},

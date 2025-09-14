@@ -115,9 +115,9 @@ func (s *Server) Property(orgID int32, r *http.Request) (*dbgen.Property, error)
 	return property, nil
 }
 
-func (s *Server) Session(w http.ResponseWriter, r *http.Request) *common.Session {
+func (s *Server) Session(w http.ResponseWriter, r *http.Request) *session.Session {
 	ctx := r.Context()
-	sess, ok := ctx.Value(common.SessionContextKey).(*common.Session)
+	sess, ok := ctx.Value(common.SessionContextKey).(*session.Session)
 	if !ok || (sess == nil) {
 		slog.ErrorContext(ctx, "Failed to get session from context")
 		sess = s.Sessions.SessionStart(w, r)
@@ -126,8 +126,8 @@ func (s *Server) Session(w http.ResponseWriter, r *http.Request) *common.Session
 	return sess
 }
 
-func (s *Server) SessionUser(ctx context.Context, sess *common.Session) (*dbgen.User, error) {
-	userID, ok := sess.Get(session.KeyUserID).(int32)
+func (s *Server) SessionUser(ctx context.Context, sess *session.Session) (*dbgen.User, error) {
+	userID, ok := sess.Get(ctx, session.KeyUserID).(int32)
 	if !ok {
 		slog.ErrorContext(ctx, "Failed to get userID from session")
 		return nil, errInvalidSession

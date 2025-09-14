@@ -12,6 +12,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 )
 
 var (
@@ -159,7 +160,7 @@ func (s *Server) validateOrgName(ctx context.Context, name string, userID int32)
 	return ""
 }
 
-func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, sess *common.Session) (*orgDashboardRenderContext, error) {
+func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, sess *session.Session) (*orgDashboardRenderContext, error) {
 	slog.DebugContext(ctx, "Creating org dashboard context", "orgID", orgID)
 
 	user, err := s.SessionUser(ctx, sess)

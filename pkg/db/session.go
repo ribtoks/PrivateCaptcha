@@ -6,30 +6,25 @@ import (
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
-	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 )
 
 const (
-	sessionPrefix        = "session/"
-	sessionCacheDuration = 3 * time.Hour
-	sessionBatchSize     = 20
+	sessionBatchSize = 20
+	sessionCacheTTL  = 1 * time.Hour
 )
 
 type SessionStore struct {
-	db            *dbgen.Queries
-	fallback      common.SessionStore
+	store         Implementor
 	persistChan   chan string
 	batchSize     int
 	processCancel context.CancelFunc
-	persistKey    common.SessionKey
+	persistKey    session.SessionKey
 }
 
-func NewSessionStore(pool *pgxpool.Pool, fallback common.SessionStore, persistKey common.SessionKey) *SessionStore {
+func NewSessionStore(store Implementor, persistKey session.SessionKey) *SessionStore {
 	return &SessionStore{
-		db:            dbgen.New(pool),
-		fallback:      fallback,
+		store:         store,
 		persistChan:   make(chan string, sessionBatchSize),
 		batchSize:     sessionBatchSize,
 		persistKey:    persistKey,
@@ -44,11 +39,7 @@ func (ss *SessionStore) Start(ctx context.Context, interval time.Duration) {
 	go common.ProcessBatchMap(cancelCtx, ss.persistChan, interval, ss.batchSize, ss.batchSize*100, ss.persistSessions)
 }
 
-var _ common.SessionStore = (*SessionStore)(nil)
-
-func (ss *SessionStore) MaxLifetime() time.Duration {
-	return sessionCacheDuration
-}
+var _ session.Store = (*SessionStore)(nil)
 
 func (ss *SessionStore) Shutdown() {
 	slog.Debug("Shutting down persisting sessions")
@@ -56,99 +47,39 @@ func (ss *SessionStore) Shutdown() {
 	close(ss.persistChan)
 }
 
-func (ss *SessionStore) Init(ctx context.Context, s *common.Session) error {
-	return ss.fallback.Init(ctx, s)
+func (ss *SessionStore) Init(ctx context.Context, session *session.Session) error {
+	return ss.store.Impl().CacheUserSession(ctx, session.Data())
 }
 
-func (ss *SessionStore) Read(ctx context.Context, sid string) (*common.Session, error) {
-	s, err := ss.fallback.Read(ctx, sid)
-
-	if err == common.ErrSessionMissing {
-		data, cerr := ss.db.GetCachedByKey(ctx, sessionPrefix+sid)
-		if (cerr == nil) && (len(data) > 0) {
-			slog.DebugContext(ctx, "Found session cached in DB", "sid", sid)
-			s = common.NewSession(sid, ss)
-			if uerr := s.UnmarshalBinary(data); uerr != nil {
-				slog.ErrorContext(ctx, "Failed to unmarshal session from cache", common.ErrAttr(uerr))
-				return nil, uerr
-			}
-			err = ss.Init(ctx, s)
-			return s, err
-		} else if cerr != pgx.ErrNoRows {
-			slog.ErrorContext(ctx, "Failed to read session from DB cache", common.ErrAttr(err))
-		} else {
-			slog.DebugContext(ctx, "Session not found in DB", "sid", sid)
+func (ss *SessionStore) Read(ctx context.Context, sid string) (*session.Session, error) {
+	sd, err := ss.store.Impl().RetrieveUserSession(ctx, sid)
+	if err != nil {
+		if (err == ErrNegativeCacheHit) || (err == ErrCacheMiss) {
+			return nil, session.ErrSessionMissing
 		}
+
+		return nil, err
 	}
 
-	return s, err
+	return session.NewSession(sd, ss), nil
 }
 
-func (ss *SessionStore) Update(s *common.Session) error {
-	if err := ss.fallback.Update(s); err != nil {
-		return err
-	}
-
-	ss.persistChan <- s.SessionID()
+func (ss *SessionStore) Update(sd *session.Session) error {
+	ss.persistChan <- sd.ID()
 
 	return nil
 }
 
-func (ss *SessionStore) Destroy(ctx context.Context, sid string) error {
-	if err := ss.fallback.Destroy(ctx, sid); err != nil {
-		return err
-	}
-
-	return ss.db.DeleteCachedByKey(ctx, sessionPrefix+sid)
+func (ss *SessionStore) TTL() time.Duration {
+	return sessionCacheTTL
 }
 
-func (ss *SessionStore) GC(ctx context.Context, d time.Duration) {
-	ss.fallback.GC(ctx, d)
+func (ss *SessionStore) Destroy(ctx context.Context, sid string) error {
+	return ss.store.Impl().DeleteUserSession(ctx, sid)
 }
 
 func (ss *SessionStore) persistSessions(ctx context.Context, batch map[string]uint) error {
-	slog.DebugContext(ctx, "Persisting sessions to DB", "count", len(batch))
-
-	keys := make([]string, 0, len(batch))
-	values := make([][]byte, 0, len(batch))
-	intervals := make([]time.Duration, 0, len(batch))
-
-	for sid := range batch {
-		sess, err := ss.fallback.Read(ctx, sid)
-		if err != nil {
-			slog.WarnContext(ctx, "Failed to find session to persist", "sid", sid, common.ErrAttr(err))
-			continue
-		}
-
-		if !sess.Has(ss.persistKey) {
-			slog.Log(ctx, common.LevelTrace, "Skipping persisting session without persist key", "sid", sid)
-			continue
-		}
-
-		data, err := sess.MarshalBinary()
-		if err != nil {
-			slog.ErrorContext(ctx, "Failed to marshal session", common.ErrAttr(err))
-			continue
-		}
-
-		keys = append(keys, sessionPrefix+sid)
-		values = append(values, data)
-		intervals = append(intervals, sessionCacheDuration)
-	}
-
-	if len(keys) == 0 {
-		slog.WarnContext(ctx, "No sessions to save")
-		return nil
-	}
-
-	if err := ss.db.CreateCacheMany(ctx, &dbgen.CreateCacheManyParams{
-		Keys:      keys,
-		Values:    values,
-		Intervals: intervals,
-	}); err != nil {
-		slog.ErrorContext(ctx, "Failed to cache sessions", "count", len(keys), common.ErrAttr(err))
-	}
-
 	// we actually do not care if we failed to save sessions to cache
+	_ = ss.store.Impl().StoreUserSessions(ctx, batch, ss.persistKey, sessionCacheTTL)
 	return nil
 }

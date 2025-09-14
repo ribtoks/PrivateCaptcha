@@ -121,7 +121,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sess := s.Sessions.SessionStart(w, r)
-	if step, ok := sess.Get(session.KeyLoginStep).(int); ok {
+	if step, ok := sess.Get(ctx, session.KeyLoginStep).(int); ok {
 		if step == loginStepCompleted {
 			slog.DebugContext(ctx, "User seem to be already logged in", "email", email)
 			common.Redirect(s.RelURL("/"), http.StatusOK, w, r)

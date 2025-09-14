@@ -291,7 +291,7 @@ func (s *Server) putGeneralSettings(w http.ResponseWriter, r *http.Request) (Mod
 			return renderCtx, settingsGeneralFormTemplate, nil
 		}
 
-		sentCode, hasSentCode := sess.Get(session.KeyTwoFactorCode).(int)
+		sentCode, hasSentCode := sess.Get(ctx, session.KeyTwoFactorCode).(int)
 		formCode := r.FormValue(common.ParamVerificationCode)
 
 		// we "used" the code now

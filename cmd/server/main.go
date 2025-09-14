@@ -30,7 +30,6 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/portal"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session/store/memory"
 	"github.com/PrivateCaptcha/PrivateCaptcha/web"
 	"github.com/PrivateCaptcha/PrivateCaptcha/widget"
 	"github.com/justinas/alice"
@@ -181,7 +180,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	}
 
 	apiURLConfig := config.AsURL(ctx, cfg.Get(common.APIBaseURLKey))
-	sessionStore := db.NewSessionStore(pool, memory.New(), session.KeyPersistent)
+	sessionStore := db.NewSessionStore(businessDB, session.KeyPersistent)
 	portalServer := &portal.Server{
 		Stage:      stage,
 		Store:      businessDB,
@@ -190,7 +189,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Sessions: &session.Manager{
 			CookieName:   "pcsid",
 			Store:        sessionStore,
-			MaxLifetime:  sessionStore.MaxLifetime(),
+			MaxLifetime:  sessionStore.TTL(),
 			SecureCookie: (*certFileFlag != "") && (*keyFileFlag != ""),
 		},
 		PlanService:  planService,
@@ -312,9 +311,6 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 
 	jobs.Spawn(healthCheck)
 	// start maintenance jobs
-	jobs.Add(&maintenance.SessionsCleanupJob{
-		Session: portalServer.Sessions,
-	})
 	jobs.Add(&maintenance.CleanupDBCacheJob{Store: businessDB})
 	jobs.Add(&maintenance.CleanupDeletedRecordsJob{Store: businessDB, Age: 365 * 24 * time.Hour})
 	jobs.AddLocked(24*time.Hour, &maintenance.GarbageCollectDataJob{

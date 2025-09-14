@@ -13,7 +13,7 @@ import (
 
 type Manager struct {
 	CookieName   string
-	Store        common.SessionStore
+	Store        Store
 	MaxLifetime  time.Duration
 	Path         string
 	SecureCookie bool
@@ -28,15 +28,17 @@ func (m *Manager) Init(svc string, path string, interval time.Duration) {
 	m.Store.Start(context.WithValue(context.Background(), common.ServiceContextKey, svc), interval)
 }
 
-func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session *common.Session) {
+func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session *Session) {
 	cookie, err := r.Cookie(m.CookieName)
 	ctx := r.Context()
 	if err != nil || cookie.Value == "" {
 		slog.Log(ctx, common.LevelTrace, "Session cookie not found in the request for start", "path", r.URL.Path, "method", r.Method)
 		sid := m.sessionID()
-		session = common.NewSession(sid, m.Store)
+		sslog := slog.With(common.SessionIDAttr(sid))
+		session = NewSession(NewSessionData(sid), m.Store)
+		sslog.DebugContext(ctx, "Registering new session", "path", r.URL.Path, "method", r.Method)
 		if err = m.Store.Init(ctx, session); err != nil {
-			slog.ErrorContext(ctx, "Failed to register session", common.SessionIDAttr(sid), common.ErrAttr(err))
+			sslog.ErrorContext(ctx, "Failed to register session", common.SessionIDAttr(sid), common.ErrAttr(err))
 		}
 		cookie := http.Cookie{
 			Name:     m.CookieName,
@@ -53,9 +55,10 @@ func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session 
 		sslog := slog.With(common.SessionIDAttr(sid))
 		sslog.Log(ctx, common.LevelTrace, "Session cookie found in the request for start", "path", r.URL.Path, "method", r.Method)
 		session, err = m.Store.Read(ctx, sid)
-		if err == common.ErrSessionMissing {
+		if err == ErrSessionMissing {
 			sslog.WarnContext(ctx, "Session from cookie is missing")
-			session = common.NewSession(sid, m.Store)
+			session = NewSession(NewSessionData(sid), m.Store)
+			sslog.DebugContext(ctx, "Registering new session", "path", r.URL.Path, "method", r.Method)
 			if err = m.Store.Init(ctx, session); err != nil {
 				sslog.ErrorContext(ctx, "Failed to register session with existing cookie", common.ErrAttr(err))
 			}
@@ -74,9 +77,11 @@ func (m *Manager) SessionDestroy(w http.ResponseWriter, r *http.Request) {
 	} else {
 		ctx := r.Context()
 		slog.Log(ctx, common.LevelTrace, "Session cookie found in the request for destroy", common.SessionIDAttr(cookie.Value), "path", r.URL.Path, "method", r.Method)
-		if err := m.Store.Destroy(ctx, cookie.Value); err != nil {
-			slog.ErrorContext(ctx, "Failed to delete session from storage", common.ErrAttr(err))
-		}
+
+		go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
+			return m.Store.Destroy(bctx, cookie.Value)
+		})
+
 		expiration := time.Now()
 		cookie := http.Cookie{
 			Name:     m.CookieName,
@@ -89,8 +94,4 @@ func (m *Manager) SessionDestroy(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &cookie)
 		w.Header().Add("Cache-Control", `no-cache="Set-Cookie"`)
 	}
-}
-
-func (m *Manager) GC(ctx context.Context) {
-	m.Store.GC(ctx, m.MaxLifetime)
 }

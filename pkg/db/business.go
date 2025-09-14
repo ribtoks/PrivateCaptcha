@@ -74,9 +74,14 @@ func NewBusiness(pool *pgxpool.Pool) *BusinessStore {
 }
 
 func NewBusinessEx(pool *pgxpool.Pool, cache common.Cache[CacheKey, any]) *BusinessStore {
+	var querier dbgen.Querier
+	if pool != nil {
+		querier = dbgen.New(pool)
+	}
+
 	return &BusinessStore{
 		Pool:          pool,
-		defaultImpl:   &BusinessStoreImpl{cache: cache, querier: dbgen.New(pool)},
+		defaultImpl:   &BusinessStoreImpl{cache: cache, querier: querier},
 		cacheOnlyImpl: &BusinessStoreImpl{cache: cache},
 		Cache:         cache,
 		puzzleCache:   newPuzzleCache(puzzle.DefaultValidityPeriod),

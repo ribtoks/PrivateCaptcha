@@ -11,6 +11,7 @@ import (
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -289,6 +290,137 @@ func (impl *BusinessStoreImpl) SoftDeleteUser(ctx context.Context, userID int32)
 	_ = impl.cache.Delete(ctx, userCacheKey(user.ID))
 
 	return nil
+}
+
+func (impl *BusinessStoreImpl) doGetSessionbyID(ctx context.Context, sid string) (*session.SessionData, error) {
+	sslog := slog.With(common.SessionIDAttr(sid))
+	sessionID, _ := sessionIDFunc(sid)
+	data, err := impl.querier.GetCachedByKey(ctx, sessionID)
+	if (err == nil) && (len(data) > 0) {
+		sslog.DebugContext(ctx, "Found session data cached in DB")
+		sd := session.NewSessionData(sid)
+		if uerr := sd.UnmarshalBinary(data); uerr != nil {
+			sslog.ErrorContext(ctx, "Failed to unmarshal session data from cache", common.ErrAttr(uerr))
+			return nil, uerr
+		}
+
+		sslog.Log(ctx, common.LevelTrace, "Unmarshaled session data from binary", "fields", sd.Size())
+
+		return sd, nil
+	} else if err != pgx.ErrNoRows {
+		sslog.ErrorContext(ctx, "Failed to read session data from DB cache", common.ErrAttr(err))
+	} else {
+		sslog.DebugContext(ctx, "Session data not found cached in DB")
+	}
+
+	return nil, err
+}
+
+func (impl *BusinessStoreImpl) DeleteUserSession(ctx context.Context, sid string) error {
+	if err := impl.cache.Delete(ctx, sessionCacheKey(sid)); err != nil {
+		slog.ErrorContext(ctx, "Failed to delete user session from memory cache", common.ErrAttr(err))
+	}
+
+	if impl.querier == nil {
+		return ErrMaintenance
+	}
+
+	sessionID, _ := sessionIDFunc(sid)
+	err := impl.querier.DeleteCachedByKey(ctx, sessionID)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to delete cached session from DB", common.ErrAttr(err))
+	}
+
+	return err
+}
+
+func (impl *BusinessStoreImpl) CacheUserSession(ctx context.Context, data *session.SessionData) error {
+	if data == nil {
+		return nil
+	}
+
+	return impl.cache.Set(ctx, sessionCacheKey(data.ID()), data)
+}
+
+func (impl *BusinessStoreImpl) RetrieveUserSession(ctx context.Context, sid string) (*session.SessionData, error) {
+	if len(sid) == 0 {
+		return nil, ErrInvalidInput
+	}
+
+	reader := &StoreOneReader[string, session.SessionData]{
+		CacheKey: sessionCacheKey(sid),
+		Cache:    impl.cache,
+	}
+
+	if impl.querier != nil {
+		reader.QueryFunc = impl.doGetSessionbyID
+		reader.QueryKeyFunc = queryKeySessionID
+	}
+
+	return reader.Read(ctx)
+}
+
+func (impl *BusinessStoreImpl) StoreUserSessions(ctx context.Context, batch map[string]uint, persistKey session.SessionKey, ttl time.Duration) error {
+	reader := &StoreBulkReader[string, string, session.SessionData]{
+		ArgFunc:         nil, // we shouldn't be using it
+		Cache:           impl.cache,
+		CacheKeyFunc:    sessionCacheKey,
+		QueryKeyFunc:    sessionIDFunc,
+		MinMissingCount: 0,
+		QueryFunc:       nil, // explicitly set - we are only interested in cache
+	}
+
+	// NOTE: it does have the side-effect of extending them in our cache once again (which is a bug),
+	// but its impact is not large enough to bother
+	cached, _, err := reader.Read(ctx, batch)
+	if err != ErrMaintenance {
+		return err
+	}
+
+	keys := make([]string, 0, len(batch))
+	values := make([][]byte, 0, len(batch))
+	intervals := make([]time.Duration, 0, len(batch))
+
+	for _, sd := range cached {
+		if !sd.Has(persistKey) {
+			slog.Log(ctx, common.LevelTrace, "Skipping persisting session without persist key", common.SessionIDAttr(sd.ID()))
+			continue
+		}
+
+		data, err := sd.MarshalBinary()
+		if err != nil {
+			slog.ErrorContext(ctx, "Failed to marshal session", common.SessionIDAttr(sd.ID()), common.ErrAttr(err))
+			continue
+		}
+
+		slog.Log(ctx, common.LevelTrace, "Marshaled session data to binary", common.SessionIDAttr(sd.ID()), "fields", sd.Size())
+
+		sidKey, _ := sessionIDFunc(sd.ID())
+		keys = append(keys, sidKey)
+		values = append(values, data)
+		intervals = append(intervals, ttl)
+	}
+
+	if len(keys) == 0 {
+		slog.WarnContext(ctx, "No sessions to save")
+		return nil
+	}
+
+	if impl.querier == nil {
+		return ErrMaintenance
+	}
+
+	err = impl.querier.CreateCacheMany(ctx, &dbgen.CreateCacheManyParams{
+		Keys:      keys,
+		Values:    values,
+		Intervals: intervals,
+	})
+
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to cache sessions", "count", len(keys), common.ErrAttr(err))
+	}
+
+	return err
 }
 
 func (impl *BusinessStoreImpl) RetrievePropertyBySitekey(ctx context.Context, sitekey string) (*dbgen.Property, error) {
