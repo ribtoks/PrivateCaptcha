@@ -26,7 +26,7 @@ func TestSoftDeleteOrganization(t *testing.T) {
 	}
 
 	// Verify that the organization is returned by FindUserOrganizations
-	orgs, err := store.Impl().RetrieveUserOrganizations(ctx, user.ID)
+	orgs, err := store.Impl().RetrieveUserOrganizations(ctx, user)
 	if err != nil {
 		t.Fatalf("Failed to find user organizations: %v", err)
 	}
@@ -34,12 +34,12 @@ func TestSoftDeleteOrganization(t *testing.T) {
 		t.Errorf("Expected to find the created organization, but got: %v", orgs)
 	}
 
-	err = store.Impl().SoftDeleteOrganization(ctx, org.ID, user.ID)
+	err = store.Impl().SoftDeleteOrganization(ctx, org, user)
 	if err != nil {
 		t.Fatalf("Failed to soft delete organization: %v", err)
 	}
 
-	orgs, err = store.Impl().RetrieveUserOrganizations(ctx, user.ID)
+	orgs, err = store.Impl().RetrieveUserOrganizations(ctx, user)
 	if err != nil {
 		t.Fatalf("Failed to find user organizations: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestSoftDeleteProperty(t *testing.T) {
 	}
 
 	// Retrieve the organization's properties
-	orgProperties, err := store.Impl().RetrieveOrgProperties(ctx, org.ID)
+	orgProperties, err := store.Impl().RetrieveOrgProperties(ctx, org)
 	if err != nil {
 		t.Fatalf("Failed to retrieve organization properties: %v", err)
 	}
@@ -87,13 +87,13 @@ func TestSoftDeleteProperty(t *testing.T) {
 	}
 
 	// Soft delete the property
-	err = store.Impl().SoftDeleteProperty(ctx, prop.ID, org.ID)
+	err = store.Impl().SoftDeleteProperty(ctx, prop, org)
 	if err != nil {
 		t.Fatalf("Failed to soft delete property: %v", err)
 	}
 
 	// Retrieve the organization's properties again
-	orgProperties, err = store.Impl().RetrieveOrgProperties(ctx, org.ID)
+	orgProperties, err = store.Impl().RetrieveOrgProperties(ctx, org)
 	if err != nil {
 		t.Fatalf("Failed to retrieve organization properties: %v", err)
 	}

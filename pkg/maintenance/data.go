@@ -182,7 +182,7 @@ func (j *CleanupExpiredTrialUsersJob) RunOnce(ctx context.Context, params any) e
 			time.Sleep(b.Duration())
 		}
 
-		err = j.BusinessDB.Impl().SoftDeleteUser(ctx, u.ID)
+		err = j.BusinessDB.Impl().SoftDeleteUser(ctx, u)
 		if err != nil {
 			slog.ErrorContext(ctx, "Failed to soft-delete user", "userID", u.ID, common.ErrAttr(err))
 		}

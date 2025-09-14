@@ -139,7 +139,7 @@ func setupVerifySuite(username string) (string, string, string, error) {
 		return "", "", "", err
 	}
 
-	apikey, err := store.Impl().CreateAPIKey(ctx, user.ID, username+"-apikey", time.Now().Add(1*time.Hour), 10.0 /*rps*/)
+	apikey, err := store.Impl().CreateAPIKey(ctx, user, username+"-apikey", time.Now().Add(1*time.Hour), 10.0 /*rps*/)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -467,7 +467,7 @@ func TestVerifyExpiredKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	apikey, err := store.Impl().CreateAPIKey(ctx, user.ID, t.Name()+"-apikey", time.Now().Add(1*time.Hour), 10.0 /*rps*/)
+	apikey, err := store.Impl().CreateAPIKey(ctx, user, t.Name()+"-apikey", time.Now().Add(1*time.Hour), 10.0 /*rps*/)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -538,7 +538,7 @@ func TestVerifyTestProperty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	apikey, err := store.Impl().CreateAPIKey(ctx, user.ID, t.Name()+"-apikey", time.Now().Add(1*time.Hour), 10.0 /*rps*/)
+	apikey, err := store.Impl().CreateAPIKey(ctx, user, t.Name()+"-apikey", time.Now().Add(1*time.Hour), 10.0 /*rps*/)
 	if err != nil {
 		t.Fatal(err)
 	}

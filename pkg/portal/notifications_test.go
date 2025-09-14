@@ -178,7 +178,7 @@ func TestDeleteScheduledNotification(t *testing.T) {
 		t.Fatal("Shouldn't create a notification with the same referenceID")
 	}
 
-	if err := store.Impl().DeletePendingUserNotification(ctx, user.ID, sn.ReferenceID); err != nil {
+	if err := store.Impl().DeletePendingUserNotification(ctx, user, sn.ReferenceID); err != nil {
 		t.Fatal(err)
 	}
 

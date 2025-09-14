@@ -106,7 +106,7 @@ func TestInviteUser(t *testing.T) {
 		t.Errorf("Unexpected status code %v", resp.StatusCode)
 	}
 
-	members, err := store.Impl().RetrieveOrganizationUsers(ctx, org1.ID)
+	members, err := store.Impl().RetrieveOrganizationUsers(ctx, org1)
 	if err != nil {
 		t.Fatal(err)
 	}

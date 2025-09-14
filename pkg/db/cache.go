@@ -280,7 +280,7 @@ func StringCacheKey(prefix CacheKeyPrefix, value string) CacheKey {
 }
 
 func SessionCacheKey(id string) CacheKey { return StringCacheKey(sessionCacheKeyPrefix, id) }
-func userCacheKey(id int32) CacheKey     { return Int32CacheKey(userCacheKeyPrefix, id) }
+func UserCacheKey(id int32) CacheKey     { return Int32CacheKey(userCacheKeyPrefix, id) }
 func APIKeyCacheKey(str string) CacheKey { return StringCacheKey(apiKeyCacheKeyPrefix, str) }
 func orgCacheKey(orgID int32) CacheKey   { return Int32CacheKey(orgCacheKeyPrefix, orgID) }
 func orgPropertiesCacheKey(orgID int32) CacheKey {

@@ -320,7 +320,7 @@ func (s *Server) putGeneralSettings(w http.ResponseWriter, r *http.Request) (Mod
 		if renderCtx.EditEmail {
 			emailToUpdate = formEmail
 		}
-		if err := s.Store.Impl().UpdateUser(ctx, user.ID, renderCtx.Name, emailToUpdate, user.Email); err == nil {
+		if err := s.Store.Impl().UpdateUser(ctx, user, renderCtx.Name, emailToUpdate, user.Email); err == nil {
 			renderCtx.SuccessMessage = "Settings were updated."
 			renderCtx.EditEmail = false
 			_ = sess.Set(session.KeyUserName, renderCtx.Name)
@@ -362,7 +362,7 @@ func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.Store.WithTx(ctx, func(impl *db.BusinessStoreImpl) error {
-		return impl.SoftDeleteUser(ctx, user.ID)
+		return impl.SoftDeleteUser(ctx, user)
 	}); err == nil {
 		job := s.Jobs.OffboardUser(user)
 		go common.RunOneOffJob(common.CopyTraceID(ctx, context.Background()), job, job.NewParams())
@@ -499,7 +499,7 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Mod
 	days := daysFromParam(ctx, r.FormValue(common.ParamDays))
 	tnow := time.Now().UTC()
 	expiration := tnow.AddDate(0, 0, days)
-	newKey, err := s.Store.Impl().CreateAPIKey(ctx, user.ID, formName, expiration, apiKeyRequestsPerSecond)
+	newKey, err := s.Store.Impl().CreateAPIKey(ctx, user, formName, expiration, apiKeyRequestsPerSecond)
 	if err == nil {
 		userKey := apiKeyToUserAPIKey(newKey, tnow)
 		userKey.Secret = db.UUIDToSecret(newKey.ExternalID)
@@ -540,7 +540,7 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.Store.Impl().DeleteAPIKey(ctx, user.ID, int32(keyID)); err != nil {
+	if err := s.Store.Impl().DeleteAPIKey(ctx, user, int32(keyID)); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete the API key", "keyID", keyID, common.ErrAttr(err))
 		http.Error(w, "", http.StatusInternalServerError)
 		return
@@ -548,10 +548,10 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
 		var anyError error
-		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user.ID, apiKeyExpirationReference(int32(keyID))); err != nil {
+		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpirationReference(int32(keyID))); err != nil {
 			anyError = err
 		}
-		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user.ID, apiKeyExpiredReference(int32(keyID))); err != nil {
+		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpiredReference(int32(keyID))); err != nil {
 			anyError = err
 		}
 		return anyError

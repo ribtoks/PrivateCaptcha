@@ -55,7 +55,7 @@ func (rg *RouteGenerator) LastPath() string {
 	return result
 }
 
-func (s *Server) Org(userID int32, r *http.Request) (*dbgen.Organization, error) {
+func (s *Server) Org(user *dbgen.User, r *http.Request) (*dbgen.Organization, error) {
 	ctx := r.Context()
 
 	orgID, value, err := common.IntPathArg(r, common.ParamOrg)
@@ -64,7 +64,7 @@ func (s *Server) Org(userID int32, r *http.Request) (*dbgen.Organization, error)
 		return nil, errInvalidPathArg
 	}
 
-	org, err := s.Store.Impl().RetrieveUserOrganization(ctx, userID, int32(orgID))
+	org, err := s.Store.Impl().RetrieveUserOrganization(ctx, user, int32(orgID))
 	if err != nil {
 		if err == db.ErrSoftDeleted {
 			return nil, errOrgSoftDeleted
@@ -93,7 +93,7 @@ func (s *Server) OrgID(r *http.Request) (int32, error) {
 	return int32(orgID), nil
 }
 
-func (s *Server) Property(orgID int32, r *http.Request) (*dbgen.Property, error) {
+func (s *Server) Property(org *dbgen.Organization, r *http.Request) (*dbgen.Property, error) {
 	ctx := r.Context()
 
 	propertyID, value, err := common.IntPathArg(r, common.ParamProperty)
@@ -102,7 +102,7 @@ func (s *Server) Property(orgID int32, r *http.Request) (*dbgen.Property, error)
 		return nil, errInvalidPathArg
 	}
 
-	property, err := s.Store.Impl().RetrieveOrgProperty(ctx, orgID, int32(propertyID))
+	property, err := s.Store.Impl().RetrieveOrgProperty(ctx, org, int32(propertyID))
 	if err != nil {
 		if err == db.ErrSoftDeleted {
 			return nil, errPropertySoftDeleted

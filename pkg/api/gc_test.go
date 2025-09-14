@@ -84,7 +84,7 @@ func TestGCPropertyData(t *testing.T) {
 	}
 
 	gcDataTestSuite(ctx, property, func(p *dbgen.Property) error {
-		return store.Impl().SoftDeleteProperty(ctx, p.ID, p.OrgOwnerID.Int32)
+		return store.Impl().SoftDeleteProperty(ctx, p, org)
 	}, t)
 }
 
@@ -95,7 +95,7 @@ func TestGCOrganizationData(t *testing.T) {
 
 	ctx := context.TODO()
 
-	_, org, err := db_test.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	user, org, err := db_test.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestGCOrganizationData(t *testing.T) {
 	}
 
 	gcDataTestSuite(ctx, property, func(p *dbgen.Property) error {
-		return store.Impl().SoftDeleteOrganization(ctx, p.OrgID.Int32, p.OrgOwnerID.Int32)
+		return store.Impl().SoftDeleteOrganization(ctx, org, user)
 	}, t)
 }
 
@@ -117,7 +117,7 @@ func TestGCUserData(t *testing.T) {
 
 	ctx := context.TODO()
 
-	_, org, err := db_test.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	user, org, err := db_test.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestGCUserData(t *testing.T) {
 
 	gcDataTestSuite(ctx, property, func(p *dbgen.Property) error {
 		return store.WithTx(ctx, func(impl *db.BusinessStoreImpl) error {
-			return impl.SoftDeleteUser(ctx, p.OrgOwnerID.Int32)
+			return impl.SoftDeleteUser(ctx, user)
 		})
 	}, t)
 }

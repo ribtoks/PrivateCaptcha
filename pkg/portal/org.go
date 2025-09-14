@@ -141,7 +141,7 @@ func (s *Server) getNewOrg(w http.ResponseWriter, r *http.Request) (Model, strin
 	return renderCtx, orgWizardTemplate, nil
 }
 
-func (s *Server) validateOrgName(ctx context.Context, name string, userID int32) string {
+func (s *Server) validateOrgName(ctx context.Context, name string, user *dbgen.User) string {
 	if (len(name) == 0) || (len(name) > maxOrgNameLength) {
 		slog.WarnContext(ctx, "Name length is invalid", "length", len(name))
 
@@ -152,7 +152,7 @@ func (s *Server) validateOrgName(ctx context.Context, name string, userID int32)
 		}
 	}
 
-	if _, err := s.Store.Impl().FindOrg(ctx, name, userID); err != db.ErrRecordNotFound {
+	if _, err := s.Store.Impl().FindOrg(ctx, name, user); err != db.ErrRecordNotFound {
 		slog.WarnContext(ctx, "Org already exists", "name", name, common.ErrAttr(err))
 		return "Organization with this name already exists."
 	}
@@ -168,7 +168,7 @@ func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, ses
 		return nil, err
 	}
 
-	orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user.ID)
+	orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user)
 	if err != nil {
 		return nil, err
 	}
@@ -216,7 +216,7 @@ func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, ses
 
 	if (0 <= idx) && (idx < len(orgs)) {
 		if orgs[idx].Level != dbgen.AccessLevelInvited {
-			if properties, err := s.Store.Impl().RetrieveOrgProperties(ctx, orgs[idx].Organization.ID); err == nil {
+			if properties, err := s.Store.Impl().RetrieveOrgProperties(ctx, &orgs[idx].Organization); err == nil {
 				renderCtx.Properties = propertiesToUserProperties(ctx, properties)
 			}
 		}
@@ -263,12 +263,12 @@ func (s *Server) getOrgDashboard(w http.ResponseWriter, r *http.Request) (Model,
 		return nil, "", err
 	}
 
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		return nil, "", err
 	}
 
-	properties, err := s.Store.Impl().RetrieveOrgProperties(ctx, org.ID)
+	properties, err := s.Store.Impl().RetrieveOrgProperties(ctx, org)
 	if err != nil {
 		return nil, "", err
 	}
@@ -289,7 +289,7 @@ func (s *Server) getOrgMembers(w http.ResponseWriter, r *http.Request) (Model, s
 		return nil, "", err
 	}
 
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		return nil, "", err
 	}
@@ -305,7 +305,7 @@ func (s *Server) getOrgMembers(w http.ResponseWriter, r *http.Request) (Model, s
 		return renderCtx, orgMembersTemplate, nil
 	}
 
-	members, err := s.Store.Impl().RetrieveOrganizationUsers(ctx, org.ID)
+	members, err := s.Store.Impl().RetrieveOrganizationUsers(ctx, org)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve org users", common.ErrAttr(err))
 		return nil, "", err
@@ -323,7 +323,7 @@ func (s *Server) getOrgSettings(w http.ResponseWriter, r *http.Request) (Model, 
 		return nil, "", err
 	}
 
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		return nil, "", err
 	}
@@ -349,7 +349,7 @@ func (s *Server) putOrg(w http.ResponseWriter, r *http.Request) (Model, string, 
 		slog.ErrorContext(ctx, "Failed to read request body", common.ErrAttr(err))
 		return nil, "", ErrInvalidRequestArg
 	}
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		return nil, "", err
 	}
@@ -367,12 +367,12 @@ func (s *Server) putOrg(w http.ResponseWriter, r *http.Request) (Model, string, 
 
 	name := r.FormValue(common.ParamName)
 	if name != org.Name {
-		if nameError := s.validateOrgName(ctx, name, user.ID); len(nameError) > 0 {
+		if nameError := s.validateOrgName(ctx, name, user); len(nameError) > 0 {
 			renderCtx.NameError = nameError
 			return renderCtx, orgSettingsTemplate, nil
 		}
 
-		if updatedOrg, err := s.Store.Impl().UpdateOrganization(ctx, org.ID, name); err != nil {
+		if updatedOrg, err := s.Store.Impl().UpdateOrganization(ctx, org, name); err != nil {
 			renderCtx.ErrorMessage = "Failed to update settings. Please try again."
 		} else {
 			renderCtx.SuccessMessage = "Settings were updated"

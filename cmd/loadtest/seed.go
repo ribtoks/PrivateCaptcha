@@ -117,7 +117,7 @@ func seedUser(ctx context.Context, u int, orgsCount, propertiesCount int, plan b
 		}
 	}
 
-	_, err = store.Impl().CreateAPIKey(ctx, user.ID, "Test API Key", tnow.AddDate(0, 1, 0), 1000 /*rps*/)
+	_, err = store.Impl().CreateAPIKey(ctx, user, "Test API Key", tnow.AddDate(0, 1, 0), 1000 /*rps*/)
 	if err != nil {
 		return err
 	}

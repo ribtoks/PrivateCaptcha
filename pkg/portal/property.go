@@ -252,7 +252,7 @@ func (s *Server) getNewOrgProperty(w http.ResponseWriter, r *http.Request) (Mode
 		return nil, "", err
 	}
 
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		return nil, "", err
 	}
@@ -274,7 +274,7 @@ func (s *Server) getNewOrgProperty(w http.ResponseWriter, r *http.Request) (Mode
 	return data, propertyWizardTemplate, nil
 }
 
-func (s *Server) validatePropertyName(ctx context.Context, name string, orgID int32) string {
+func (s *Server) validatePropertyName(ctx context.Context, name string, org *dbgen.Organization) string {
 	if (len(name) == 0) || (len(name) > maxPropertyNameLength) {
 		slog.WarnContext(ctx, "Name length is invalid", "length", len(name))
 
@@ -285,7 +285,7 @@ func (s *Server) validatePropertyName(ctx context.Context, name string, orgID in
 		}
 	}
 
-	if _, err := s.Store.Impl().FindOrgProperty(ctx, name, orgID); err != db.ErrRecordNotFound {
+	if _, err := s.Store.Impl().FindOrgProperty(ctx, name, org); err != db.ErrRecordNotFound {
 		slog.WarnContext(ctx, "Property already exists", "name", name, common.ErrAttr(err))
 		return "Property with this name already exists."
 	}
@@ -463,7 +463,7 @@ func (s *Server) postNewOrgProperty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 		return
@@ -476,7 +476,7 @@ func (s *Server) postNewOrgProperty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	renderCtx.Name = strings.TrimSpace(r.FormValue(common.ParamName))
-	if nameError := s.validatePropertyName(ctx, renderCtx.Name, org.ID); len(nameError) > 0 {
+	if nameError := s.validatePropertyName(ctx, renderCtx.Name, org); len(nameError) > 0 {
 		renderCtx.NameError = nameError
 		s.render(w, r, createPropertyFormTemplate, renderCtx)
 		return
@@ -534,13 +534,13 @@ func (s *Server) getPropertyStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// we fetch full org and property to verify parameters as they should be cached anyways, if correct
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
 
-	property, err := s.Property(org.ID, r)
+	property, err := s.Property(org, r)
 	if err != nil {
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
@@ -608,12 +608,12 @@ func (s *Server) getOrgProperty(w http.ResponseWriter, r *http.Request) (*proper
 		return nil, nil, err
 	}
 
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	property, err := s.Property(org.ID, r)
+	property, err := s.Property(org, r)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -747,12 +747,12 @@ func (s *Server) putProperty(w http.ResponseWriter, r *http.Request) (Model, str
 	}
 
 	// should hit cache right away
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		return nil, "", err
 	}
 
-	property, err := s.Property(org.ID, r)
+	property, err := s.Property(org, r)
 	if err != nil {
 		return nil, "", err
 	}
@@ -766,7 +766,7 @@ func (s *Server) putProperty(w http.ResponseWriter, r *http.Request) (Model, str
 
 	name := r.FormValue(common.ParamName)
 	if name != property.Name {
-		if nameError := s.validatePropertyName(ctx, name, org.ID); len(nameError) > 0 {
+		if nameError := s.validatePropertyName(ctx, name, org); len(nameError) > 0 {
 			renderCtx.NameError = nameError
 			renderCtx.Property.Name = name
 			return renderCtx, propertyDashboardSettingsTemplate, nil
@@ -823,13 +823,13 @@ func (s *Server) deleteProperty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 		return
 	}
 
-	property, err := s.Property(org.ID, r)
+	property, err := s.Property(org, r)
 	if err != nil {
 		s.RedirectError(http.StatusBadRequest, w, r)
 		return
@@ -843,7 +843,7 @@ func (s *Server) deleteProperty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.Store.Impl().SoftDeleteProperty(ctx, property.ID, org.ID); err == nil {
+	if err := s.Store.Impl().SoftDeleteProperty(ctx, property, org); err == nil {
 		common.Redirect(s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(org.ID))), http.StatusOK, w, r)
 	} else {
 		s.RedirectError(http.StatusInternalServerError, w, r)

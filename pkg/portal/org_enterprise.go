@@ -48,7 +48,7 @@ func (s *Server) validateOrgsLimit(ctx context.Context, user *dbgen.User) string
 	}
 
 	// NOTE: this should be freshly cached as we should have just rendered the dashboard
-	orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user.ID)
+	orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve user orgs", "userID", user.ID, common.ErrAttr(err))
 		return ""
@@ -85,7 +85,7 @@ func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := r.FormValue(common.ParamName)
-	if nameError := s.validateOrgName(ctx, name, user.ID); len(nameError) > 0 {
+	if nameError := s.validateOrgName(ctx, name, user); len(nameError) > 0 {
 		renderCtx.NameError = nameError
 		s.render(w, r, createOrgFormTemplate, renderCtx)
 		return
@@ -209,12 +209,12 @@ func (s *Server) postOrgMembers(w http.ResponseWriter, r *http.Request) (Model, 
 		return nil, "", ErrInvalidRequestArg
 	}
 
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		return nil, "", err
 	}
 
-	members, err := s.Store.Impl().RetrieveOrganizationUsers(ctx, org.ID)
+	members, err := s.Store.Impl().RetrieveOrganizationUsers(ctx, org)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve org users", common.ErrAttr(err))
 		return nil, "", err
@@ -249,7 +249,7 @@ func (s *Server) postOrgMembers(w http.ResponseWriter, r *http.Request) (Model, 
 		return renderCtx, orgMembersTemplate, nil
 	}
 
-	if err = s.Store.Impl().InviteUserToOrg(ctx, org.ID, inviteUser.ID); err != nil {
+	if err = s.Store.Impl().InviteUserToOrg(ctx, org, inviteUser); err != nil {
 		renderCtx.ErrorMessage = "Failed to invite user. Please try again."
 	} else {
 		ou := userToOrgUser(inviteUser, string(dbgen.AccessLevelInvited))
@@ -282,13 +282,13 @@ func (s *Server) deleteOrgMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 		return
 	}
 
-	if err := s.Store.Impl().RemoveUserFromOrg(ctx, org.ID, int32(userID)); err != nil {
+	if err := s.Store.Impl().RemoveUserFromOrg(ctx, org, int32(userID)); err != nil {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	}
@@ -310,7 +310,7 @@ func (s *Server) joinOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.Store.Impl().JoinOrg(ctx, orgID, user.ID); err == nil {
+	if err := s.Store.Impl().JoinOrg(ctx, orgID, user); err == nil {
 		// NOTE: we don't want to htmx-swap anything as we need to update the org dropdown
 		common.Redirect(s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(orgID))), http.StatusOK, w, r)
 	} else {
@@ -332,7 +332,7 @@ func (s *Server) leaveOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.Store.Impl().LeaveOrg(ctx, int32(orgID), user.ID); err == nil {
+	if err := s.Store.Impl().LeaveOrg(ctx, orgID, user); err == nil {
 		// NOTE: we don't want to htmx-swap anything as we need to update the org dropdown
 		common.Redirect(s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(orgID))), http.StatusOK, w, r)
 	} else {
@@ -349,7 +349,7 @@ func (s *Server) deleteOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	org, err := s.Org(user.ID, r)
+	org, err := s.Org(user, r)
 	if err != nil {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 		return
@@ -361,7 +361,7 @@ func (s *Server) deleteOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.Store.Impl().SoftDeleteOrganization(ctx, org.ID, user.ID); err != nil {
+	if err := s.Store.Impl().SoftDeleteOrganization(ctx, org, user); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete organization", common.ErrAttr(err))
 		s.RedirectError(http.StatusInternalServerError, w, r)
 		return
