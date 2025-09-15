@@ -183,25 +183,6 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (*User, error) {
 	return &i, err
 }
 
-const getUserBySubscriptionID = `-- name: GetUserBySubscriptionID :one
-SELECT id, name, email, subscription_id, created_at, updated_at, deleted_at FROM backend.users WHERE subscription_id = $1
-`
-
-func (q *Queries) GetUserBySubscriptionID(ctx context.Context, subscriptionID pgtype.Int4) (*User, error) {
-	row := q.db.QueryRow(ctx, getUserBySubscriptionID, subscriptionID)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Email,
-		&i.SubscriptionID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.DeletedAt,
-	)
-	return &i, err
-}
-
 const getUsersWithoutSubscription = `-- name: GetUsersWithoutSubscription :many
 SELECT id, name, email, subscription_id, created_at, updated_at, deleted_at FROM backend.users where id = ANY($1::INT[]) AND (subscription_id IS NULL OR deleted_at IS NOT NULL)
 `

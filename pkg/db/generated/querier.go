@@ -59,7 +59,6 @@ type Querier interface {
 	GetUserAPIKeys(ctx context.Context, userID pgtype.Int4) ([]*APIKey, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, id int32) (*User, error)
-	GetUserBySubscriptionID(ctx context.Context, subscriptionID pgtype.Int4) (*User, error)
 	GetUserOrganizations(ctx context.Context, userID pgtype.Int4) ([]*GetUserOrganizationsRow, error)
 	GetUserPropertiesCount(ctx context.Context, orgOwnerID pgtype.Int4) (int64, error)
 	GetUsersWithoutSubscription(ctx context.Context, dollar_1 []int32) ([]*User, error)
