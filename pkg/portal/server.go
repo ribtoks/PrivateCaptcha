@@ -152,7 +152,7 @@ func (s *Server) Init(ctx context.Context, templateBuilder *TemplatesBuilder) er
 		return err
 	}
 
-	s.Sessions.Init(PortalService, prefix, 1*time.Minute)
+	s.Sessions.Init(PortalService, prefix, 30*time.Second)
 
 	s.Jobs = s
 	s.SettingsTabs = s.createSettingsTabs()
