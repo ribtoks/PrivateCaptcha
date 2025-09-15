@@ -1085,7 +1085,7 @@ func (impl *BusinessStoreImpl) UpdateUser(ctx context.Context, user *dbgen.User,
 
 func (impl *BusinessStoreImpl) RetrieveUserAPIKeys(ctx context.Context, userID int32) ([]*dbgen.APIKey, error) {
 	reader := &StoreArrayReader[pgtype.Int4, dbgen.APIKey]{
-		Key:   userAPIKeysCacheKey(userID),
+		Key:   UserAPIKeysCacheKey(userID),
 		Cache: impl.cache,
 	}
 
@@ -1131,7 +1131,7 @@ func (impl *BusinessStoreImpl) UpdateAPIKey(ctx context.Context, externalID pgty
 		_ = impl.cache.SetWithTTL(ctx, cacheKey, key, apiKeyTTL)
 
 		// invalidate keys cache
-		_ = impl.cache.Delete(ctx, userAPIKeysCacheKey(key.UserID.Int32))
+		_ = impl.cache.Delete(ctx, UserAPIKeysCacheKey(key.UserID.Int32))
 	}
 
 	return nil
@@ -1172,7 +1172,7 @@ func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, user *dbgen.Use
 		_ = impl.cache.SetWithTTL(ctx, cacheKey, key, apiKeyTTL)
 
 		// invalidate keys cache
-		_ = impl.cache.Delete(ctx, userAPIKeysCacheKey(user.ID))
+		_ = impl.cache.Delete(ctx, UserAPIKeysCacheKey(user.ID))
 	}
 
 	return key, nil
@@ -1207,7 +1207,7 @@ func (impl *BusinessStoreImpl) DeleteAPIKey(ctx context.Context, user *dbgen.Use
 
 	}
 
-	_ = impl.cache.Delete(ctx, userAPIKeysCacheKey(user.ID))
+	_ = impl.cache.Delete(ctx, UserAPIKeysCacheKey(user.ID))
 
 	return nil
 }

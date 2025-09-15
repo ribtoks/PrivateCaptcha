@@ -294,7 +294,7 @@ func PropertyBySitekeyCacheKey(sitekey string) CacheKey {
 }
 func userOrgsCacheKey(userID int32) CacheKey { return Int32CacheKey(userOrgsCacheKeyPrefix, userID) }
 func orgUsersCacheKey(orgID int32) CacheKey  { return Int32CacheKey(orgUsersCacheKeyPrefix, orgID) }
-func userAPIKeysCacheKey(userID int32) CacheKey {
+func UserAPIKeysCacheKey(userID int32) CacheKey {
 	return Int32CacheKey(userAPIKeysCacheKeyPrefix, userID)
 }
 func SubscriptionCacheKey(sID int32) CacheKey { return Int32CacheKey(subscriptionCacheKeyPrefix, sID) }
