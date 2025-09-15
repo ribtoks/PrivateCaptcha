@@ -59,6 +59,7 @@ func TestMain(m *testing.M) {
 		store = db.NewBusinessEx(nil, cache)
 		server = &Server{
 			Stage:  common.StageTest,
+			Store:  store,
 			Prefix: "",
 			XSRF:   &common.XSRFMiddleware{Key: "key", Timeout: 1 * time.Hour},
 			Sessions: &session.Manager{
