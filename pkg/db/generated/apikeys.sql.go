@@ -167,17 +167,3 @@ func (q *Queries) UpdateAPIKey(ctx context.Context, arg *UpdateAPIKeyParams) (*A
 	)
 	return &i, err
 }
-
-const updateUserAPIKeysRateLimits = `-- name: UpdateUserAPIKeysRateLimits :exec
-UPDATE backend.apikeys SET requests_per_second = $1 WHERE user_id = $2
-`
-
-type UpdateUserAPIKeysRateLimitsParams struct {
-	RequestsPerSecond float64     `db:"requests_per_second" json:"requests_per_second"`
-	UserID            pgtype.Int4 `db:"user_id" json:"user_id"`
-}
-
-func (q *Queries) UpdateUserAPIKeysRateLimits(ctx context.Context, arg *UpdateUserAPIKeysRateLimitsParams) error {
-	_, err := q.db.Exec(ctx, updateUserAPIKeysRateLimits, arg.RequestsPerSecond, arg.UserID)
-	return err
-}

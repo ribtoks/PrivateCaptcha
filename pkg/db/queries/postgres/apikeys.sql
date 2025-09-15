@@ -10,9 +10,6 @@ INSERT INTO backend.apikeys (name, user_id, expires_at, requests_per_second, req
 -- name: UpdateAPIKey :one
 UPDATE backend.apikeys SET expires_at = $1, enabled = $2 WHERE external_id = $3 RETURNING *;
 
--- name: UpdateUserAPIKeysRateLimits :exec
-UPDATE backend.apikeys SET requests_per_second = $1 WHERE user_id = $2;
-
 -- name: DeleteUserAPIKeys :exec
 DELETE FROM backend.apikeys WHERE user_id = $1;
 

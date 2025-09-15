@@ -1212,35 +1212,6 @@ func (impl *BusinessStoreImpl) DeleteAPIKey(ctx context.Context, user *dbgen.Use
 	return nil
 }
 
-func (impl *BusinessStoreImpl) UpdateUserAPIKeysRateLimits(ctx context.Context, user *dbgen.User, requestsPerSecond float64) error {
-	if impl.querier == nil {
-		return ErrMaintenance
-	}
-
-	err := impl.querier.UpdateUserAPIKeysRateLimits(ctx, &dbgen.UpdateUserAPIKeysRateLimitsParams{
-		RequestsPerSecond: requestsPerSecond,
-		UserID:            Int(user.ID),
-	})
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			slog.WarnContext(ctx, "Failed to find user API Keys", "userID", user.ID)
-			return ErrRecordNotFound
-		}
-
-		slog.ErrorContext(ctx, "Failed to update user API keys rate limit", "userID", user.ID, "rateLimit", requestsPerSecond,
-			common.ErrAttr(err))
-
-		return err
-	}
-
-	slog.InfoContext(ctx, "Updated user API keys rate limit", "userID", user.ID)
-
-	// invalidate keys cache
-	_ = impl.cache.Delete(ctx, userAPIKeysCacheKey(user.ID))
-
-	return nil
-}
-
 func (impl *BusinessStoreImpl) RetrieveUsersWithoutSubscription(ctx context.Context, userIDs []int32) ([]*dbgen.User, error) {
 	if len(userIDs) == 0 {
 		return []*dbgen.User{}, nil
