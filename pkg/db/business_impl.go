@@ -107,6 +107,10 @@ type BusinessStoreImpl struct {
 }
 
 func (impl *BusinessStoreImpl) RetrieveFromCache(ctx context.Context, key string) ([]byte, error) {
+	if len(key) == 0 {
+		return nil, ErrInvalidInput
+	}
+
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
@@ -123,7 +127,7 @@ func (impl *BusinessStoreImpl) RetrieveFromCache(ctx context.Context, key string
 }
 
 func (impl *BusinessStoreImpl) StoreInCache(ctx context.Context, key string, data []byte, ttl time.Duration) error {
-	if len(data) == 0 {
+	if (len(key) == 0) || (len(data) == 0) || (ttl == 0) {
 		return ErrInvalidInput
 	}
 
@@ -296,7 +300,7 @@ func (impl *BusinessStoreImpl) SoftDeleteUser(ctx context.Context, user *dbgen.U
 func (impl *BusinessStoreImpl) doGetSessionbyID(ctx context.Context, sid string) (*session.SessionData, error) {
 	sslog := slog.With(common.SessionIDAttr(sid))
 	sessionID, _ := sessionIDFunc(sid)
-	data, err := impl.querier.GetCachedByKey(ctx, sessionID)
+	data, err := impl.RetrieveFromCache(ctx, sessionID)
 	if (err == nil) && (len(data) > 0) {
 		sslog.DebugContext(ctx, "Found session data cached in DB")
 		sd := session.NewSessionData(sid)
@@ -310,7 +314,7 @@ func (impl *BusinessStoreImpl) doGetSessionbyID(ctx context.Context, sid string)
 		return sd, nil
 	}
 
-	if err == pgx.ErrNoRows {
+	if err == ErrCacheMiss {
 		sslog.DebugContext(ctx, "Session data not found cached in DB")
 		// this will cause item to be purged from otter cache, should it still be there
 		return nil, otter.ErrNotFound
@@ -341,7 +345,7 @@ func (impl *BusinessStoreImpl) DeleteUserSession(ctx context.Context, sid string
 
 func (impl *BusinessStoreImpl) CacheUserSession(ctx context.Context, data *session.SessionData) error {
 	if data == nil {
-		return nil
+		return ErrInvalidInput
 	}
 
 	return impl.cache.Set(ctx, SessionCacheKey(data.ID()), data)
@@ -367,15 +371,14 @@ func (impl *BusinessStoreImpl) RetrieveUserSession(ctx context.Context, sid stri
 
 func (impl *BusinessStoreImpl) StoreUserSessions(ctx context.Context, batch map[string]uint, persistKey session.SessionKey, ttl time.Duration) error {
 	reader := &StoreBulkReader[string, string, session.SessionData]{
-		ArgFunc:         nil, // we shouldn't be using it
-		Cache:           impl.cache,
-		CacheKeyFunc:    SessionCacheKey,
-		QueryKeyFunc:    sessionIDFunc,
-		MinMissingCount: 0,
-		QueryFunc:       nil, // explicitly set - we are only interested in cache
+		ArgFunc:      nil, // we shouldn't be using it as we read from cache only
+		Cache:        impl.cache,
+		CacheKeyFunc: SessionCacheKey,
+		QueryKeyFunc: sessionIDFunc,
+		QueryFunc:    nil, // explicitly set - we are only interested in cache
 	}
 
-	// NOTE: it does have the side-effect of extending session expiration in our cache once again (which _is_ a bug),
+	// NOTE: it does have the side-effect of extending session expiration in our cache once again (which _is_ a "bug"),
 	// but its impact is not large enough to bother
 	cached, _, err := reader.Read(ctx, batch)
 	if (err != nil) && (err != ErrMaintenance) {

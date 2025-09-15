@@ -168,8 +168,6 @@ func (s *Session) Get(ctx context.Context, key SessionKey) SessionValue {
 		slog.Log(ctx, common.LevelTrace, "Access to missing key in session", common.SessionIDAttr(s.data.ID()), "key", key.String())
 	}
 
-	_ = s.store.Update(s)
-
 	return v
 }
 
