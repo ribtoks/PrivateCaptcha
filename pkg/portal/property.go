@@ -65,6 +65,7 @@ type userProperty struct {
 	OrgID            string
 	Name             string
 	Domain           string
+	Sitekey          string
 	Level            int
 	Growth           int
 	ValidityInterval int
@@ -127,6 +128,7 @@ func propertyToUserProperty(p *dbgen.Property) *userProperty {
 		Domain:           p.Domain,
 		Level:            int(p.Level.Int16),
 		Growth:           growthLevelToIndex(p.Growth),
+		Sitekey:          db.UUIDToSiteKey(p.ExternalID),
 		ValidityInterval: validityIntervalToIndex(p.ValidityInterval),
 		AllowReplay:      (p.MaxReplayCount > 1),
 		MaxReplayCount:   max(1, int(p.MaxReplayCount)),
