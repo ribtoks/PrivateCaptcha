@@ -91,7 +91,7 @@ export class CaptchaWidget {
         }
 
         this._options = Object.assign({
-            startMode: this._element.dataset["startMode"] || "click",
+            startMode: this._element.dataset["startMode"] || "auto",
             debug: this._element.dataset["debug"],
             fieldName: this._element.dataset["solutionField"] || defaultField,
             puzzleEndpoint: this._element.dataset["puzzleEndpoint"] || defaultEndpoint,
