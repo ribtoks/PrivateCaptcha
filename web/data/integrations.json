@@ -2,8 +2,8 @@
     {
         "name": "Wordpress",
         "icon": "img/integrations/wordpress.svg",
-        "link": "",
-        "ready": false
+        "link": "https://docs.privatecaptcha.com/docs/integrations/wordpress/",
+        "ready": true
     },
     {
         "name": "PHP",
