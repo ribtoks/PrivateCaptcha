@@ -58,4 +58,6 @@ var (
 	HeaderAccessControlOrigin = http.CanonicalHeaderKey("Access-Control-Allow-Origin")
 	HeaderAccessControlAge    = http.CanonicalHeaderKey("Access-Control-Max-Age")
 	HeaderTraceID             = http.CanonicalHeaderKey("X-Trace-ID")
+	HeaderETag                = http.CanonicalHeaderKey("ETag")
+	HeaderIfNoneMatch         = http.CanonicalHeaderKey("If-None-Match")
 )
