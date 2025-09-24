@@ -27,8 +27,8 @@ func main() {
 	corsDefault := cors.Default()
 
 	router.Handle("/", monitoring.Logged(corsDefault.Handler(staticHandler())))
-	router.Handle("GET "+"/widget/", http.StripPrefix("/widget/", widget.Static()))
-	router.Handle("GET "+"/assets/", http.StripPrefix("/assets/", web.Static()))
+	router.Handle("GET "+"/widget/", http.StripPrefix("/widget/", widget.Static("")))
+	router.Handle("GET "+"/assets/", http.StripPrefix("/assets/", web.Static("")))
 	srv.Setup(router)
 
 	host := os.Getenv("HOST")

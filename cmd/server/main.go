@@ -207,7 +207,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		return err
 	}
 
-	if err := portalServer.Init(ctx, templatesBuilder); err != nil {
+	if err := portalServer.Init(ctx, templatesBuilder, GitCommit); err != nil {
 		return err
 	}
 

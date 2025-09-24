@@ -76,7 +76,7 @@ func TestMain(m *testing.M) {
 		templatesBuilder := NewTemplatesBuilder()
 		templatesBuilder.AddFS(ctx, web.Templates(), "core")
 
-		if err := server.Init(ctx, templatesBuilder); err != nil {
+		if err := server.Init(ctx, templatesBuilder, ""); err != nil {
 			panic(err)
 		}
 
@@ -131,7 +131,7 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	if err := server.Init(ctx, templatesBuilder); err != nil {
+	if err := server.Init(ctx, templatesBuilder, ""); err != nil {
 		panic(err)
 	}
 

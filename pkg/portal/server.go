@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/justinas/alice"
+	"github.com/rs/xid"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/billing"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -84,6 +85,7 @@ type CaptchaRenderContext struct {
 }
 
 type PlatformRenderContext struct {
+	GitCommit  string
 	Enterprise bool
 }
 
@@ -141,7 +143,7 @@ func (s *Server) createSettingsTabs() []*SettingsTab {
 	}
 }
 
-func (s *Server) Init(ctx context.Context, templateBuilder *TemplatesBuilder) error {
+func (s *Server) Init(ctx context.Context, templateBuilder *TemplatesBuilder, gitCommit string) error {
 	prefix := common.RelURL(s.Prefix, "/")
 
 	templateBuilder.AddFunctions(ctx, funcMap(prefix))
@@ -157,9 +159,16 @@ func (s *Server) Init(ctx context.Context, templateBuilder *TemplatesBuilder) er
 	s.Jobs = s
 	s.SettingsTabs = s.createSettingsTabs()
 	s.RenderConstants = NewRenderConstants()
-	s.PlatformCtx = &PlatformRenderContext{
+
+	platformCtx := &PlatformRenderContext{
+		GitCommit:  gitCommit,
 		Enterprise: s.isEnterprise(),
 	}
+	if len(gitCommit) == 0 {
+		platformCtx.GitCommit = xid.New().String()
+	}
+
+	s.PlatformCtx = platformCtx
 
 	return nil
 }
