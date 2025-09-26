@@ -63,6 +63,10 @@
         --checkbox-background-color: #223C3C;
         --checkbox-hover-color: #1C3232;
     }
+
+    :host {
+        --border: 1px solid var(--gray-color);
+    }
 }
 
 .pc-captcha-widget {
@@ -70,7 +74,7 @@
     align-items: center;
     flex-direction: row;
     padding: 0.75em 1em;
-    border: 1px solid var(--gray-color);
+    border: var(--border);
     border-radius: var(--border-radius);
     background-color: var(--background-color);
     box-sizing: border-box;
