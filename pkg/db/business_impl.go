@@ -1624,7 +1624,7 @@ func (s *BusinessStoreImpl) RetrieveOrgProperty(ctx context.Context, org *dbgen.
 	return property, nil
 }
 
-func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.CreateSubscriptionParams, email, name, orgName string, existingUserID int32) (*dbgen.User, *dbgen.Organization, error) {
+func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.CreateSubscriptionParams, email, name, orgName string, expectedUserID int32) (*dbgen.User, *dbgen.Organization, error) {
 	if (len(email) == 0) || (len(orgName) == 0) {
 		return nil, nil, ErrInvalidInput
 	}
@@ -1644,18 +1644,30 @@ func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.
 		subscriptionID = &subscription.ID
 
 		if existingUser, err := s.FindUserByEmail(ctx, email); err == nil {
-			slog.InfoContext(ctx, "User with such email already exists", "userID", existingUser.ID, "subscriptionID", existingUser.SubscriptionID)
-			if ((existingUser.ID == existingUserID) || (existingUserID == -1)) && !existingUser.SubscriptionID.Valid {
+			slog.InfoContext(ctx, "User with such email already exists", "userID", existingUser.ID, "subscriptionID", existingUser.SubscriptionID, "expectedUserID", expectedUserID)
+
+			if (existingUser.ID == expectedUserID) || (expectedUserID == -1) {
+				if existingUser.SubscriptionID.Valid {
+					if existingSubscription, err := s.RetrieveSubscription(ctx, existingUser.SubscriptionID.Int32); (err == nil) && !IsInternalSubscription(existingSubscription.Source) {
+						slog.ErrorContext(ctx, "Existing user already has external subscription",
+							"existingUserID", existingUser.ID, "subscriptionID", existingSubscription.ID)
+						return nil, nil, ErrDuplicateAccount
+					} else if err != nil {
+						return nil, nil, err
+					}
+				}
+
 				if err := s.updateUserSubscription(ctx, existingUser.ID, subscription.ID); err != nil {
 					return nil, nil, err
 				}
 
 				return existingUser, nil, nil
-			} else {
-				slog.ErrorContext(ctx, "Cannot update existing user with same email", "existingUserID", existingUser.ID,
-					"passthrough", existingUserID, "subscribed", existingUser.SubscriptionID.Valid, "email", email)
-				return nil, nil, ErrDuplicateAccount
 			}
+
+			slog.ErrorContext(ctx, "Cannot update existing user with same email", "existingUserID", existingUser.ID,
+				"expectedUserID", expectedUserID, "subscribed", existingUser.SubscriptionID.Valid, "email", email)
+
+			return nil, nil, ErrDuplicateAccount
 		}
 	}
 
