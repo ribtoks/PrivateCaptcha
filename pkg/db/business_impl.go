@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"sort"
@@ -188,12 +189,16 @@ func (impl *BusinessStoreImpl) createNewSubscription(ctx context.Context, params
 }
 
 func (impl *BusinessStoreImpl) createNewUser(ctx context.Context, email, name string, subscriptionID *int32) (*dbgen.User, error) {
-	if (len(name) == 0) || (len(email) == 0) {
+	if len(email) == 0 {
 		return nil, ErrInvalidInput
 	}
 
 	if impl.querier == nil {
 		return nil, ErrMaintenance
+	}
+
+	if len(name) == 0 {
+		name = fmt.Sprintf("User_%v", time.Now().UTC().UnixMilli())
 	}
 
 	params := &dbgen.CreateUserParams{
@@ -1620,7 +1625,7 @@ func (s *BusinessStoreImpl) RetrieveOrgProperty(ctx context.Context, org *dbgen.
 }
 
 func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.CreateSubscriptionParams, email, name, orgName string, existingUserID int32) (*dbgen.User, *dbgen.Organization, error) {
-	if (len(name) == 0) || (len(email) == 0) || (len(orgName) == 0) {
+	if (len(email) == 0) || (len(orgName) == 0) {
 		return nil, nil, ErrInvalidInput
 	}
 
