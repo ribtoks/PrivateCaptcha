@@ -59,7 +59,7 @@ func (c *TxCache) Get(ctx context.Context, key CacheKey) (any, error) {
 	return nil, errTransactionCache
 }
 func (c *TxCache) GetEx(ctx context.Context, key CacheKey, loader common.CacheLoader[CacheKey, any]) (any, error) {
-	return nil, errTransactionCache
+	return loader.Load(ctx, key)
 }
 func (c *TxCache) SetMissing(ctx context.Context, key CacheKey) error {
 	c.missing[key] = struct{}{}
@@ -183,6 +183,9 @@ func (impl *BusinessStoreImpl) createNewSubscription(ctx context.Context, params
 	}
 
 	if subscription != nil {
+		slog.InfoContext(ctx, "Created new subscription", "subscriptionID", subscription.ID,
+			"externalSubscriptionID", subscription.ExternalSubscriptionID.String)
+
 		cacheKey := SubscriptionCacheKey(subscription.ID)
 		_ = impl.cache.Set(ctx, cacheKey, subscription)
 	}
@@ -1042,9 +1045,9 @@ func (impl *BusinessStoreImpl) RemoveUserFromOrg(ctx context.Context, org *dbgen
 	return nil
 }
 
-func (impl *BusinessStoreImpl) updateUserSubscription(ctx context.Context, userID, subscriptionID int32) error {
+func (impl *BusinessStoreImpl) updateUserSubscription(ctx context.Context, userID, subscriptionID int32) (*dbgen.User, error) {
 	if impl.querier == nil {
-		return ErrMaintenance
+		return nil, ErrMaintenance
 	}
 
 	user, err := impl.querier.UpdateUserSubscription(ctx, &dbgen.UpdateUserSubscriptionParams{
@@ -1054,7 +1057,7 @@ func (impl *BusinessStoreImpl) updateUserSubscription(ctx context.Context, userI
 
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to update user subscription", "userID", userID, "subscriptionID", subscriptionID, common.ErrAttr(err))
-		return err
+		return nil, err
 	}
 
 	slog.InfoContext(ctx, "Updated user subscription", "userID", userID, "subscriptionID", subscriptionID)
@@ -1063,7 +1066,7 @@ func (impl *BusinessStoreImpl) updateUserSubscription(ctx context.Context, userI
 		_ = impl.cache.Set(ctx, UserCacheKey(user.ID), user)
 	}
 
-	return nil
+	return user, nil
 }
 
 func (impl *BusinessStoreImpl) UpdateUser(ctx context.Context, user *dbgen.User, name string, newEmail, oldEmail string) error {
@@ -1659,11 +1662,12 @@ func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.
 					}
 				}
 
-				if err := s.updateUserSubscription(ctx, existingUser.ID, subscription.ID); err != nil {
+				updatedUser, err := s.updateUserSubscription(ctx, existingUser.ID, subscription.ID)
+				if err != nil {
 					return nil, nil, err
 				}
 
-				return existingUser, nil, nil
+				return updatedUser, nil, nil
 			}
 
 			slog.ErrorContext(ctx, "Cannot update existing user with same email", "existingUserID", existingUser.ID,

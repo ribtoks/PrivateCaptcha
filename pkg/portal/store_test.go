@@ -230,3 +230,50 @@ func TestSystemNotification(t *testing.T) {
 		t.Errorf("Cannot retrieve specific user notification: %v", err)
 	}
 }
+
+// despite being called "Test Update Subscription", what we're actually checking are:
+// - ability to find existing user account in `CreateNewAccount()`
+// - not relying on cache inside the transaction
+func TestUpdateUserSubscription(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(context.TODO(), t.Name())
+
+	user, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	if err != nil {
+		t.Fatalf("Failed to create new account: %v", err)
+	}
+
+	oldSubscriptionID := user.SubscriptionID.Int32
+
+	subscrParams := db_tests.CreateNewSubscriptionParams(testPlan)
+	subscrParams.Source = dbgen.SubscriptionSourceExternal
+
+	newUser, _, err := store.Impl().CreateNewAccount(ctx, subscrParams, user.Email, "", common.DefaultOrgName, user.ID)
+	if err != nil {
+		t.Fatalf("Failed to update subscription: %v", err)
+	}
+
+	if newUser == user {
+		t.Fatal("Same user reference returned")
+	}
+
+	if newUser.SubscriptionID.Int32 == oldSubscriptionID {
+		t.Errorf("Subscription ID was not updated: %v", oldSubscriptionID)
+	}
+
+	subscr, err := store.Impl().RetrieveSubscription(ctx, newUser.SubscriptionID.Int32)
+	if err != nil {
+		t.Fatalf("Failed to fetch subscription: %v", err)
+	}
+
+	if subscr.ExternalSubscriptionID.String != subscrParams.ExternalSubscriptionID.String {
+		t.Error("External subscription ID was not updated")
+	}
+
+	if subscr.Source != dbgen.SubscriptionSourceExternal {
+		t.Errorf("Unexpected subscription source: %v", subscr.Source)
+	}
+}

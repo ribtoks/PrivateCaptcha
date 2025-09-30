@@ -274,11 +274,8 @@ func (sf *StoreOneReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any,
 }
 
 func (sf *StoreOneReader[TKey, T]) Read(ctx context.Context) (*T, error) {
+	// GetEx should not return errTransactionCache
 	data, err := sf.Cache.GetEx(ctx, sf.CacheKey, sf)
-	if err == errTransactionCache {
-		data, err = sf.Load(ctx, sf.CacheKey)
-	}
-
 	if err != nil {
 		return nil, err
 	}
@@ -334,11 +331,8 @@ func (sf *StoreArrayReader[TKey, T]) Load(ctx context.Context, key CacheKey) (an
 }
 
 func (sf *StoreArrayReader[TKey, T]) Read(ctx context.Context) ([]*T, error) {
+	// GetEx should not return errTransactionCache
 	data, err := sf.Cache.GetEx(ctx, sf.CacheKey, sf)
-	if err == errTransactionCache {
-		data, err = sf.Load(ctx, sf.CacheKey)
-	}
-
 	if err != nil {
 		return nil, err
 	}
