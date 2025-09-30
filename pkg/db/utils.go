@@ -275,6 +275,10 @@ func (sf *StoreOneReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any,
 
 func (sf *StoreOneReader[TKey, T]) Read(ctx context.Context) (*T, error) {
 	data, err := sf.Cache.GetEx(ctx, sf.CacheKey, sf)
+	if err == errTransactionCache {
+		data, err = sf.Load(ctx, sf.CacheKey)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +291,7 @@ func (sf *StoreOneReader[TKey, T]) Read(ctx context.Context) (*T, error) {
 }
 
 type StoreArrayReader[TKey any, T any] struct {
-	Key          CacheKey
+	CacheKey     CacheKey
 	QueryFunc    func(context.Context, TKey) ([]*T, error)
 	QueryKeyFunc func(CacheKey) (TKey, error)
 	Cache        common.Cache[CacheKey, any]
@@ -330,13 +334,17 @@ func (sf *StoreArrayReader[TKey, T]) Load(ctx context.Context, key CacheKey) (an
 }
 
 func (sf *StoreArrayReader[TKey, T]) Read(ctx context.Context) ([]*T, error) {
-	data, err := sf.Cache.GetEx(ctx, sf.Key, sf)
+	data, err := sf.Cache.GetEx(ctx, sf.CacheKey, sf)
+	if err == errTransactionCache {
+		data, err = sf.Load(ctx, sf.CacheKey)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 
 	if t, ok := data.([]*T); ok {
-		slog.Log(ctx, common.LevelTrace, "Found array in cache", "cacheKey", sf.Key, "count", len(t))
+		slog.Log(ctx, common.LevelTrace, "Found array in cache", "cacheKey", sf.CacheKey, "count", len(t))
 		return t, nil
 	}
 

@@ -25,7 +25,7 @@ const (
 )
 
 var (
-	errUnsupported = errors.New("not supported")
+	errTransactionCache = errors.New("cache is not supported during transaction")
 	// shortcuts for nullable access levels
 	nullAccessLevelNull   = dbgen.NullAccessLevel{Valid: false}
 	nullAccessLevelOwner  = dbgen.NullAccessLevel{Valid: true, AccessLevel: dbgen.AccessLevelOwner}
@@ -53,11 +53,13 @@ func NewTxCache() *TxCache {
 
 var _ common.Cache[CacheKey, any] = (*TxCache)(nil)
 
-func (c *TxCache) HitRatio() float64                                  { return 0.0 }
-func (c *TxCache) Missing() any                                       { return nil }
-func (c *TxCache) Get(ctx context.Context, key CacheKey) (any, error) { return nil, errUnsupported }
+func (c *TxCache) HitRatio() float64 { return 0.0 }
+func (c *TxCache) Missing() any      { return nil }
+func (c *TxCache) Get(ctx context.Context, key CacheKey) (any, error) {
+	return nil, errTransactionCache
+}
 func (c *TxCache) GetEx(ctx context.Context, key CacheKey, loader common.CacheLoader[CacheKey, any]) (any, error) {
-	return nil, errUnsupported
+	return nil, errTransactionCache
 }
 func (c *TxCache) SetMissing(ctx context.Context, key CacheKey) error {
 	c.missing[key] = struct{}{}
@@ -589,8 +591,8 @@ func (impl *BusinessStoreImpl) FindUserByEmail(ctx context.Context, email string
 
 func (impl *BusinessStoreImpl) RetrieveUserOrganizations(ctx context.Context, user *dbgen.User) ([]*dbgen.GetUserOrganizationsRow, error) {
 	reader := &StoreArrayReader[pgtype.Int4, dbgen.GetUserOrganizationsRow]{
-		Key:   userOrgsCacheKey(user.ID),
-		Cache: impl.cache,
+		CacheKey: userOrgsCacheKey(user.ID),
+		Cache:    impl.cache,
 	}
 
 	if impl.querier != nil {
@@ -865,8 +867,8 @@ func (impl *BusinessStoreImpl) SoftDeleteProperty(ctx context.Context, prop *dbg
 
 func (impl *BusinessStoreImpl) RetrieveOrgProperties(ctx context.Context, org *dbgen.Organization) ([]*dbgen.Property, error) {
 	reader := &StoreArrayReader[pgtype.Int4, dbgen.Property]{
-		Key:   orgPropertiesCacheKey(org.ID),
-		Cache: impl.cache,
+		CacheKey: orgPropertiesCacheKey(org.ID),
+		Cache:    impl.cache,
 	}
 
 	if impl.querier != nil {
@@ -928,8 +930,8 @@ func (impl *BusinessStoreImpl) SoftDeleteOrganization(ctx context.Context, org *
 // NOTE: by definition this does not include the owner as this relationship is set directly in the 'organizations' table
 func (impl *BusinessStoreImpl) RetrieveOrganizationUsers(ctx context.Context, org *dbgen.Organization) ([]*dbgen.GetOrganizationUsersRow, error) {
 	reader := &StoreArrayReader[int32, dbgen.GetOrganizationUsersRow]{
-		Key:   orgUsersCacheKey(org.ID),
-		Cache: impl.cache,
+		CacheKey: orgUsersCacheKey(org.ID),
+		Cache:    impl.cache,
 	}
 
 	if impl.querier != nil {
@@ -1093,8 +1095,8 @@ func (impl *BusinessStoreImpl) UpdateUser(ctx context.Context, user *dbgen.User,
 
 func (impl *BusinessStoreImpl) RetrieveUserAPIKeys(ctx context.Context, userID int32) ([]*dbgen.APIKey, error) {
 	reader := &StoreArrayReader[pgtype.Int4, dbgen.APIKey]{
-		Key:   UserAPIKeysCacheKey(userID),
-		Cache: impl.cache,
+		CacheKey: UserAPIKeysCacheKey(userID),
+		Cache:    impl.cache,
 	}
 
 	if impl.querier != nil {
