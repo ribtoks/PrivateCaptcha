@@ -1326,14 +1326,14 @@ func (impl *BusinessStoreImpl) DeleteDeletedRecords(ctx context.Context, before 
 	return err
 }
 
-func (impl *BusinessStoreImpl) RetrieveSoftDeletedProperties(ctx context.Context, before time.Time, limit int) ([]*dbgen.GetSoftDeletedPropertiesRow, error) {
+func (impl *BusinessStoreImpl) RetrieveSoftDeletedProperties(ctx context.Context, before time.Time, limit int32) ([]*dbgen.GetSoftDeletedPropertiesRow, error) {
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
 
 	properties, err := impl.querier.GetSoftDeletedProperties(ctx, &dbgen.GetSoftDeletedPropertiesParams{
 		DeletedAt: Timestampz(before),
-		Limit:     int32(limit),
+		Limit:     limit,
 	})
 
 	if err != nil {
@@ -1365,14 +1365,14 @@ func (impl *BusinessStoreImpl) DeleteProperties(ctx context.Context, ids []int32
 	return err
 }
 
-func (impl *BusinessStoreImpl) RetrieveSoftDeletedOrganizations(ctx context.Context, before time.Time, limit int) ([]*dbgen.GetSoftDeletedOrganizationsRow, error) {
+func (impl *BusinessStoreImpl) RetrieveSoftDeletedOrganizations(ctx context.Context, before time.Time, limit int32) ([]*dbgen.GetSoftDeletedOrganizationsRow, error) {
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
 
 	organizations, err := impl.querier.GetSoftDeletedOrganizations(ctx, &dbgen.GetSoftDeletedOrganizationsParams{
 		DeletedAt: Timestampz(before),
-		Limit:     int32(limit),
+		Limit:     limit,
 	})
 
 	if err != nil {
@@ -1404,14 +1404,14 @@ func (impl *BusinessStoreImpl) DeleteOrganizations(ctx context.Context, ids []in
 	return err
 }
 
-func (impl *BusinessStoreImpl) RetrieveSoftDeletedUsers(ctx context.Context, before time.Time, limit int) ([]*dbgen.GetSoftDeletedUsersRow, error) {
+func (impl *BusinessStoreImpl) RetrieveSoftDeletedUsers(ctx context.Context, before time.Time, limit int32) ([]*dbgen.GetSoftDeletedUsersRow, error) {
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
 
 	users, err := impl.querier.GetSoftDeletedUsers(ctx, &dbgen.GetSoftDeletedUsersParams{
 		DeletedAt: Timestampz(before),
-		Limit:     int32(limit),
+		Limit:     limit,
 	})
 
 	if err != nil {

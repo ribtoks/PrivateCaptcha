@@ -6,7 +6,7 @@ import (
 )
 
 func Cap(value string, fallback uint32) uint32 {
-	i, err := strconv.Atoi(value)
+	i, err := strconv.ParseUint(value, 10, 32)
 	if err != nil {
 		return fallback
 	}

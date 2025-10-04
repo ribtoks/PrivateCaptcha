@@ -72,12 +72,12 @@ func (p *ComputePuzzle) PropertyID() [PropertyIDSize]byte { return p.propertyID 
 func (p *ComputePuzzle) HashKey() uint64 {
 	hasher := fnv.New64a()
 
-	hasher.Write(p.propertyID[:])
+	_, _ = hasher.Write(p.propertyID[:])
 
 	var pidBytes [8]byte
 	binary.LittleEndian.PutUint64(pidBytes[:], p.puzzleID)
-	hasher.Write(pidBytes[:])
-	hasher.Write(p.userData[:])
+	_, _ = hasher.Write(pidBytes[:])
+	_, _ = hasher.Write(p.userData[:])
 
 	return hasher.Sum64()
 }
@@ -86,7 +86,7 @@ func NextPuzzleID() uint64 {
 	hasher := fnv.New64a()
 
 	// we need to compress xid as it's 12 bytes
-	hasher.Write(xid.New().Bytes())
+	_, _ = hasher.Write(xid.New().Bytes())
 
 	return hasher.Sum64()
 }

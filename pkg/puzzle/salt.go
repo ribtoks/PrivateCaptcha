@@ -9,7 +9,7 @@ type Salt struct {
 
 func NewSalt(data []byte) *Salt {
 	hash := fnv.New32a()
-	hash.Write(data)
+	_, _ = hash.Write(data)
 	fingerprint := hash.Sum32()
 
 	return &Salt{

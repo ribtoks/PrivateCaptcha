@@ -375,8 +375,9 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		localRouter.Handle(http.MethodGet+" /"+common.LiveEndpoint, common.Recovered(http.HandlerFunc(healthCheck.LiveHandler)))
 		localRouter.Handle(http.MethodGet+" /"+common.ReadyEndpoint, common.Recovered(http.HandlerFunc(healthCheck.ReadyHandler)))
 		localServer = &http.Server{
-			Addr:    localAddress,
-			Handler: localRouter,
+			Addr:              localAddress,
+			Handler:           localRouter,
+			ReadHeaderTimeout: 5 * time.Second,
 		}
 		go func() {
 			slog.InfoContext(ctx, "Serving local API", "address", localServer.Addr)
@@ -408,7 +409,9 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 			time.Sleep(_shutdownHardPeriod)
 		}
 		if localServer != nil {
-			localServer.Close()
+			if lerr := localServer.Close(); lerr != nil {
+				slog.ErrorContext(ctx, "Failed to shutdown local server", common.ErrAttr(lerr))
+			}
 		}
 		slog.DebugContext(ctx, "Shutdown finished")
 	}()
