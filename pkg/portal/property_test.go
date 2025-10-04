@@ -102,10 +102,12 @@ func TestPostNewOrgProperty(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	propertyName := t.Name() + "Property"
+
 	// Send POST request to create a new property
 	form := url.Values{}
 	form.Set(common.ParamCSRFToken, server.XSRF.Token(strconv.Itoa(int(user.ID))))
-	form.Set(common.ParamName, "Test Property")
+	form.Set(common.ParamName, propertyName)
 	form.Set(common.ParamDomain, "google.com")
 
 	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%d/property/new", org.ID),
@@ -129,5 +131,18 @@ func TestPostNewOrgProperty(t *testing.T) {
 	expectedPrefix := fmt.Sprintf("/org/%d/property/", org.ID)
 	if path := location.String(); !strings.HasPrefix(path, expectedPrefix) {
 		t.Errorf("Unexpected redirect path: %s, expected prefix: %s", path, expectedPrefix)
+	}
+
+	pp, err := store.Impl().RetrieveOrgProperties(ctx, org)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if count := len(pp); count != 1 {
+		t.Errorf("Unexpected number of properties in org: %v", count)
+	} else {
+		if pp[0].Name != propertyName {
+			t.Errorf("Unexpected property in org: %v", pp[0].Name)
+		}
 	}
 }
