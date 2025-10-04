@@ -257,7 +257,7 @@ func (s *Server) getPortal(w http.ResponseWriter, r *http.Request) {
 		orgID = -1
 	}
 
-	renderCtx, err := s.createOrgDashboardContext(ctx, int32(orgID), sess)
+	renderCtx, err := s.createOrgDashboardContext(ctx, orgID, sess)
 	if err != nil {
 		if (orgID == -1) && (err == errNoOrgs) {
 			common.Redirect(s.PartsURL(common.OrgEndpoint, common.NewEndpoint), http.StatusOK, w, r)

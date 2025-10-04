@@ -218,7 +218,7 @@ func validityIntervalFromIndex(ctx context.Context, index string) time.Duration 
 }
 
 func parseMaxReplayCount(ctx context.Context, value string) int32 {
-	i, err := strconv.Atoi(value)
+	i, err := strconv.ParseInt(value, 10, 32)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to parse max replay count", "value", value, common.ErrAttr(err))
 		return 1

@@ -130,14 +130,14 @@ func Redirect(url string, code int, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func IntPathArg(r *http.Request, name string) (int, string, error) {
+func IntPathArg(r *http.Request, name string) (int32, string, error) {
 	value := r.PathValue(name)
 	if len(value) == 0 {
 		return 0, "", errPathArgEmpty
 	}
 
-	i, err := strconv.Atoi(value)
-	return i, value, err
+	i, err := strconv.ParseInt(value, 10, 32)
+	return int32(i), value, err
 }
 
 func StrPathArg(r *http.Request, name string) (string, error) {

@@ -64,7 +64,7 @@ func (s *Server) Org(user *dbgen.User, r *http.Request) (*dbgen.Organization, er
 		return nil, errInvalidPathArg
 	}
 
-	org, err := s.Store.Impl().RetrieveUserOrganization(ctx, user, int32(orgID))
+	org, err := s.Store.Impl().RetrieveUserOrganization(ctx, user, orgID)
 	if err != nil {
 		if err == db.ErrSoftDeleted {
 			return nil, errOrgSoftDeleted
@@ -102,7 +102,7 @@ func (s *Server) Property(org *dbgen.Organization, r *http.Request) (*dbgen.Prop
 		return nil, errInvalidPathArg
 	}
 
-	property, err := s.Store.Impl().RetrieveOrgProperty(ctx, org, int32(propertyID))
+	property, err := s.Store.Impl().RetrieveOrgProperty(ctx, org, propertyID)
 	if err != nil {
 		if err == db.ErrSoftDeleted {
 			return nil, errPropertySoftDeleted

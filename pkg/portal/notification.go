@@ -28,7 +28,7 @@ func (s *Server) dismissNotification(w http.ResponseWriter, r *http.Request) {
 	sess := s.Sessions.SessionStart(w, r)
 
 	value := r.PathValue(common.ParamID)
-	id, err := strconv.Atoi(value)
+	id, err := strconv.ParseInt(value, 10, 32)
 	if err == nil {
 		if notificationID, ok := sess.Get(ctx, session.KeyNotificationID).(int32); ok {
 			if notificationID != int32(id) {

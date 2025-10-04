@@ -547,7 +547,7 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.Store.Impl().DeleteAPIKey(ctx, user, int32(keyID)); err != nil {
+	if err := s.Store.Impl().DeleteAPIKey(ctx, user, keyID); err != nil {
 		slog.ErrorContext(ctx, "Failed to delete the API key", "keyID", keyID, common.ErrAttr(err))
 		http.Error(w, "", http.StatusInternalServerError)
 		return
@@ -555,10 +555,10 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
 		var anyError error
-		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpirationReference(int32(keyID))); err != nil {
+		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpirationReference(keyID)); err != nil {
 			anyError = err
 		}
-		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpiredReference(int32(keyID))); err != nil {
+		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpiredReference(keyID)); err != nil {
 			anyError = err
 		}
 		return anyError
