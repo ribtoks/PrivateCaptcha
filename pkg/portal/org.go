@@ -156,7 +156,7 @@ func (s *Server) validateOrgName(ctx context.Context, name string, user *dbgen.U
 
 	const allowedPunctuation = "'-_&.:()[]"
 
-	for _, r := range name {
+	for i, r := range name {
 		switch {
 		case unicode.IsLetter(r):
 			continue
@@ -167,7 +167,7 @@ func (s *Server) validateOrgName(ctx context.Context, name string, user *dbgen.U
 		case strings.ContainsRune(allowedPunctuation, r):
 			continue
 		default:
-			slog.WarnContext(ctx, "Name contains invalid characters", "name", name)
+			slog.WarnContext(ctx, "Name contains invalid characters", "position", i, "rune", r)
 			return "Organization name contains invalid characters."
 		}
 	}
