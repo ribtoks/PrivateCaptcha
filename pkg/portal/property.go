@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
@@ -284,6 +285,24 @@ func (s *Server) validatePropertyName(ctx context.Context, name string, org *dbg
 			return "Name cannot be empty."
 		} else {
 			return "Name is too long."
+		}
+	}
+
+	const allowedPunctuation = "'-_.:()[]"
+
+	for i, r := range name {
+		switch {
+		case unicode.IsLetter(r):
+			continue
+		case unicode.IsDigit(r):
+			continue
+		case unicode.IsSpace(r):
+			continue
+		case strings.ContainsRune(allowedPunctuation, r):
+			continue
+		default:
+			slog.WarnContext(ctx, "Name contains invalid characters", "position", i, "rune", r)
+			return "Property name contains invalid characters."
 		}
 	}
 
