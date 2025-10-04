@@ -307,9 +307,16 @@ func (s *Server) putGeneralSettings(w http.ResponseWriter, r *http.Request) (Mod
 	} else /*edit name only*/ {
 		renderCtx.Name = formName
 
-		if (formName != user.Name) && (len(formName) > 0) && (len(formName) < 3) {
-			renderCtx.NameError = "Please use a longer name."
-			return renderCtx, settingsGeneralFormTemplate, nil
+		if formName != user.Name {
+			if (len(formName) > 0) && (len(formName) < 3) {
+				renderCtx.NameError = "Please use a longer name."
+				return renderCtx, settingsGeneralFormTemplate, nil
+			}
+
+			if !isUserNameValid(formName) {
+				renderCtx.NameError = userNameErrorMessage
+				return renderCtx, settingsGeneralFormTemplate, nil
+			}
 		}
 
 		anyChange = (len(formName) > 0) && (formName != user.Name)

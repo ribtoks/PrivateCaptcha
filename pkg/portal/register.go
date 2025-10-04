@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/billing"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -25,6 +26,7 @@ var (
 const (
 	registerFormTemplate = "register/form.html"
 	registerTemplate     = "register/register.html"
+	userNameErrorMessage = "Name contains invalid characters."
 )
 
 type registerRenderContext struct {
@@ -45,6 +47,29 @@ func (s *Server) getRegister(w http.ResponseWriter, r *http.Request) (Model, str
 		},
 		CaptchaRenderContext: s.CreateCaptchaRenderContext(db.PortalRegisterSitekey),
 	}, registerTemplate, nil
+}
+
+func isUserNameValid(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+
+	const allowedPunctuation = "'-"
+
+	for _, r := range name {
+		switch {
+		case unicode.IsLetter(r):
+			continue
+		case unicode.IsSpace(r):
+			continue
+		case strings.ContainsRune(allowedPunctuation, r):
+			continue
+		default:
+			return false
+		}
+	}
+
+	return true
 }
 
 func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
@@ -104,6 +129,12 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.FormValue(common.ParamName))
 	if len(name) < 3 {
 		data.NameError = "Please use a longer name."
+		s.render(w, r, registerFormTemplate, data)
+		return
+	}
+
+	if !isUserNameValid(name) {
+		data.NameError = userNameErrorMessage
 		s.render(w, r, registerFormTemplate, data)
 		return
 	}
