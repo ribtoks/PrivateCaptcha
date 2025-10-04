@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
@@ -471,6 +472,28 @@ func createAPIKeyExpiredNotification(key *dbgen.APIKey, userKey *userAPIKey) *co
 	}
 }
 
+func checkAPIKeyNameValid(ctx context.Context, name string) bool {
+	const allowedPunctuation = "-_.()[]"
+
+	for i, r := range name {
+		switch {
+		case unicode.IsLetter(r):
+			continue
+		case unicode.IsDigit(r):
+			continue
+		case unicode.IsSpace(r):
+			continue
+		case strings.ContainsRune(allowedPunctuation, r):
+			continue
+		default:
+			slog.WarnContext(ctx, "Name contains invalid characters", "position", i, "rune", r)
+			return false
+		}
+	}
+
+	return true
+}
+
 func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Model, string, error) {
 	ctx := r.Context()
 	user, err := s.SessionUser(ctx, s.Session(w, r))
@@ -489,6 +512,12 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Mod
 	formName := strings.TrimSpace(r.FormValue(common.ParamName))
 	if len(formName) < 3 {
 		renderCtx.NameError = "Name is too short."
+		renderCtx.CreateOpen = true
+		return renderCtx, settingsAPIKeysContentTemplate, nil
+	}
+
+	if !checkAPIKeyNameValid(ctx, formName) {
+		renderCtx.NameError = "Name contains invalid characters."
 		renderCtx.CreateOpen = true
 		return renderCtx, settingsAPIKeysContentTemplate, nil
 	}
