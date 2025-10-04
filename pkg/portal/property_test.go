@@ -82,3 +82,52 @@ func TestPutPropertyInsufficientPermissions(t *testing.T) {
 		t.Errorf("Unexpected redirect: %s", path)
 	}
 }
+
+func TestPostNewOrgProperty(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := context.TODO()
+	user, org, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	if err != nil {
+		t.Fatalf("Failed to create account: %v", err)
+	}
+
+	srv := http.NewServeMux()
+	_ = server.Setup(srv, portalDomain(), common.NoopMiddleware)
+
+	cookie, err := portal_tests.AuthenticateSuite(ctx, user.Email, srv, server.XSRF, server.Sessions.CookieName, server.Mailer.(*email.StubMailer))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Send POST request to create a new property
+	form := url.Values{}
+	form.Set(common.ParamCSRFToken, server.XSRF.Token(strconv.Itoa(int(user.ID))))
+	form.Set(common.ParamName, "Test Property")
+	form.Set(common.ParamDomain, "google.com")
+
+	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%d/property/new", org.ID),
+		strings.NewReader(form.Encode()))
+	req.AddCookie(cookie)
+	req.Header.Set(common.HeaderContentType, common.ContentTypeURLEncoded)
+
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("Unexpected status code %v", resp.StatusCode)
+	}
+
+	location, err := resp.Location()
+	if err != nil {
+		t.Fatalf("Expected redirect response but got error: %v", err)
+	}
+
+	expectedPrefix := fmt.Sprintf("/org/%d/property/", org.ID)
+	if path := location.String(); !strings.HasPrefix(path, expectedPrefix) {
+		t.Errorf("Unexpected redirect path: %s, expected prefix: %s", path, expectedPrefix)
+	}
+}
