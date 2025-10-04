@@ -84,7 +84,7 @@ func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
 		AlertRenderContext: AlertRenderContext{},
 	}
 
-	name := r.FormValue(common.ParamName)
+	name := strings.TrimSpace(r.FormValue(common.ParamName))
 	if nameError := s.validateOrgName(ctx, name, user); len(nameError) > 0 {
 		renderCtx.NameError = nameError
 		s.render(w, r, createOrgFormTemplate, renderCtx)
