@@ -431,6 +431,8 @@ func apiKeyExpirationReference(id int32) string {
 }
 
 func createAPIKeyExpirationNotification(key *dbgen.APIKey, userKey *userAPIKey) *common.ScheduledNotification {
+	secret := strings.TrimPrefix(userKey.Secret, db.APIKeyPrefix)
+
 	return &common.ScheduledNotification{
 		ReferenceID: apiKeyExpirationReference(key.ID),
 		UserID:      key.UserID.Int32,
@@ -438,7 +440,7 @@ func createAPIKeyExpirationNotification(key *dbgen.APIKey, userKey *userAPIKey) 
 		Data: &email.APIKeyExpirationContext{
 			APIKeyContext: email.APIKeyContext{
 				APIKeyName:         key.Name,
-				APIKeyPrefix:       userKey.Secret[0:min(4, len(userKey.Secret))],
+				APIKeyPrefix:       secret[0:min(4, len(secret))],
 				APIKeySettingsPath: fmt.Sprintf("%s?%s=%s", common.SettingsEndpoint, common.ParamTab, common.APIKeysEndpoint),
 			},
 			ExpireDays: apiKeyExpirationNotificationDays,
@@ -456,13 +458,15 @@ func apiKeyExpiredReference(id int32) string {
 }
 
 func createAPIKeyExpiredNotification(key *dbgen.APIKey, userKey *userAPIKey) *common.ScheduledNotification {
+	secret := strings.TrimPrefix(userKey.Secret, db.APIKeyPrefix)
+
 	return &common.ScheduledNotification{
 		ReferenceID: apiKeyExpiredReference(key.ID),
 		UserID:      key.UserID.Int32,
 		Subject:     fmt.Sprintf("[%s] Your API key has expired", common.PrivateCaptcha),
 		Data: email.APIKeyContext{
 			APIKeyName:         key.Name,
-			APIKeyPrefix:       userKey.Secret[0:min(4, len(userKey.Secret))],
+			APIKeyPrefix:       secret[0:min(4, len(secret))],
 			APIKeySettingsPath: fmt.Sprintf("%s?%s=%s", common.SettingsEndpoint, common.ParamTab, common.APIKeysEndpoint),
 		},
 		DateTime:     key.ExpiresAt.Time,
