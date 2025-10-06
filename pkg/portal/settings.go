@@ -584,10 +584,10 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 
 	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
 		var anyError error
-		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpirationReference(keyID)); err != nil {
+		if err := s.Store.Impl().DeletePendingUserNotification(bctx, user, apiKeyExpirationReference(keyID)); err != nil {
 			anyError = err
 		}
-		if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpiredReference(keyID)); err != nil {
+		if err := s.Store.Impl().DeletePendingUserNotification(bctx, user, apiKeyExpiredReference(keyID)); err != nil {
 			anyError = err
 		}
 		return anyError
