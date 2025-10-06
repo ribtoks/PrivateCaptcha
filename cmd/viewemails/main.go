@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 )
 
@@ -72,7 +73,7 @@ func serveExecute(templateBody string, w http.ResponseWriter) error {
 		Message:            "This is a support request message. Nothing works!",
 		TicketID:           "qwerty12345",
 		APIKeyName:         "My API Key",
-		APIKeyPrefix:       "abcde",
+		APIKeyPrefix:       db.APIKeyPrefix + "abcd",
 		ExpireDays:         7,
 		APIKeySettingsPath: "settings?tab=apikeys",
 	}
