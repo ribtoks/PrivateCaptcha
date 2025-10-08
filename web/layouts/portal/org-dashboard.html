@@ -31,7 +31,41 @@
                     hx-get="{{ partsURL $.Const.OrgEndpoint $.Params.CurrentOrg.ID $.Const.TabEndpoint $.Const.SettingsEndpoint }}"
                     class="border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium">Settings</a>
                 {{ if .Params.Properties }}
-                <div class="grow flex justify-end">
+                <div class="grow flex items-center justify-end gap-x-4">
+                    <div class="relative">
+                        <button class="inline-flex w-full justify-center gap-x-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                            @click="propertiesOptionsOpen = !propertiesOptionsOpen" id="properies-options-button" aria-expanded="false" aria-haspopup="true">
+                            Options
+                            <svg viewBox="0 0 20 20" fill="currentColor" data-slot="icon" aria-hidden="true" class="-mr-1 w-5 h-5 text-gray-400">
+                                <path d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" fill-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div
+                            x-show="propertiesOptionsOpen"
+                            x-transition:enter="transition ease-out duration-100"
+                            x-transition:enter-start="transform opacity-0 scale-95"
+                            x-transition:enter-end="transform opacity-100 scale-100"
+                            x-transition:leave="transition ease-in duration-75"
+                            x-transition:leave-start="transform opacity-100 scale-100"
+                            x-transition:leave-end="transform opacity-0 scale-95"
+                            class="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none" role="menu" aria-orientation="vertical" aria-labelledby="user-menu-button" tabindex="-1">
+                            <!-- Active: "bg-gray-100", Not Active: "" -->
+                            <div class="flex gap-3 px-4 py-2">
+                                <div class="flex h-6 shrink-0 items-center">
+                                    <div class="group grid size-4 grid-cols-1">
+                                        <input id="showSitekeysCheckbox" type="checkbox" name="showSitekeys" x-model="showSitekeys" @click="propertiesOptionsOpen = false" class="col-start-1 row-start-1 pc-internal-form-checkbox" />
+                                        <svg viewBox="0 0 14 14" fill="none" class="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-[:disabled]:stroke-gray-950/25 dark:group-has-[:disabled]:stroke-white/25">
+                                            <path d="M3 8L6 11L11 3.5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-0 group-has-[:checked]:opacity-100" />
+                                            <path d="M3 7H11" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-0 group-has-[:indeterminate]:opacity-100" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="text-sm/6">
+                                    <label for="showSitekeysCheckbox" class="font-medium text-gray-900 dark:text-white">Show Sitekeys</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <a type="button"
                         href="{{ partsURL $.Const.OrgEndpoint $.Params.CurrentOrg.ID $.Const.PropertyEndpoint .Const.NewEndpoint }}"
                         class="self-center inline-flex items-center gap-x-1.5 rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300">

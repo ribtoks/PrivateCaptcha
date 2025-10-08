@@ -56,6 +56,7 @@ COPY --from=frontend-builder /app/widget/static /app/widget/static
 COPY --from=frontend-builder /app/web/js/index.js /app/web/static/js/bundle.js
 COPY --from=frontend-builder /app/web/js/htmx.min.js /app/web/static/js/
 COPY --from=frontend-builder /app/web/js/alpine.min.js /app/web/static/js/
+COPY --from=frontend-builder /app/web/js/alpine.persist.min.js /app/web/static/js/
 COPY --from=frontend-builder /app/web/js/d3.v7.min.js /app/web/static/js/
 
 WORKDIR /app

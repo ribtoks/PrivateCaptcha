@@ -79,6 +79,7 @@ copy-static-js:
 	cp -v web/js/index.js web/static/js/bundle.js
 	cp -v web/js/htmx.min.js web/static/js/
 	cp -v web/js/alpine.min.js web/static/js/
+	cp -v web/js/alpine.persist.min.js web/static/js/
 	cp -v web/js/d3.v7.min.js web/static/js/
 
 serve: build-js build-widget-script copy-static-js build-server
