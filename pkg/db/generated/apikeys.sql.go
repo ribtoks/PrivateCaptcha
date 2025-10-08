@@ -9,10 +9,11 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 const createAPIKey = `-- name: CreateAPIKey :one
-INSERT INTO backend.apikeys (name, user_id, expires_at, requests_per_second, requests_burst) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes
+INSERT INTO backend.apikeys (name, user_id, expires_at, requests_per_second, requests_burst, period) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes, updated_at, period
 `
 
 type CreateAPIKeyParams struct {
@@ -21,6 +22,7 @@ type CreateAPIKeyParams struct {
 	ExpiresAt         pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 	RequestsPerSecond float64            `db:"requests_per_second" json:"requests_per_second"`
 	RequestsBurst     int32              `db:"requests_burst" json:"requests_burst"`
+	Period            time.Duration      `db:"period" json:"period"`
 }
 
 func (q *Queries) CreateAPIKey(ctx context.Context, arg *CreateAPIKeyParams) (*APIKey, error) {
@@ -30,6 +32,7 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg *CreateAPIKeyParams) (*A
 		arg.ExpiresAt,
 		arg.RequestsPerSecond,
 		arg.RequestsBurst,
+		arg.Period,
 	)
 	var i APIKey
 	err := row.Scan(
@@ -43,12 +46,14 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg *CreateAPIKeyParams) (*A
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.Notes,
+		&i.UpdatedAt,
+		&i.Period,
 	)
 	return &i, err
 }
 
 const deleteAPIKey = `-- name: DeleteAPIKey :one
-DELETE FROM backend.apikeys WHERE id=$1 AND user_id = $2 RETURNING id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes
+DELETE FROM backend.apikeys WHERE id=$1 AND user_id = $2 RETURNING id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes, updated_at, period
 `
 
 type DeleteAPIKeyParams struct {
@@ -70,6 +75,8 @@ func (q *Queries) DeleteAPIKey(ctx context.Context, arg *DeleteAPIKeyParams) (*A
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.Notes,
+		&i.UpdatedAt,
+		&i.Period,
 	)
 	return &i, err
 }
@@ -84,7 +91,7 @@ func (q *Queries) DeleteUserAPIKeys(ctx context.Context, userID pgtype.Int4) err
 }
 
 const getAPIKeyByExternalID = `-- name: GetAPIKeyByExternalID :one
-SELECT id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes FROM backend.apikeys WHERE external_id = $1
+SELECT id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes, updated_at, period FROM backend.apikeys WHERE external_id = $1
 `
 
 func (q *Queries) GetAPIKeyByExternalID(ctx context.Context, externalID pgtype.UUID) (*APIKey, error) {
@@ -101,12 +108,43 @@ func (q *Queries) GetAPIKeyByExternalID(ctx context.Context, externalID pgtype.U
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.Notes,
+		&i.UpdatedAt,
+		&i.Period,
+	)
+	return &i, err
+}
+
+const getUserAPIKeyByName = `-- name: GetUserAPIKeyByName :one
+SELECT id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes, updated_at, period FROM backend.apikeys WHERE user_id = $1 AND name = $2 AND expires_at > NOW()
+`
+
+type GetUserAPIKeyByNameParams struct {
+	UserID pgtype.Int4 `db:"user_id" json:"user_id"`
+	Name   string      `db:"name" json:"name"`
+}
+
+func (q *Queries) GetUserAPIKeyByName(ctx context.Context, arg *GetUserAPIKeyByNameParams) (*APIKey, error) {
+	row := q.db.QueryRow(ctx, getUserAPIKeyByName, arg.UserID, arg.Name)
+	var i APIKey
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ExternalID,
+		&i.UserID,
+		&i.Enabled,
+		&i.RequestsPerSecond,
+		&i.RequestsBurst,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.Notes,
+		&i.UpdatedAt,
+		&i.Period,
 	)
 	return &i, err
 }
 
 const getUserAPIKeys = `-- name: GetUserAPIKeys :many
-SELECT id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes FROM backend.apikeys WHERE user_id = $1 AND expires_at > NOW()
+SELECT id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes, updated_at, period FROM backend.apikeys WHERE user_id = $1 AND expires_at > NOW()
 `
 
 func (q *Queries) GetUserAPIKeys(ctx context.Context, userID pgtype.Int4) ([]*APIKey, error) {
@@ -129,6 +167,8 @@ func (q *Queries) GetUserAPIKeys(ctx context.Context, userID pgtype.Int4) ([]*AP
 			&i.CreatedAt,
 			&i.ExpiresAt,
 			&i.Notes,
+			&i.UpdatedAt,
+			&i.Period,
 		); err != nil {
 			return nil, err
 		}
@@ -140,8 +180,37 @@ func (q *Queries) GetUserAPIKeys(ctx context.Context, userID pgtype.Int4) ([]*AP
 	return items, nil
 }
 
+const rotateAPIKey = `-- name: RotateAPIKey :one
+UPDATE backend.apikeys SET external_id = gen_random_uuid(), expires_at = NOW() + period, updated_at = NOW() WHERE id = $1 AND user_id = $2 RETURNING id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes, updated_at, period
+`
+
+type RotateAPIKeyParams struct {
+	ID     int32       `db:"id" json:"id"`
+	UserID pgtype.Int4 `db:"user_id" json:"user_id"`
+}
+
+func (q *Queries) RotateAPIKey(ctx context.Context, arg *RotateAPIKeyParams) (*APIKey, error) {
+	row := q.db.QueryRow(ctx, rotateAPIKey, arg.ID, arg.UserID)
+	var i APIKey
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ExternalID,
+		&i.UserID,
+		&i.Enabled,
+		&i.RequestsPerSecond,
+		&i.RequestsBurst,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.Notes,
+		&i.UpdatedAt,
+		&i.Period,
+	)
+	return &i, err
+}
+
 const updateAPIKey = `-- name: UpdateAPIKey :one
-UPDATE backend.apikeys SET expires_at = $1, enabled = $2 WHERE external_id = $3 RETURNING id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes
+UPDATE backend.apikeys SET expires_at = $1, enabled = $2, updated_at = NOW() WHERE external_id = $3 RETURNING id, name, external_id, user_id, enabled, requests_per_second, requests_burst, created_at, expires_at, notes, updated_at, period
 `
 
 type UpdateAPIKeyParams struct {
@@ -164,6 +233,8 @@ func (q *Queries) UpdateAPIKey(ctx context.Context, arg *UpdateAPIKeyParams) (*A
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.Notes,
+		&i.UpdatedAt,
+		&i.Period,
 	)
 	return &i, err
 }

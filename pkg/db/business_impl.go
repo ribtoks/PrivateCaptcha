@@ -535,6 +535,38 @@ func (impl *BusinessStoreImpl) GetCachedAPIKey(ctx context.Context, secret strin
 	}
 }
 
+func (impl *BusinessStoreImpl) FindUserAPIKeyByName(ctx context.Context, user *dbgen.User, name string) (*dbgen.APIKey, error) {
+	if len(name) == 0 {
+		return nil, ErrInvalidInput
+	}
+
+	if impl.querier == nil {
+		return nil, ErrMaintenance
+	}
+
+	key, err := impl.querier.GetUserAPIKeyByName(ctx, &dbgen.GetUserAPIKeyByNameParams{
+		UserID: Int(user.ID),
+		Name:   name,
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, ErrRecordNotFound
+		}
+
+		slog.ErrorContext(ctx, "Failed to retrieve API key by name", "userID", user.ID, "name", name, common.ErrAttr(err))
+
+		return nil, err
+	}
+
+	if key != nil {
+		secret := UUIDToSecret(key.ExternalID)
+		cacheKey := APIKeyCacheKey(secret)
+		_ = impl.cache.SetWithTTL(ctx, cacheKey, key, apiKeyTTL)
+	}
+
+	return key, nil
+}
+
 // Fetches API key from DB, backed by cache
 func (impl *BusinessStoreImpl) RetrieveAPIKey(ctx context.Context, secret string) (*dbgen.APIKey, error) {
 	reader := &StoreOneReader[pgtype.UUID, dbgen.APIKey]{
@@ -1150,7 +1182,7 @@ func (impl *BusinessStoreImpl) UpdateAPIKey(ctx context.Context, externalID pgty
 	return nil
 }
 
-func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, user *dbgen.User, name string, expiration time.Time, requestsPerSecond float64) (*dbgen.APIKey, error) {
+func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, user *dbgen.User, name string, tnow time.Time, period time.Duration, requestsPerSecond float64) (*dbgen.APIKey, error) {
 	if len(name) == 0 {
 		return nil, ErrInvalidInput
 	}
@@ -1169,9 +1201,10 @@ func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, user *dbgen.Use
 	key, err := impl.querier.CreateAPIKey(ctx, &dbgen.CreateAPIKeyParams{
 		Name:              name,
 		UserID:            Int(user.ID),
-		ExpiresAt:         Timestampz(expiration),
+		ExpiresAt:         Timestampz(tnow.Add(period)),
 		RequestsPerSecond: requestsPerSecond,
 		RequestsBurst:     burst,
+		Period:            period,
 	})
 
 	if err != nil {
@@ -1180,6 +1213,8 @@ func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, user *dbgen.Use
 	}
 
 	if key != nil {
+		slog.InfoContext(ctx, "Created API key", "userID", user.ID, "keyID", key.ID)
+
 		secret := UUIDToSecret(key.ExternalID)
 		cacheKey := APIKeyCacheKey(secret)
 		_ = impl.cache.SetWithTTL(ctx, cacheKey, key, apiKeyTTL)
@@ -1187,6 +1222,52 @@ func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, user *dbgen.Use
 		// invalidate keys cache
 		_ = impl.cache.Delete(ctx, UserAPIKeysCacheKey(user.ID))
 	}
+
+	return key, nil
+}
+
+func (impl *BusinessStoreImpl) RotateAPIKey(ctx context.Context, user *dbgen.User, keyID int32) (*dbgen.APIKey, error) {
+	if impl.querier == nil {
+		return nil, ErrMaintenance
+	}
+
+	// to rotate we would want to drop old key from cache immediately (if we don't, not a big deal actually)
+	// the reason we ONLY check in cache is because rotation is only available from when user opens settings
+	// which means to show them the keys we should put them all in cache first when reading
+	userKeysCacheKey := UserAPIKeysCacheKey(user.ID)
+	if keys, err := FetchCachedArray[dbgen.APIKey](ctx, impl.cache, userKeysCacheKey); err == nil {
+		if index := slices.IndexFunc(keys, func(key *dbgen.APIKey) bool { return key.ID == keyID }); index != -1 {
+			secret := UUIDToSecret(keys[index].ExternalID)
+			cacheKey := APIKeyCacheKey(secret)
+			_ = impl.cache.Delete(ctx, cacheKey)
+		} else {
+			slog.WarnContext(ctx, "Old key not found in cached user keys", "userID", user.ID, "keyID", keyID)
+		}
+	}
+
+	key, err := impl.querier.RotateAPIKey(ctx, &dbgen.RotateAPIKeyParams{
+		ID:     keyID,
+		UserID: Int(user.ID),
+	})
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			slog.ErrorContext(ctx, "Failed to find API Key", "keyID", keyID, "userID", user.ID)
+			return nil, ErrRecordNotFound
+		}
+
+		slog.ErrorContext(ctx, "Failed to rotate API key", "keyID", keyID, "userID", user.ID, common.ErrAttr(err))
+		return nil, err
+	}
+
+	slog.InfoContext(ctx, "Rotated API Key", "keyID", keyID, "userID", user.ID)
+
+	if key != nil {
+		secret := UUIDToSecret(key.ExternalID)
+		cacheKey := APIKeyCacheKey(secret)
+		_ = impl.cache.SetWithTTL(ctx, cacheKey, key, apiKeyTTL)
+	}
+
+	_ = impl.cache.Delete(ctx, userKeysCacheKey)
 
 	return key, nil
 }

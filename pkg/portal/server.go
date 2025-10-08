@@ -286,6 +286,7 @@ func (s *Server) setupWithPrefix(router *http.ServeMux, rg *RouteGenerator, secu
 	router.Handle(rg.Post(common.SettingsEndpoint, common.TabEndpoint, common.APIKeysEndpoint, common.NewEndpoint), privateWrite.Then(s.Handler(s.postAPIKeySettings)))
 
 	router.Handle(rg.Get(common.UserEndpoint, common.StatsEndpoint), privateRead.ThenFunc(s.getAccountStats))
+	router.Handle(rg.Post(common.APIKeysEndpoint, arg(common.ParamKey)), privateWrite.Then(s.Handler(s.rotateAPIKey)))
 	router.Handle(rg.Delete(common.APIKeysEndpoint, arg(common.ParamKey)), privateWrite.ThenFunc(s.deleteAPIKey))
 	router.Handle(rg.Delete(common.UserEndpoint), privateWrite.ThenFunc(s.deleteAccount))
 	router.Handle(rg.Delete(common.NotificationEndpoint, arg(common.ParamID)), openWrite.Append(s.private).ThenFunc(s.dismissNotification))

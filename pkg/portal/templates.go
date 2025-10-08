@@ -17,8 +17,12 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 )
 
-var errTemplateNotFound = errors.New("template with such name does not exist")
-var errNoLayersInBuilder = errors.New("no template layers were added to the builder")
+var (
+	errTemplateNotFound  = errors.New("template with such name does not exist")
+	errNoLayersInBuilder = errors.New("no template layers were added to the builder")
+	errDictEvenArgs      = errors.New("dict requires even number of arguments")
+	errDictKeyString     = errors.New("dict keys must be strings")
+)
 
 // FileSystemTemplateLayout holds the organized paths of templates from a single embed.FS.
 type FileSystemTemplateLayout struct {
@@ -91,6 +95,20 @@ func NewTemplatesBuilder() *TemplatesBuilder {
 			"safeJS":   func(s string) any { return template.JS(s) },
 			"plus1":    func(x int) int { return x + 1 },
 			"sub":      func(a, b int) int { return a - b },
+			"dict": func(values ...interface{}) (map[string]interface{}, error) {
+				if len(values)%2 != 0 {
+					return nil, errDictEvenArgs
+				}
+				dict := make(map[string]interface{}, len(values)/2)
+				for i := 0; i < len(values); i += 2 {
+					key, ok := values[i].(string)
+					if !ok {
+						return nil, errDictKeyString
+					}
+					dict[key] = values[i+1]
+				}
+				return dict, nil
+			},
 		},
 	}
 }

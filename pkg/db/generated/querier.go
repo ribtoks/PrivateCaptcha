@@ -56,6 +56,7 @@ type Querier interface {
 	GetSubscriptionsByUserIDs(ctx context.Context, dollar_1 []int32) ([]*GetSubscriptionsByUserIDsRow, error)
 	GetSystemNotificationById(ctx context.Context, id int32) (*SystemNotification, error)
 	GetTrialUsers(ctx context.Context, arg *GetTrialUsersParams) ([]*User, error)
+	GetUserAPIKeyByName(ctx context.Context, arg *GetUserAPIKeyByNameParams) (*APIKey, error)
 	GetUserAPIKeys(ctx context.Context, userID pgtype.Int4) ([]*APIKey, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	GetUserByID(ctx context.Context, id int32) (*User, error)
@@ -66,6 +67,7 @@ type Querier interface {
 	InviteUserToOrg(ctx context.Context, arg *InviteUserToOrgParams) (*OrganizationUser, error)
 	Ping(ctx context.Context) (int32, error)
 	RemoveUserFromOrg(ctx context.Context, arg *RemoveUserFromOrgParams) error
+	RotateAPIKey(ctx context.Context, arg *RotateAPIKeyParams) (*APIKey, error)
 	SoftDeleteProperty(ctx context.Context, id int32) (*Property, error)
 	SoftDeleteUser(ctx context.Context, id int32) (*User, error)
 	SoftDeleteUserOrganization(ctx context.Context, arg *SoftDeleteUserOrganizationParams) error

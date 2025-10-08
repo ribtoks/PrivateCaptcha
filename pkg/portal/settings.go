@@ -28,6 +28,7 @@ const (
 	// Other templates
 	settingsGeneralFormTemplate    = "settings-general/form.html"
 	settingsAPIKeysContentTemplate = "settings-apikeys/content.html"
+	apiKeyRowTemplate              = "settings-apikeys/key.html"
 
 	// notifications
 	apiKeyExpirationNotificationDays = 14
@@ -526,6 +527,12 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Mod
 		return renderCtx, settingsAPIKeysContentTemplate, nil
 	}
 
+	if _, err := s.Store.Impl().FindUserAPIKeyByName(ctx, user, formName); err == nil {
+		renderCtx.NameError = "API key with such name already exists."
+		renderCtx.CreateOpen = true
+		return renderCtx, settingsAPIKeysContentTemplate, nil
+	}
+
 	apiKeyRequestsPerSecond := 1.0
 	if user.SubscriptionID.Valid {
 		if subscription, err := s.Store.Impl().RetrieveSubscription(ctx, user.SubscriptionID.Int32); err == nil {
@@ -538,24 +545,15 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Mod
 
 	days := daysFromParam(ctx, r.FormValue(common.ParamDays))
 	tnow := time.Now().UTC()
-	expiration := tnow.AddDate(0, 0, days)
-	newKey, err := s.Store.Impl().CreateAPIKey(ctx, user, formName, expiration, apiKeyRequestsPerSecond)
+	newKey, err := s.Store.Impl().CreateAPIKey(ctx, user, formName, tnow, time.Duration(days)*24*time.Hour, apiKeyRequestsPerSecond)
 	if err == nil {
 		userKey := apiKeyToUserAPIKey(newKey, tnow)
 		userKey.Secret = db.UUIDToSecret(newKey.ExternalID)
 		renderCtx.Keys = append(renderCtx.Keys, userKey)
 		renderCtx.SuccessMessage = "API Key created successfully."
 
-		if days > apiKeyExpirationNotificationDays {
-			go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-				_, err := s.Store.Impl().CreateUserNotification(bctx, createAPIKeyExpirationNotification(newKey, userKey))
-				return err
-			})
-		}
-
 		go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-			_, err := s.Store.Impl().CreateUserNotification(bctx, createAPIKeyExpiredNotification(newKey, userKey))
-			return err
+			return s.createAPIKeyExpiryNotifications(bctx, newKey, userKey)
 		})
 	} else {
 		slog.ErrorContext(ctx, "Failed to create API key", common.ErrAttr(err))
@@ -563,6 +561,59 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Mod
 	}
 
 	return renderCtx, settingsAPIKeysContentTemplate, nil
+}
+
+func (s *Server) createAPIKeyExpiryNotifications(ctx context.Context, key *dbgen.APIKey, userKey *userAPIKey) error {
+	var anyError error
+	minNotificationDate := time.Now().UTC().AddDate(0, 0, apiKeyExpirationNotificationDays)
+	if key.ExpiresAt.Valid && key.ExpiresAt.Time.After(minNotificationDate) {
+		if _, err := s.Store.Impl().CreateUserNotification(ctx, createAPIKeyExpirationNotification(key, userKey)); err != nil {
+			anyError = err
+		}
+	}
+
+	if _, err := s.Store.Impl().CreateUserNotification(ctx, createAPIKeyExpiredNotification(key, userKey)); err != nil {
+		anyError = err
+	}
+
+	return anyError
+}
+
+func (s *Server) rotateAPIKey(w http.ResponseWriter, r *http.Request) (Model, string, error) {
+	ctx := r.Context()
+	user, err := s.SessionUser(ctx, s.Session(w, r))
+	if err != nil {
+		return nil, "", err
+	}
+
+	keyID, value, err := common.IntPathArg(r, common.ParamKey)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to parse key path parameter", "value", value)
+		return nil, "", errInvalidPathArg
+	}
+
+	key, err := s.Store.Impl().RotateAPIKey(ctx, user, keyID)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to rotate the API key", "keyID", keyID, common.ErrAttr(err))
+		return nil, "", err
+	}
+
+	userKey := apiKeyToUserAPIKey(key, time.Now().UTC())
+	userKey.Secret = db.UUIDToSecret(key.ExternalID)
+
+	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
+		var anyError error
+		if err := s.deleteAPIKeyExpiryNotifications(bctx, user, keyID); err != nil {
+			anyError = err
+		}
+		if err := s.createAPIKeyExpiryNotifications(bctx, key, userKey); err != nil {
+			anyError = err
+		}
+
+		return anyError
+	})
+
+	return userKey, apiKeyRowTemplate, nil
 }
 
 func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
@@ -587,17 +638,21 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-		var anyError error
-		if err := s.Store.Impl().DeletePendingUserNotification(bctx, user, apiKeyExpirationReference(keyID)); err != nil {
-			anyError = err
-		}
-		if err := s.Store.Impl().DeletePendingUserNotification(bctx, user, apiKeyExpiredReference(keyID)); err != nil {
-			anyError = err
-		}
-		return anyError
+		return s.deleteAPIKeyExpiryNotifications(bctx, user, keyID)
 	})
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) deleteAPIKeyExpiryNotifications(ctx context.Context, user *dbgen.User, keyID int32) error {
+	var anyError error
+	if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpirationReference(keyID)); err != nil {
+		anyError = err
+	}
+	if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpiredReference(keyID)); err != nil {
+		anyError = err
+	}
+	return anyError
 }
 
 func (s *Server) getAccountStats(w http.ResponseWriter, r *http.Request) {
