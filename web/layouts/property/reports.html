@@ -70,6 +70,23 @@
             </nav>
         </div>
 
+        <div>
+            <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
+                <div class="overflow-hidden rounded-lg bg-white px-4 py-5 shadow sm:p-6">
+                    <dt class="truncate text-sm font-medium text-gray-500">Challenges Requested</dt>
+                    <dd class="mt-1 text-3xl font-semibold tracking-tight text-gray-900" x-text="challengesRequested"></dd>
+                </div>
+                <div class="overflow-hidden rounded-lg bg-white px-4 py-5 shadow sm:p-6">
+                    <dt class="truncate text-sm font-medium text-gray-500">Challenges Verified</dt>
+                    <dd class="mt-1 text-3xl font-semibold tracking-tight text-gray-900" x-text="challengesVerified"></dd>
+                </div>
+                <div class="overflow-hidden rounded-lg bg-white px-4 py-5 shadow sm:p-6">
+                    <dt class="truncate text-sm font-medium text-gray-500">Challenge Verification Rate</dt>
+                    <dd class="mt-1 text-3xl font-semibold tracking-tight text-gray-900" x-text="csrRate"></dd>
+                </div>
+            </dl>
+        </div>
+
         <div class="mt-6 min-h-96" id="chart" x-ref="chart"></div>
 
         <div x-show="isLoading" class="absolute inset-0 flex justify-center items-center z-10">

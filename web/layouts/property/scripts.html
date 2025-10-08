@@ -285,6 +285,9 @@
             // https://d3js.org/d3-time-format#locale_format
             isLoading: false,
             period: '24h',
+            challengesRequested: 0,
+            challengesVerified: 0,
+            csrRate: 0.0,
             async init() {
                 this.updateChart('24h');
             },
@@ -302,11 +305,27 @@
             },
             async updateChart() {
                 const data = await this.fetchChartData(this.period);
+
                 if (data && data.verified && data.requested &&
                     ((data.verified.length > 0) || (data.requested.length > 0))) {
                     setChartData(this.$refs.chart, data, tickFunction[this.period], tickFilter[this.period]);
+
+                    const requestedSum = data.requested.reduce((sum, item) => sum + item.y, 0);
+                    const verifiedSum = data.verified.reduce((sum, item) => sum + item.y, 0);
+                    const rate = requestedSum === 0 ? 0 : verifiedSum / requestedSum;
+                    const formatter = new Intl.NumberFormat('en', {
+                        notation: 'compact',
+                        compactDisplay: 'short',
+                    });
+                    this.challengesRequested = formatter.format(requestedSum);
+                    this.challengesVerified = formatter.format(verifiedSum);
+                    this.csrRate = requestedSum === 0 ? "N/A" : `${(rate * 100).toFixed(2)}%`;
                 } else {
                     drawNoData(this.$refs.chart, tickFunction[this.period], periodLength[this.period]);
+
+                    this.challengesRequested = 0;
+                    this.challengesVerified = 0;
+                    this.csrRate = "N/A";
                 }
             }
         }
