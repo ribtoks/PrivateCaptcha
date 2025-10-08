@@ -384,3 +384,34 @@ func (s *Server) addVerifyRecord(ctx context.Context, result *puzzle.VerifyResul
 
 	s.Metrics.ObservePuzzleVerified(vr.UserID, result.Error.String(), (result.PuzzleID == 0) /*is stub*/)
 }
+
+func (s *Server) ReportingVerifier() puzzle.Engine {
+	return &reportingVerifier{
+		verifier:   s.Verifier,
+		reportFunc: s.addVerifyRecord,
+	}
+}
+
+type reportingVerifier struct {
+	verifier   puzzle.Engine
+	reportFunc func(context.Context, *puzzle.VerifyResult)
+}
+
+var _ puzzle.Engine = (*reportingVerifier)(nil)
+
+func (rv *reportingVerifier) Create(puzzleID uint64, propertyID [puzzle.PropertyIDSize]byte, difficulty uint8) puzzle.Puzzle {
+	return rv.verifier.Create(puzzleID, propertyID, difficulty)
+}
+func (rv *reportingVerifier) Write(ctx context.Context, p puzzle.Puzzle, extraSalt []byte, w http.ResponseWriter) error {
+	return rv.verifier.Write(ctx, p, extraSalt, w)
+}
+func (rv *reportingVerifier) ParseSolutionPayload(ctx context.Context, payload []byte) (puzzle.SolutionPayload, error) {
+	return rv.verifier.ParseSolutionPayload(ctx, payload)
+}
+func (rv *reportingVerifier) Verify(ctx context.Context, payload puzzle.SolutionPayload, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.VerifyResult, error) {
+	result, err := rv.verifier.Verify(ctx, payload, expectedOwner, tnow)
+	if err == nil && result.Valid() {
+		rv.reportFunc(ctx, result)
+	}
+	return result, err
+}

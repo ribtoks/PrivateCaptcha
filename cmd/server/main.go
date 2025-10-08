@@ -196,7 +196,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		PlanService:  planService,
 		APIURL:       apiURLConfig.URL(),
 		CDNURL:       cdnURLConfig.URL(),
-		PuzzleEngine: puzzleVerifier,
+		PuzzleEngine: apiServer.ReportingVerifier(),
 		Metrics:      metrics,
 		Mailer:       mailer,
 		RateLimiter:  ipRateLimiter,
