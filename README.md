@@ -18,23 +18,21 @@ Private Captcha is an independent, privacy-first, self-hostable Proof-of-Work CA
 
 ## About
 
-Instead of asking users to solve complex puzzles or track their behavior, Private Captcha solves an invisible cryptographic task in the background. The system automatically adjusts the task difficulty, ensuring smooth access for real users while making it too costly for bots to attempt. Cryptographic task provides equal security regardless of bot's intelligence level, making it effective even as AI technology improves. Additionally, Private Captcha does not use cookies or track visitors and is fully GDPR-compliant that makes it easy to use for organizations that do business in EU.
+### Project goals
+
+- provide powerful means to fight bots, including AI scrapers, and spam even as AI improves
+- make web a slightly better place by replacing existing frustrating CAPTCHAs
+- stay focused on privacy and GDPR compliance as well as on-prem deployment
+- provide stable, backward-compatible and reliable API and integrations
+- be sustainable financially to fulfill previous goals long enough
 
 ### Features
 
 - adaptive challenge difficulty (including various configuration options)
-- optimized backend API endpoints (low resource requirements)
+- optimized backend (low resource requirements)
 - lightweight, customizable widget (including "invisible" version)
 - usage statistics (backend)
 - privacy-focused, no behavior tracking or PII processing
-
-### Built with
-
-- _Go_ for backend (API and Portal)
-- _Javascript_ (inevitably) for client widget, including WASM workers (where possible)
-- _Postgres_ for "business" data (accounts, properties etc.)
-- _ClickHouse_ for "operational" data (difficulty scaling, statistics etc.)
-- TailwindCSS for Portal (backend)
 
 ## Documentation
 
@@ -42,7 +40,7 @@ Please refer to the [official documentation](https://docs.privatecaptcha.com).
 
 ### Getting started
 
-To spin up a local version of Private Captcha, clone this repository and run in the root `make run-docker` (it requires to have Docker installed). You can check [Makefile](./Makefile) for details of what it does exactly.
+To spin up a local version of Private Captcha _for development_, clone this repository and run in the root `make run-docker` (it requires to have Docker installed). You can check [Makefile](./Makefile) for details of what it does exactly.
 
 ### OpenAPI / Swagger
 
@@ -59,6 +57,18 @@ OpenAPI spec is [available](./docs/openapi.yaml).
 ├── web/                              Frontend part of the project (Portal)
 └── widget/                           Client-side widget code
 ```
+
+### Built with
+
+- _Go_ for backend (API and Portal)
+- _Javascript_ (inevitably) for client widget, including WASM workers (where possible)
+- _Postgres_ for "business" data (accounts, properties etc.)
+- _ClickHouse_ for "operational" data (difficulty scaling, statistics etc.)
+- TailwindCSS for Portal (backend)
+
+### Self-hosting
+
+Self-hosting setup is in [another repository](https://github.com/PrivateCaptcha/self-hosting) and documentation - on main docs website.
 
 ## Alternatives
 
