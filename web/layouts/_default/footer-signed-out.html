@@ -3,20 +3,20 @@
     <div class="px-4 mx-auto sm:px-6 lg:px-8 max-w-7xl">
         <div class="text-center xl:flex xl:items-center xl:justify-between xl:text-left">
             <div class="xl:flex xl:items-center xl:justify-start">
-                <p class="w-auto mx-auto mt-5 text-sm text-gray-900 xl:mt-0">© Copyright {{.Ctx.CurrentYear}} Private Captcha</p>
+                <p class="w-auto mx-auto mt-5 text-sm text-pcgray-900 xl:mt-0">© Copyright {{.Ctx.CurrentYear}} Private Captcha {{if not $.Platform.Enterprise}}<span class="text-pcgray-500">(Community Edition)</span>{{end}}</p>
             </div>
             <div class="items-center mt-8 xl:mt-0 xl:flex xl:justify-end xl:space-x-8">
                 <ul class="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 xl:justify-end">
                     <li>
-                        <a href="https://privatecaptcha.com/about/" title="" class="text-sm text-gray-900 transition-all duration-200 hover:text-opacity-80 focus:text-opacity-80"> About </a>
+                        <a href="https://privatecaptcha.com/about/" title="" class="text-sm text-pcgray-900 transition-all duration-200 hover:text-opacity-80 focus:text-opacity-80"> About </a>
                     </li>
 
                     <li>
-                        <a href="https://privatecaptcha.com/legal/privacy-end-user/" target="_blank" title="" class="text-sm text-gray-900 transition-all duration-200 hover:text-opacity-80 focus:text-opacity-80"> Privacy Policy </a>
+                        <a href="https://privatecaptcha.com/legal/privacy-end-user/" target="_blank" title="" class="text-sm text-pcgray-900 transition-all duration-200 hover:text-opacity-80 focus:text-opacity-80"> Privacy Policy </a>
                     </li>
 
                     <li>
-                        <a href="https://privatecaptcha.com/legal/terms-and-conditions/" target="_blank" title="" class="text-sm text-gray-900 transition-all duration-200 hover:text-opacity-80 focus:text-opacity-80"> Terms & Conditions </a>
+                        <a href="https://privatecaptcha.com/legal/terms-and-conditions/" target="_blank" title="" class="text-sm text-pcgray-900 transition-all duration-200 hover:text-opacity-80 focus:text-opacity-80"> Terms & Conditions </a>
                     </li>
                 </ul>
 
@@ -24,7 +24,7 @@
 
                 <ul class="flex items-center justify-center space-x-8 xl:justify-end">
                     <li>
-                        <a href="https://github.com/PrivateCaptcha/PrivateCaptcha" title="" class="block text-gray-900 transition-all duration-200 hover:text-opacity-80 focus:text-opacity-80" target="_blank">
+                        <a href="https://github.com/PrivateCaptcha/PrivateCaptcha" title="" class="block text-pcgray-900 transition-all duration-200 hover:text-opacity-80 focus:text-opacity-80" target="_blank">
                             <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
                                 <path
                                     fill-rule="evenodd"

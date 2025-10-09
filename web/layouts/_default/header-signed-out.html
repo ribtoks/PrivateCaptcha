@@ -2,9 +2,10 @@
 <header x-data="{open: false}" class="bg-pcpalegreen">
     <nav class="mx-auto flex max-w-7xl items-center justify-between p-6 lg:px-8" aria-label="Global">
         <div class="flex lg:flex-1">
-            <a href="https://privatecaptcha.com/" class="-m-1.5 p-1.5">
+            <a href="https://privatecaptcha.com/" class="-m-1.5 p-1.5 relative">
                 <span class="sr-only">Private Captcha</span>
                 <img class="h-10 w-auto logo-dark" src="{{$.Ctx.CDN}}/portal/img/pc-logo-dark.svg" alt="Private Captcha">
+                {{if not $.Platform.Enterprise}}<div class="absolute top-0 -right-3 text-xs py-0.25 px-0.5 border border-pcgray-600 rounded-sm text-pcgray-600">CE</div>{{end}}
             </a>
         </div>
         <div class="flex lg:hidden">
@@ -16,8 +17,8 @@
             </button>
         </div>
         <div class="hidden lg:flex lg:gap-x-12">
-            <a href="https://docs.privatecaptcha.com" class="font-medium font-semibold leading-6 text-gray-900">Documentation</a>
-            <a href="https://privatecaptcha.com/faq" class="font-medium font-semibold leading-6 text-gray-900">FAQ</a>
+            <a href="https://docs.privatecaptcha.com" class="font-medium font-semibold leading-6 text-pcgray-900">Documentation</a>
+            <a href="https://privatecaptcha.com/faq" class="font-medium font-semibold leading-6 text-pcgray-900">FAQ</a>
         </div>
     </nav>
     <!-- Mobile menu, show/hide based on menu open state. -->
