@@ -29,8 +29,8 @@ const (
       <tbody>
         <tr style="width:100%">
           <td>
-            <img alt="Private Captcha" height="50" src="{{.CDNURL}}/portal/img/pc-logo-dark.png" style="display:block;outline:none;border:none;text-decoration:none" />
-            <p style="font-size:16px;line-height:26px;margin:16px 0">
+            <img alt="Private Captcha" height="40" src="{{.CDNURL}}/portal/img/pc-logo-dark.png" style="display:block;outline:none;border:none;text-decoration:none" />
+            <p style="font-size:16px;line-height:26px;margin:32px 0 16px">
               Hello {{.UserName}},
             </p>
             <p style="font-size:16px;line-height:26px;margin:16px 0">
