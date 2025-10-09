@@ -53,29 +53,35 @@ func serveExecute(templateBody string, w http.ResponseWriter) error {
 	}
 
 	data := struct {
-		Code               int
-		PortalURL          string
-		CurrentYear        int
-		CDNURL             string
-		Message            string
-		TicketID           string
-		APIKeyName         string
-		APIKeyPrefix       string
-		ExpireDays         int
-		APIKeySettingsPath string
-		UserName           string
+		email.OrgInvitationContext
+		email.APIKeyExpirationContext
+		// heap of everything else
+		Code        int
+		PortalURL   string
+		CurrentYear int
+		CDNURL      string
+		UserName    string
 	}{
-		UserName:           "John Doe",
-		Code:               123456,
-		CDNURL:             "https://cdn.privatecaptcha.com",
-		PortalURL:          "https://portal.privatecaptcha.com",
-		CurrentYear:        time.Now().Year(),
-		Message:            "This is a support request message. Nothing works!",
-		TicketID:           "qwerty12345",
-		APIKeyName:         "My API Key",
-		APIKeyPrefix:       db.APIKeyPrefix + "abcd",
-		ExpireDays:         7,
-		APIKeySettingsPath: "settings?tab=apikeys",
+		APIKeyExpirationContext: email.APIKeyExpirationContext{
+			APIKeyContext: email.APIKeyContext{
+				APIKeyName:         "My API Key",
+				APIKeyPrefix:       db.APIKeyPrefix + "abcd",
+				APIKeySettingsPath: "settings?tab=apikeys",
+			},
+			ExpireDays: 7,
+		},
+		OrgInvitationContext: email.OrgInvitationContext{
+			//UserName:      "John Doe",
+			OrgName:       "My Organization",
+			OrgOwnerName:  "Pat Smith",
+			OrgOwnerEmail: "john.doe@example.com",
+			OrgURL:        "https://portal.privatecaptcha.com/org/5",
+		},
+		UserName:    "John Doe",
+		Code:        123456,
+		CDNURL:      "https://cdn.privatecaptcha.com",
+		PortalURL:   "https://portal.privatecaptcha.com",
+		CurrentYear: time.Now().Year(),
 	}
 
 	var htmlBodyTpl bytes.Buffer

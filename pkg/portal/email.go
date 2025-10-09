@@ -17,26 +17,28 @@ var (
 )
 
 type PortalMailer struct {
-	Mailer            emailpkg.Sender
-	CDNURL            string
-	PortalURL         string
-	EmailFrom         common.ConfigItem
-	AdminEmail        common.ConfigItem
-	ReplyToEmail      common.ConfigItem
-	TwofactorTemplate *common.EmailTemplate
-	WelcomeTemplate   *common.EmailTemplate
+	Mailer             emailpkg.Sender
+	CDNURL             string
+	PortalURL          string
+	EmailFrom          common.ConfigItem
+	AdminEmail         common.ConfigItem
+	ReplyToEmail       common.ConfigItem
+	TwofactorTemplate  *common.EmailTemplate
+	WelcomeTemplate    *common.EmailTemplate
+	OrgInviteItemplate *common.EmailTemplate
 }
 
 func NewPortalMailer(cdnURL, portalURL string, mailer emailpkg.Sender, cfg common.ConfigStore) *PortalMailer {
 	return &PortalMailer{
-		Mailer:            mailer,
-		EmailFrom:         cfg.Get(common.EmailFromKey),
-		AdminEmail:        cfg.Get(common.AdminEmailKey),
-		ReplyToEmail:      cfg.Get(common.ReplyToEmailKey),
-		CDNURL:            strings.TrimSuffix(cdnURL, "/"),
-		PortalURL:         strings.TrimSuffix(portalURL, "/"),
-		TwofactorTemplate: emailpkg.TwoFactorEmailTemplate,
-		WelcomeTemplate:   emailpkg.WelcomeEmailTemplate,
+		Mailer:             mailer,
+		EmailFrom:          cfg.Get(common.EmailFromKey),
+		AdminEmail:         cfg.Get(common.AdminEmailKey),
+		ReplyToEmail:       cfg.Get(common.ReplyToEmailKey),
+		CDNURL:             strings.TrimSuffix(cdnURL, "/"),
+		PortalURL:          strings.TrimSuffix(portalURL, "/"),
+		TwofactorTemplate:  emailpkg.TwoFactorEmailTemplate,
+		WelcomeTemplate:    emailpkg.WelcomeEmailTemplate,
+		OrgInviteItemplate: emailpkg.OrgInvitationTemplate,
 	}
 }
 
@@ -138,6 +140,59 @@ func (pm *PortalMailer) SendWelcome(ctx context.Context, email, name string) err
 	}
 
 	slog.InfoContext(ctx, "Sent welcome email", "email", email)
+
+	return nil
+}
+
+func (pm *PortalMailer) SendOrgInvite(ctx context.Context, email, name string, orgName, orgOwnerEmail, orgOwnerName, orgURLPath string) error {
+	if len(email) == 0 {
+		return errInvalidEmail
+	}
+
+	data := struct {
+		emailpkg.OrgInvitationContext
+		CurrentYear int
+		CDNURL      string
+	}{
+		CDNURL:      pm.CDNURL,
+		CurrentYear: time.Now().Year(),
+		OrgInvitationContext: emailpkg.OrgInvitationContext{
+			UserName:      name,
+			OrgName:       orgName,
+			OrgOwnerName:  orgOwnerName,
+			OrgOwnerEmail: orgOwnerEmail,
+			OrgURL:        pm.PortalURL + orgURLPath,
+		},
+	}
+
+	htmlBody, err := pm.OrgInviteItemplate.RenderHTML(ctx, data)
+	if err != nil {
+		return err
+	}
+
+	textBody, err := pm.OrgInviteItemplate.RenderText(ctx, data)
+	if err != nil {
+		return err
+	}
+
+	msg := &emailpkg.Message{
+		HTMLBody:  htmlBody,
+		TextBody:  textBody,
+		Subject:   fmt.Sprintf("[%s] You have been invited to the %s organization", common.PrivateCaptcha, data.OrgName),
+		EmailTo:   email,
+		EmailFrom: pm.EmailFrom.Value(),
+		NameFrom:  common.PrivateCaptchaTeam,
+	}
+
+	olog := slog.With("email", email, "org", orgName)
+
+	if err := pm.Mailer.SendEmail(ctx, msg); err != nil {
+		olog.ErrorContext(ctx, "Failed to send org invite", common.ErrAttr(err))
+
+		return err
+	}
+
+	olog.InfoContext(ctx, "Sent org invite")
 
 	return nil
 }

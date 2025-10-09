@@ -255,6 +255,12 @@ func (s *Server) postOrgMembers(w http.ResponseWriter, r *http.Request) (Model, 
 		ou := userToOrgUser(inviteUser, string(dbgen.AccessLevelInvited))
 		renderCtx.Members = append(renderCtx.Members, ou)
 		renderCtx.SuccessMessage = "Invite is sent."
+
+		go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
+			orgURLPath := s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(org.ID)))
+			return s.Mailer.SendOrgInvite(bctx, inviteUser.Email, common.GuessFirstName(inviteUser.Name),
+				org.Name, user.Email, common.GuessFirstName(user.Name), orgURLPath)
+		})
 	}
 
 	return renderCtx, orgMembersTemplate, nil

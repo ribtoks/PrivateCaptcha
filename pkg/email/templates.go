@@ -10,6 +10,7 @@ var (
 		APIKeyExpiredTemplate,
 		WelcomeEmailTemplate,
 		TwoFactorEmailTemplate,
+		OrgInvitationTemplate,
 	}
 )
 
