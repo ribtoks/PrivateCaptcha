@@ -46,8 +46,7 @@ global.Worker = class Worker {
 test('CaptchaWidget execute() fires finished event and callback', async (t) => {
     document.body.innerHTML = `
         <form>
-            <div class="private-captcha" 
-                 data-sitekey="test_key" 
+            <div class="private-captcha"
                  data-finished-callback="testFinishedCallback">
             </div>
         </form>
