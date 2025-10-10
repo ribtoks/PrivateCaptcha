@@ -78,8 +78,16 @@ test('CaptchaWidget execute() fires finished event and callback', async (t) => {
 
     widget.execute();
 
-    // Wait for async operations to complete (assumes zero puzzle mock above)
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            reject(new Error('Event timeout after 5000ms'));
+        }, 5000);
+
+        element.addEventListener('privatecaptcha:finish', () => {
+            clearTimeout(timeout);
+            resolve();
+        }, { once: true });
+    });
 
     assert.strictEqual(eventFired, true, 'privatecaptcha:finish event should be fired');
     assert.strictEqual(callbackCalled, true, 'Finished callback should be called');
