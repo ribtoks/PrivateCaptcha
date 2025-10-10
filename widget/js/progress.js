@@ -1,6 +1,6 @@
 'use strict';
 
-import { SafeHTMLElement } from "./utils";
+import { SafeHTMLElement } from "./utils.js";
 
 export class ProgressRing extends SafeHTMLElement {
     constructor() {

@@ -1,7 +1,7 @@
 'use strict';
 
 import { ProgressRing } from './progress.js';
-import { SafeHTMLElement } from "./utils";
+import { SafeHTMLElement } from "./utils.js";
 import styles from "./styles.css" with { type: 'css' };
 import * as i18n from './strings.js';
 import * as errors from './errors.js';

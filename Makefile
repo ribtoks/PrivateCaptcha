@@ -12,6 +12,9 @@ test-unit:
 test-unit-cover:
 	@env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short -coverprofile=coverage_unit.cov -coverpkg=$(shell go list ./... | paste -sd, -) ./...
 
+test-widget-unit:
+	cd widget && env STAGE="$(STAGE)" npm run test
+
 bench-unit:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -bench=. -benchtime=20s -short ./...
 

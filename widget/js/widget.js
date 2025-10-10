@@ -90,12 +90,17 @@ export class CaptchaWidget {
             defaultField = "g-recaptcha-response";
         }
 
+        let sitekey = "";
+        if (options.hasOwnProperty('sitekey')) {
+            sitekey = options.sitekey;
+        }
+
         this._options = Object.assign({
             startMode: this._element.dataset["startMode"] || "auto",
             debug: this._element.dataset["debug"],
             fieldName: this._element.dataset["solutionField"] || defaultField,
             puzzleEndpoint: this._element.dataset["puzzleEndpoint"] || defaultEndpoint,
-            sitekey: this._element.dataset["sitekey"] || "",
+            sitekey: sitekey || this._element.dataset["sitekey"] || "",
             displayMode: this._element.dataset["displayMode"] || "widget",
             lang: this._element.dataset["lang"] || "en",
             theme: this._element.dataset["theme"] || "light",
@@ -131,7 +136,7 @@ export class CaptchaWidget {
 
         try {
             this.setState(STATE_LOADING);
-            this.trace('fetching puzzle');
+            this.trace(`fetching puzzle. sitekey=${sitekey}`);
             const puzzleData = await getPuzzle(this._options.puzzleEndpoint, sitekey);
             this._puzzle = new Puzzle(puzzleData);
             if (this._puzzle && this._puzzle.isZero()) { this._errorCode = errors.ERROR_ZERO_PUZZLE; }
