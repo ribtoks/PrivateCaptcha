@@ -320,7 +320,9 @@ export class CaptchaWidget {
     }
 
     onChecked(event) {
-        event.stopPropagation();
+        if (event) {
+            event.stopPropagation();
+        }
 
         this.trace(`onChecked event handler. state=${this._state}`);
         this._userStarted = true;
