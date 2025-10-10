@@ -61,7 +61,7 @@ async function fetchWithBackoff(url, options, maxAttempts, initialDelay = 800, m
         }
     }
 
-    throw new Error('Maximum number of attempts exceeded');
+    throw new Error('Captcha puzzle load failed after maximum retry attempts');
 }
 
 function readUInt32LE(binaryData, offset) {
