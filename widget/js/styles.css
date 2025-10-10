@@ -19,7 +19,7 @@
         --accent-color: #009400;
 
         min-width: 0;
-        font-size: 1rem;
+        font-size: 1rem !important;
         display: inline-block; /* Switch to "block" to stretch */
         max-width: 100%; /* Prevent exceeding parent */
         border-radius: var(--border-radius);
