@@ -198,6 +198,11 @@ func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, ses
 		return nil, errNoOrgs
 	}
 
+	if !s.checkUserOrgsLimit(ctx, user, len(orgs)) {
+		slog.WarnContext(ctx, "Organizations limit reached", "count", len(orgs))
+		return nil, errLimitedFeature
+	}
+
 	idx := -1
 	if orgID != -1 {
 		idx = slices.IndexFunc(orgs, func(o *dbgen.GetUserOrganizationsRow) bool { return o.Organization.ID == orgID })
@@ -267,6 +272,8 @@ func (s *Server) getPortal(w http.ResponseWriter, r *http.Request) {
 			common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)
 		} else if err == errInvalidPathArg {
 			s.RedirectError(http.StatusBadRequest, w, r)
+		} else if err == errLimitedFeature {
+			s.RedirectError(http.StatusPaymentRequired, w, r)
 		} else {
 			s.RedirectError(http.StatusInternalServerError, w, r)
 		}

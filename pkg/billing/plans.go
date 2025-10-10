@@ -22,6 +22,7 @@ type basePlan struct {
 	trialDays            int
 	priceMonthly         int
 	priceYearly          int
+	orgsLimit            int
 	version              int
 	requestsLimit        int64
 	throttleLimit        int64
@@ -43,7 +44,7 @@ func (plan *basePlan) Equals(productID string, priceID string) bool {
 }
 
 func (p *basePlan) Name() string                        { return p.name }
-func (p *basePlan) CheckOrgsLimit(count int) bool       { return true }
+func (p *basePlan) CheckOrgsLimit(count int) bool       { return (p.orgsLimit == 0) || (count < p.orgsLimit) }
 func (p *basePlan) CheckOrgMembersLimit(count int) bool { return true }
 func (p *basePlan) CheckPropertiesLimit(count int) bool { return true }
 func (p *basePlan) ProductID() string                   { return p.productID }
@@ -101,6 +102,7 @@ var (
 		trialDays:            14,
 		priceMonthly:         0,
 		priceYearly:          0,
+		orgsLimit:            1,
 		version:              version1,
 		requestsLimit:        1_000,
 		throttleLimit:        2_000,
@@ -115,6 +117,7 @@ var (
 		trialDays:            100 * 365,
 		priceMonthly:         0,
 		priceYearly:          0,
+		orgsLimit:            adminOrgsLimit,
 		version:              version1,
 		requestsLimit:        1_000_000,
 		throttleLimit:        2_000_000,

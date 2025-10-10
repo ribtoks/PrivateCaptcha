@@ -29,6 +29,7 @@ var (
 	ErrInvalidRequestArg   = errors.New("request argument is not valid")
 	errOrgSoftDeleted      = errors.New("organization is deleted")
 	errPropertySoftDeleted = errors.New("property is deleted")
+	errLimitedFeature      = errors.New("feature is limited")
 )
 
 const (
@@ -188,7 +189,7 @@ func (s *Server) UpdateConfig(ctx context.Context, cfg common.ConfigStore) {
 func (s *Server) Setup(router *http.ServeMux, domain string, security alice.Constructor) *RouteGenerator {
 	prefix := domain + s.RelURL("/")
 	rg := &RouteGenerator{Prefix: prefix}
-	slog.Debug("Setting up the portal routes", "prefix", prefix)
+	slog.Debug("Setting up the portal routes", "prefix", prefix, "enterprise", s.isEnterprise())
 	s.setupWithPrefix(router, rg, security)
 	return rg
 }
@@ -339,6 +340,8 @@ func (s *Server) Handler(modelFunc ModelFunc) http.Handler {
 				s.RedirectError(http.StatusServiceUnavailable, w, r)
 			case errRegistrationDisabled:
 				s.RedirectError(http.StatusNotFound, w, r)
+			case errLimitedFeature:
+				s.RedirectError(http.StatusPaymentRequired, w, r)
 			case context.DeadlineExceeded:
 				slog.WarnContext(ctx, "Context deadline exceeded during model function", common.ErrAttr(err))
 			default:

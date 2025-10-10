@@ -3,14 +3,25 @@
 package portal
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
+	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/justinas/alice"
 )
 
 func (s *Server) isEnterprise() bool {
+	return true
+}
+
+func (s *Server) checkUserOrgAccess(user *dbgen.User, org *dbgen.Organization) bool {
+	// NOTE: actual org ownership permissions are correctly checked in s.Org()
+	return true
+}
+
+func (s *Server) checkUserOrgsLimit(ctx context.Context, user *dbgen.User, count int) bool {
 	return true
 }
 

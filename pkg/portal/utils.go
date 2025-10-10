@@ -78,6 +78,11 @@ func (s *Server) Org(user *dbgen.User, r *http.Request) (*dbgen.Organization, er
 		return nil, err
 	}
 
+	if !s.checkUserOrgAccess(user, org) {
+		slog.ErrorContext(ctx, "User cannot use this org", "userID", user.ID, "orgID", orgID, "enterprise", s.isEnterprise())
+		return nil, errLimitedFeature
+	}
+
 	return org, nil
 }
 
