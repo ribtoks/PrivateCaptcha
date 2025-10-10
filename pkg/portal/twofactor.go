@@ -116,7 +116,7 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-		if userID, ok := sess.Get(ctx, session.KeyUserID).(int32); ok {
+		if userID, ok := sess.Get(bctx, session.KeyUserID).(int32); ok {
 			slog.DebugContext(bctx, "Fetching system notification for user", "userID", userID)
 			if n, err := s.Store.Impl().RetrieveSystemUserNotification(bctx, time.Now().UTC(), userID); err == nil {
 				_ = sess.Set(session.KeyNotificationID, n.ID)
