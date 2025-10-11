@@ -91,13 +91,14 @@ export class CaptchaElement extends SafeHTMLElement {
         const sheet = new CSSStyleSheet();
         sheet.replace(styles);
         this._root.adoptedStyleSheets.push(sheet);
+        this._overridesSheet = null;
         // add CSS overrides
         const extraStyles = this.getAttribute('extra-styles');
         if (extraStyles) {
-            const overridesSheet = new CSSStyleSheet();
+            this._overridesSheet = new CSSStyleSheet();
             const cssText = `@layer custom { :host { ${extraStyles} } }`;
-            overridesSheet.replace(cssText);
-            this._root.adoptedStyleSheets.push(overridesSheet);
+            this._overridesSheet.replace(cssText);
+            this._root.adoptedStyleSheets.push(this._overridesSheet);
         }
         // init
         const canShow = (this._displayMode == DISPLAY_WIDGET);
@@ -263,7 +264,31 @@ export class CaptchaElement extends SafeHTMLElement {
     }
 
     static get observedAttributes() {
-        return ['state', 'progress'];
+        return ['state', 'progress', 'extra-styles'];
+    }
+
+    updateStyles(newStyles) {
+        if (newStyles) {
+            const cssText = `@layer custom { :host { ${newStyles} } }`;
+
+            if (this._overridesSheet) {
+                this._overridesSheet.replace(cssText);
+            } else {
+                // Create new stylesheet if it doesn't exist
+                this._overridesSheet = new CSSStyleSheet();
+                this._overridesSheet.replace(cssText);
+                this._root.adoptedStyleSheets.push(this._overridesSheet);
+            }
+        } else if (this._overridesSheet) {
+            // Remove styles if newStyles is empty
+            const index = this._root.adoptedStyleSheets.indexOf(this._overridesSheet);
+            if (index > -1) {
+                const sheets = [...this._root.adoptedStyleSheets];
+                sheets.splice(index, 1);
+                this._root.adoptedStyleSheets = sheets;
+            }
+            this._overridesSheet = null;
+        }
     }
 
     /**
@@ -274,6 +299,8 @@ export class CaptchaElement extends SafeHTMLElement {
     attributeChangedCallback(name, oldValue, newValue) {
         if ('progress' === name) {
             this.setProgress(newValue);
+        } else if ('extra-styles' === name) {
+            this.updateStyles(newValue);
         }
     }
 }

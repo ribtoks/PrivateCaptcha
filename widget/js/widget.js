@@ -282,6 +282,17 @@ export class CaptchaWidget {
         this.init(false /*start*/);
     }
 
+    updateStyles() {
+        const newStyles = this._element.dataset["styles"] || "";
+        if (newStyles !== this._options.styles) {
+            this._options.styles = newStyles;
+            const pcElement = this._element.querySelector('private-captcha');
+            if (pcElement) {
+                pcElement.setAttribute('extra-styles', newStyles);
+            }
+        }
+    }
+
     expire() {
         this.trace('expire captcha');
 
