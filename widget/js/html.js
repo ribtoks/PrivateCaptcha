@@ -89,7 +89,7 @@ export class CaptchaElement extends SafeHTMLElement {
 
         // add CSS
         const sheet = new CSSStyleSheet();
-        sheet.replace(styles);
+        sheet.replaceSync(styles);
         this._root.adoptedStyleSheets.push(sheet);
         this._overridesSheet = null;
         // add CSS overrides
@@ -97,7 +97,7 @@ export class CaptchaElement extends SafeHTMLElement {
         if (extraStyles) {
             this._overridesSheet = new CSSStyleSheet();
             const cssText = `@layer custom { :host { ${extraStyles} } }`;
-            this._overridesSheet.replace(cssText);
+            this._overridesSheet.replaceSync(cssText);
             this._root.adoptedStyleSheets.push(this._overridesSheet);
         }
         // init
@@ -268,26 +268,20 @@ export class CaptchaElement extends SafeHTMLElement {
     }
 
     updateStyles(newStyles) {
+        const baseSheets = this._root.adoptedStyleSheets.filter(
+            sheet => sheet !== this._overridesSheet
+        );
+
         if (newStyles) {
             const cssText = `@layer custom { :host { ${newStyles} } }`;
-
-            if (this._overridesSheet) {
-                this._overridesSheet.replace(cssText);
-            } else {
-                // Create new stylesheet if it doesn't exist
+            if (!this._overridesSheet) {
                 this._overridesSheet = new CSSStyleSheet();
-                this._overridesSheet.replace(cssText);
-                this._root.adoptedStyleSheets.push(this._overridesSheet);
             }
-        } else if (this._overridesSheet) {
-            // Remove styles if newStyles is empty
-            const index = this._root.adoptedStyleSheets.indexOf(this._overridesSheet);
-            if (index > -1) {
-                const sheets = [...this._root.adoptedStyleSheets];
-                sheets.splice(index, 1);
-                this._root.adoptedStyleSheets = sheets;
-            }
+            this._overridesSheet.replaceSync(cssText);
+            this._root.adoptedStyleSheets = [...baseSheets, this._overridesSheet];
+        } else {
             this._overridesSheet = null;
+            this._root.adoptedStyleSheets = baseSheets;
         }
     }
 
