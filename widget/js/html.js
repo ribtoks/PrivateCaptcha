@@ -294,7 +294,9 @@ export class CaptchaElement extends SafeHTMLElement {
         if ('progress' === name) {
             this.setProgress(newValue);
         } else if ('extra-styles' === name) {
-            this.updateStyles(newValue);
+            if (oldValue !== newValue) {
+                this.updateStyles(newValue);
+            }
         }
     }
 }
