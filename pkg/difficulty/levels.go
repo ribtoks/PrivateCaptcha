@@ -11,6 +11,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/leakybucket"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 )
 
 var (
@@ -148,6 +149,18 @@ func (l *Levels) backfillProperty(p *dbgen.Property) {
 		PropertyID: p.ID,
 	}
 	l.backfillChan <- br
+}
+
+func (l *Levels) BackfillAccess(result *puzzle.VerifyResult) {
+	ar := &common.AccessRecord{
+		Fingerprint: 0, // we lose information about user but having totals still helps for difficulty calculation
+		UserID:      result.UserID,
+		OrgID:       result.OrgID,
+		PropertyID:  result.PropertyID,
+		Timestamp:   result.CreatedAt,
+	}
+
+	l.accessChan <- ar
 }
 
 func (l *Levels) recordAccess(fingerprint common.TFingerprint, p *dbgen.Property, tnow time.Time) {

@@ -172,7 +172,7 @@ func (v *Verifier) Verify(ctx context.Context, verifyPayload puzzle.SolutionPayl
 	if puzzleObject != nil && !puzzleObject.IsZero() {
 		result.PuzzleID = puzzleObject.PuzzleID()
 		validityPeriod := puzzle.DefaultValidityPeriod
-		if !puzzleObject.IsStub() && property != nil {
+		if property != nil {
 			// NOTE: user could have changed property validity interval of course in between but it should be an edge-case
 			// and it does not affect verification as we rely on expiration rather than creation
 			validityPeriod = property.ValidityInterval
@@ -246,8 +246,11 @@ func (v *Verifier) PuzzleForRequest(r *http.Request, levels *difficulty.Levels) 
 		}
 
 		uuid := db.UUIDFromSiteKey(sitekey)
-		// if it's a legit request, then puzzle will be also legit (verifiable) with this PropertyID
+		// NOTE: we potentially can include user fingerprint stats into the calculation of difficulty
+		// but it's besides the point of "quickly returning smth valid from public endpoint"
+		// (all valid properties should be more or less agressively cached all of the time anyways)
 		stubPuzzle := v.Create(0 /*puzzle ID*/, uuid.Bytes, uint8(common.DifficultyLevelMedium))
+		// if it's a legit request, then puzzle will be also legit (verifiable) with this PropertyID
 		if err := stubPuzzle.Init(puzzle.DefaultValidityPeriod); err != nil {
 			slog.ErrorContext(ctx, "Failed to init stub puzzle", common.ErrAttr(err))
 		}
