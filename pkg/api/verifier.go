@@ -226,6 +226,24 @@ func (v *Verifier) Verify(ctx context.Context, verifyPayload puzzle.SolutionPayl
 	return result, nil
 }
 
+func (v *Verifier) baseDifficultyOverride(r *http.Request) uint8 {
+	ua := r.UserAgent()
+	if len(ua) == 0 {
+		return uint8(common.DifficultyLevelHigh)
+	}
+
+	// curl/python-requests/?
+	if len(ua) < 75 {
+		return uint8(common.DifficultyLevelMedium)
+	}
+
+	if ver, ok := r.Header[common.HeaderPrivateCaptchaVersion]; !ok || len(ver) == 0 || ver[0] != "1" {
+		return uint8(common.DifficultyLevelHigh)
+	}
+
+	return 0
+}
+
 func (v *Verifier) PuzzleForRequest(r *http.Request, levels *difficulty.Levels) (puzzle.Puzzle, *dbgen.Property, error) {
 	ctx := r.Context()
 	property, isProperty := ctx.Value(common.PropertyContextKey).(*dbgen.Property)
@@ -283,7 +301,8 @@ func (v *Verifier) PuzzleForRequest(r *http.Request, levels *difficulty.Levels) 
 	}
 
 	tnow := time.Now()
-	puzzleDifficulty := levels.Difficulty(fingerprint, property, tnow)
+	baseDifficulty := v.baseDifficultyOverride(r)
+	puzzleDifficulty, _ := levels.DifficultyEx(fingerprint, property, baseDifficulty, tnow)
 
 	puzzleID := puzzle.NextPuzzleID()
 	result := v.Create(puzzleID, property.ExternalID.Bytes, puzzleDifficulty)

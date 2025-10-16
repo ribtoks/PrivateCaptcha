@@ -10,7 +10,7 @@ import (
 func TestDifficultyFormula(t *testing.T) {
 	testCases := []struct {
 		level         float64
-		minDifficulty uint8
+		minDifficulty float64
 		growthLevel   dbgen.DifficultyGrowth
 		expected      uint8
 	}{

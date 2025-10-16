@@ -56,9 +56,9 @@ func NewLevels(timeSeries common.TimeSeriesStore, batchSize int, bucketSize time
 	return levels
 }
 
-func requestsToDifficulty(requests float64, minDifficulty uint8, level dbgen.DifficultyGrowth) uint8 {
-	if (requests < 1.0) || (level == dbgen.DifficultyGrowthConstant) {
-		return minDifficulty
+func requestsToDifficulty(requests float64, minDifficulty float64, level dbgen.DifficultyGrowth) uint8 {
+	if (requests < 1.0) || (level == dbgen.DifficultyGrowthConstant) || (minDifficulty >= 255.0) {
+		return uint8(min(minDifficulty, 255.0))
 	}
 
 	// full formula is
@@ -83,9 +83,9 @@ func requestsToDifficulty(requests float64, minDifficulty uint8, level dbgen.Dif
 	}
 	m = math.Max(m, 0.0)
 
-	b := math.Log2((256.0-float64(minDifficulty))/(5.0+log2A)) / 32.0
+	b := math.Log2((256.0-minDifficulty)/(5.0+log2A)) / 32.0
 	fx := m * math.Pow(requests, b)
-	difficulty := float64(minDifficulty) + math.Round(fx)
+	difficulty := minDifficulty + math.Round(fx)
 
 	if difficulty >= 255.0 {
 		return 255
@@ -117,10 +117,10 @@ func (l *Levels) Shutdown() {
 	close(l.backfillChan)
 }
 
-func (l *Levels) DifficultyEx(fingerprint common.TFingerprint, p *dbgen.Property, tnow time.Time) (uint8, leakybucket.TLevel) {
+func (l *Levels) DifficultyEx(fingerprint common.TFingerprint, p *dbgen.Property, baseDifficulty uint8, tnow time.Time) (uint8, leakybucket.TLevel) {
 	l.recordAccess(fingerprint, p, tnow)
 
-	minDifficulty := uint8(p.Level.Int16)
+	minDifficulty := float64(max(p.Level.Int16, int16(baseDifficulty)))
 
 	propertyAddResult := l.propertyBuckets.Add(p.ID, 1, tnow)
 	if !propertyAddResult.Found {
@@ -138,7 +138,7 @@ func (l *Levels) DifficultyEx(fingerprint common.TFingerprint, p *dbgen.Property
 }
 
 func (l *Levels) Difficulty(fingerprint common.TFingerprint, p *dbgen.Property, tnow time.Time) uint8 {
-	diff, _ := l.DifficultyEx(fingerprint, p, tnow)
+	diff, _ := l.DifficultyEx(fingerprint, p, 0, tnow)
 	return diff
 }
 
