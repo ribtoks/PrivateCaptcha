@@ -152,8 +152,8 @@ export class CaptchaWidget {
             this._errorCode = errors.ERROR_FETCH_PUZZLE;
             this.setState(STATE_ERROR);
             this.setProgressState(this._userStarted ? STATE_VERIFIED : STATE_EMPTY);
-            this.saveSolutions();
             if (this._userStarted) {
+                this.saveSolutions();
                 this.signalErrored();
             }
         }
@@ -373,7 +373,10 @@ export class CaptchaWidget {
         };
 
         this.setProgressState(progressState);
-        if (finished) { this.signalFinished(); }
+        if (finished) {
+            this.saveSolutions();
+            this.signalFinished();
+        }
     }
 
     /**
@@ -417,9 +420,8 @@ export class CaptchaWidget {
             this.setProgressState(STATE_VERIFIED);
         }
 
-        this.saveSolutions();
-
         if (this._userStarted) {
+            this.saveSolutions();
             this.signalFinished();
         }
     }
