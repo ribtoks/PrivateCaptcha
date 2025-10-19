@@ -259,9 +259,10 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	router.Handle("GET "+cdnDomain+"/portal/", http.StripPrefix("/portal/", cdnChain.Then(web.Static(GitCommit))))
 	router.Handle("GET "+cdnDomain+"/widget/", http.StripPrefix("/widget/", cdnChain.Then(widget.Static(GitCommit))))
 	// "protection" (NOTE: different than usual order of monitoring)
+	publicChain := alice.New(common.Recovered, metrics.IgnoredHandler, rateLimiter)
+	portalServer.SetupCatchAll(router, portalDomain, publicChain)
 	// rate limit update is tricky business due to a possibility for it to be a VPN IP that affects actual users
-	catchAllChain := alice.New(common.Recovered, metrics.IgnoredHandler, rateLimiter, ipRateLimiter.UpdateLimitsFunc(1, 1*time.Minute))
-	portalServer.SetupCatchAll(router, portalDomain, catchAllChain)
+	catchAllChain := publicChain.Append(ipRateLimiter.UpdateLimitsFunc(1, 1*time.Minute))
 	router.Handle("/", catchAllChain.ThenFunc(common.CatchAll))
 
 	ongoingCtx, stopOngoingGracefully := context.WithCancel(context.Background())
