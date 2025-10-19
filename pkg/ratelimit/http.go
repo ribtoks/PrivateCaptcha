@@ -44,7 +44,6 @@ type HTTPRateLimiter interface {
 	RateLimitExFunc(initCapacity leakybucket.TLevel, initLeakInterval time.Duration) func(next http.Handler) http.Handler
 	UpdateRequestLimits(r *http.Request, capacity leakybucket.TLevel, leakInterval time.Duration)
 	UpdateLimits(capacity leakybucket.TLevel, leakInterval time.Duration)
-	UpdateLimitsFunc(capacity leakybucket.TLevel, leakInterval time.Duration) func(next http.Handler) http.Handler
 }
 
 type httpRateLimiter[TKey comparable] struct {
@@ -124,15 +123,6 @@ func (l *httpRateLimiter[TKey]) UpdateRequestLimits(r *http.Request, capacity le
 	}
 
 	l.buckets.Update(key, capacity, leakInterval)
-}
-
-func (l *httpRateLimiter[TKey]) UpdateLimitsFunc(capacity leakybucket.TLevel, leakInterval time.Duration) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			l.UpdateRequestLimits(r, capacity, leakInterval)
-			next.ServeHTTP(w, r)
-		})
-	}
 }
 
 func (l *httpRateLimiter[TKey]) setRateLimitHeaders(w http.ResponseWriter, addResult leakybucket.AddResult) {

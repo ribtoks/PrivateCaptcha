@@ -54,6 +54,9 @@ const (
 	// public defaults are reasonably low but we assume we should be fully cached on CDN level
 	publicLeakyBucketCap = 8
 	publicLeakInterval   = 2 * time.Second
+	// catch call defaults are even lower
+	catchAllLeakyBucketCap = 2
+	catchAllLeakInterval   = 30 * time.Second
 )
 
 var (
@@ -261,8 +264,9 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	// "protection" (NOTE: different than usual order of monitoring)
 	publicChain := alice.New(common.Recovered, metrics.IgnoredHandler, rateLimiter)
 	portalServer.SetupCatchAll(router, portalDomain, publicChain)
-	// rate limit update is tricky business due to a possibility for it to be a VPN IP that affects actual users
-	catchAllChain := publicChain.Append(ipRateLimiter.UpdateLimitsFunc(1, 1*time.Minute))
+	// catch all routes with stricter limit
+	catchAllRateLimiter := ipRateLimiter.RateLimitExFunc(catchAllLeakyBucketCap, catchAllLeakInterval)
+	catchAllChain := alice.New(common.Recovered, metrics.IgnoredHandler, catchAllRateLimiter)
 	router.Handle("/", catchAllChain.ThenFunc(common.CatchAll))
 
 	ongoingCtx, stopOngoingGracefully := context.WithCancel(context.Background())
