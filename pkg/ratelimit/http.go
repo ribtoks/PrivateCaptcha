@@ -117,24 +117,20 @@ func (l *httpRateLimiter[TKey]) RateLimit(next http.Handler) http.Handler {
 
 func (l *httpRateLimiter[TKey]) UpdateRequestLimits(r *http.Request, capacity leakybucket.TLevel, leakInterval time.Duration) {
 	ctx := r.Context()
-	if key, ok := ctx.Value(common.RateLimitKeyContextKey).(TKey); ok {
-		l.buckets.Update(key, capacity, leakInterval)
-	} else {
+	key, ok := ctx.Value(common.RateLimitKeyContextKey).(TKey)
+	if !ok {
 		slog.WarnContext(ctx, "Rate limit key not found in http request context")
+		key = l.keyFunc(r)
 	}
+
+	l.buckets.Update(key, capacity, leakInterval)
 }
 
 func (l *httpRateLimiter[TKey]) UpdateLimitsFunc(capacity leakybucket.TLevel, leakInterval time.Duration) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			key, ok := ctx.Value(common.RateLimitKeyContextKey).(TKey)
-			if !ok {
-				slog.WarnContext(ctx, "Rate limit key not found in http request context")
-				key = l.keyFunc(r)
-			}
-
-			l.buckets.Update(key, capacity, leakInterval)
+			l.UpdateRequestLimits(r, capacity, leakInterval)
+			next.ServeHTTP(w, r)
 		})
 	}
 }
