@@ -55,7 +55,8 @@ export class CaptchaWidget {
         if (form) {
             // NOTE: this does not work on Safari by (Apple) design if we click a button
             // "once" means listener will be removed after being called, "passive" - cannot use preventDefault()
-            form.addEventListener('focusin', this.onFocusIn.bind(this), { once: true, passive: true });
+            this._onFocusInHandler = this.onFocusIn.bind(this);
+            form.addEventListener('focusin', this._onFocusInHandler, { once: true, passive: true });
             this._element.innerHTML = `<private-captcha display-mode="${this._options.displayMode}" lang="${this._options.lang}" theme="${this._options.theme}" extra-styles="${this._options.styles}"${this._options.debug ? ' debug="true"' : ''}></private-captcha>`;
             this._element.addEventListener('privatecaptcha:checked', this.onChecked.bind(this));
 
@@ -136,6 +137,7 @@ export class CaptchaWidget {
 
         try {
             this.setState(STATE_LOADING);
+            this.setProgressState(STATE_LOADING);
             this.trace(`fetching puzzle. sitekey=${sitekey}`);
             const puzzleData = await getPuzzle(this._options.puzzleEndpoint, sitekey);
             this._puzzle = new Puzzle(puzzleData);
@@ -279,7 +281,13 @@ export class CaptchaWidget {
         this.ensureNoSolutionField();
         this._userStarted = false;
         this.setOptions(options);
-        this.init(false /*start*/);
+
+        // we need to do this dance in case `focusin` has already fired and handler was removed
+        const form = findParentFormElement(this._element);
+        if (form) {
+            form.removeEventListener('focusin', this._onFocusInHandler);
+            form.addEventListener('focusin', this._onFocusInHandler, { once: true, passive: true });
+        }
     }
 
     updateStyles() {
@@ -322,8 +330,6 @@ export class CaptchaWidget {
             return;
         }
         this.init(false /*start*/);
-        // this handles both STATE_LOADING and STATE_EMPTY (reset)
-        this.setProgressState(this._state);
     }
 
     /**
