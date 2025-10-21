@@ -137,7 +137,7 @@ export class CaptchaWidget {
         const sitekey = this.checkConfigured();
         if (!sitekey) { return; }
 
-        if ((this._state != STATE_EMPTY) && (this._state != STATE_ERROR)) {
+        if ((STATE_EMPTY !== this._state) && (STATE_ERROR !== this._state)) {
             console.warn(`[privatecaptcha] captcha has already been initialized. state=${this._state}`)
             return;
         }
@@ -192,7 +192,7 @@ export class CaptchaWidget {
     }
 
     start() {
-        if (this._state !== STATE_READY) {
+        if (STATE_READY !== this._state) {
             console.warn(`[privatecaptcha] solving has already been started. state=${this._state}`);
             return;
         }
@@ -429,7 +429,7 @@ export class CaptchaWidget {
     onWorkCompleted() {
         this.trace('[privatecaptcha] work completed');
 
-        if (this._state !== STATE_IN_PROGRESS) {
+        if (STATE_IN_PROGRESS !== this._state) {
             console.warn(`[privatecaptcha] solving has not been started. state=${this._state}`);
             return;
         }
@@ -449,7 +449,7 @@ export class CaptchaWidget {
      * @param {number} percent
      */
     onWorkProgress(percent) {
-        if (this._state !== STATE_IN_PROGRESS) {
+        if (STATE_IN_PROGRESS !== this._state) {
             console.warn(`[privatecaptcha] skipping progress update. state=${this._state}`);
             return;
         }
@@ -508,7 +508,7 @@ export class CaptchaWidget {
      */
     setProgress(progress) {
         this._lastProgress = progress;
-        if ((STATE_IN_PROGRESS == this._state) || (STATE_VERIFIED == this._state)) {
+        if ((STATE_IN_PROGRESS === this._state) || (STATE_VERIFIED === this._state)) {
             const pcElement = this._element.querySelector('private-captcha');
             if (pcElement) { pcElement.setProgress(progress); }
             else { console.error('[privatecaptcha] component not found when updating progress'); }
