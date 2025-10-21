@@ -54,9 +54,8 @@ export class CaptchaWidget {
         const form = findParentFormElement(this._element);
         if (form) {
             // NOTE: this does not work on Safari by (Apple) design if we click a button
-            // "once" means listener will be removed after being called, "passive" - cannot use preventDefault()
-            this._onFocusInHandler = this.onFocusIn.bind(this);
-            form.addEventListener('focusin', this._onFocusInHandler, { once: true, passive: true });
+            // "passive" - cannot use preventDefault()
+            form.addEventListener('focusin', this.onFocusIn.bind(this), { passive: true });
             this._element.innerHTML = `<private-captcha display-mode="${this._options.displayMode}" lang="${this._options.lang}" theme="${this._options.theme}" extra-styles="${this._options.styles}"${this._options.debug ? ' debug="true"' : ''}></private-captcha>`;
             this._element.addEventListener('privatecaptcha:checked', this.onChecked.bind(this));
 
@@ -294,13 +293,6 @@ export class CaptchaWidget {
         this.ensureNoSolutionField();
         this._userStarted = false;
         this.setOptions(options);
-
-        // we need to do this dance in case `focusin` has already fired and handler was removed
-        const form = findParentFormElement(this._element);
-        if (form) {
-            form.removeEventListener('focusin', this._onFocusInHandler);
-            form.addEventListener('focusin', this._onFocusInHandler, { once: true, passive: true });
-        }
     }
 
     updateStyles() {
@@ -337,11 +329,18 @@ export class CaptchaWidget {
      */
     onFocusIn(event) {
         this.trace('onFocusIn event handler');
+
+        if (STATE_EMPTY !== this._state) {
+            this.trace(`skipping focusin event with non-empty state. state=${this._state}`)
+            return;
+        }
+
         const pcElement = this._element.querySelector('private-captcha');
         if (pcElement && (event.target == pcElement)) {
             this.trace('skipping focusin event on captcha element')
             return;
         }
+
         this.init(false /*start*/);
     }
 
