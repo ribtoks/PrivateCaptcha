@@ -143,6 +143,7 @@ export class CaptchaWidget {
 
         if (this._workersPool) {
             this._workersPool.stop();
+            this._workersPool.reset();
         }
 
         const startWorkers = (this._options.startMode == "auto") || autoStart;
@@ -285,8 +286,13 @@ export class CaptchaWidget {
         this.trace('reset captcha')
 
         if (this._expiryTimeout) { clearTimeout(this._expiryTimeout); }
-        if (this._workersPool) { this._workersPool.stop(); }
+        if (this._workersPool) {
+            this._workersPool.stop();
+            this._workersPool.reset();
+        }
 
+        this._puzzle = null;
+        this._solution = null;
         this._errorCode = errors.ERROR_NO_ERROR;
         this.setState(STATE_EMPTY);
         this.setProgressState(STATE_EMPTY);
@@ -309,6 +315,7 @@ export class CaptchaWidget {
     expire() {
         this.trace('expire captcha');
 
+        // we immediately call init so reset() will be called there for workers pool
         if (this._workersPool) { this._workersPool.stop(); }
 
         this.setState(STATE_EMPTY);

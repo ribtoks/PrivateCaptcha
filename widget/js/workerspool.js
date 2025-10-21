@@ -127,6 +127,15 @@ export class WorkersPool {
         if (this._debug) { console.debug('[privatecaptcha][pool] terminated the workers. count=' + count); }
     }
 
+    reset() {
+        this._solutions = [];
+        this._solutionsCount = 0;
+        this._puzzleID = null;
+        this._timeStarted = null;
+        this._timeFinished = null;
+        this._anyWasm = false;
+    }
+
     onSolutionFound(id, solution, wasm) {
         if (this._debug) { console.debug('[privatecaptcha][pool] solution found. length=' + solution.length); }
         if (id != this._puzzleID) {
