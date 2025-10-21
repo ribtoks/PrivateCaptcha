@@ -103,11 +103,24 @@ export class CaptchaWidget {
             puzzleEndpoint: this._element.dataset["puzzleEndpoint"] || defaultEndpoint,
             sitekey: sitekey || this._element.dataset["sitekey"] || "",
             displayMode: this._element.dataset["displayMode"] || "widget",
-            lang: this._element.dataset["lang"] || "en",
+            lang: this._element.dataset["lang"] || "auto",
             theme: this._element.dataset["theme"] || "light",
             styles: this._element.dataset["styles"] || "",
             storeVariable: this._element.dataset["storeVariable"] || null,
         }, options);
+
+        if ('auto' === this._options.lang) {
+            let lang = '';
+            if (typeof document !== 'undefined' && document.documentElement) {
+                lang = document.documentElement.lang;
+            }
+            if (!lang && typeof navigator !== 'undefined') {
+                lang = navigator.language || navigator.userLanguage || '';
+            }
+            if (typeof lang === 'string' && lang.length >= 2) {
+                this._options.lang = lang.split('-')[0].toLowerCase();
+            }
+        }
     }
 
     /**
