@@ -45,6 +45,6 @@
         "name": "Ruby",
         "icon": "img/integrations/ruby.svg",
         "link": "https://docs.privatecaptcha.com/docs/integrations/ruby/",
-        "ready": false
+        "ready": true
     }
 ]
