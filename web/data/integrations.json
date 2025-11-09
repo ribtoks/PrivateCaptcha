@@ -46,5 +46,11 @@
         "icon": "img/integrations/ruby.svg",
         "link": "https://docs.privatecaptcha.com/docs/integrations/ruby/",
         "ready": true
+    },
+    {
+        "name": "Java",
+        "icon": "img/integrations/java.svg",
+        "link": "",
+        "ready": false
     }
 ]
