@@ -79,7 +79,7 @@
         <div class="mx-auto max-w-2xl lg:mx-0 lg:max-w-none">
             <div class="-mt-2 -ml-2 flex flex-wrap items-baseline">
                 <h3 class="mt-2 ml-2 text-base font-semibold text-gray-900">Other integrations</h3>
-                <p class="mt-1 ml-2 truncate text-sm text-gray-500">use sitekey <code class="rounded-md bg-gray-200 text-gray-800 px-1.5 py-1">{{ .Params.Sitekey }}</code></p>
+                <p class="mt-1 ml-2 truncate text-sm text-gray-500">use sitekey <code class="rounded-md bg-gray-200 text-gray-800 px-1.5 py-1">{{ .Params.Sitekey }}</code> and <a class="underline hover:text-pclime-600" href="{{ relURL .Const.SettingsEndpoint }}?{{ $.Const.Tab }}={{ $.Const.APIKeysEndpoint }}">create an API key</a></p>
             </div>
             <ul class="mt-6 grid grid-cols-1 gap-x-6 gap-y-8 lg:grid-cols-3 xl:gap-x-8">
                 {{ range $item := $.Data.integrations }}
