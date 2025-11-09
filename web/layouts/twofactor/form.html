@@ -11,7 +11,7 @@
 
     <div class="relative flex items-center mt-4" x-data="resendTimer()">
         <div class="text-base" hx-target="this" hx-swap="innerHTML">
-            <p class="pc-form-text">{{ if .Params.Error }}<span class="pc-form-text-error">{{.Params.Error}}</span>{{ else }}Did not receive the code?{{ end }} <a hx-post='{{ relURL .Const.ResendEndpoint }}' href="#" title="" class="pc-form-link" x-bind:class="{ 'opacity-50 pointer-events-none': !canResend }" x-text="canResend ? 'Resend' : `Resend (${countdown}s)`">Resend</a></p>
+            <p class="pc-form-text">{{ if .Params.Error }}<span class="pc-form-text-error">{{.Params.Error}}</span>{{ else }}Did not receive the code?{{ end }} <a hx-post='{{ relURL .Const.ResendEndpoint }}' href="#" title="" class="pc-form-link" :class="{ 'opacity-50 pointer-events-none': !canResend }" x-text="canResend ? 'Resend' : `Resend (${countdown}s)`">Resend</a></p>
         </div>
     </div>
 </div>

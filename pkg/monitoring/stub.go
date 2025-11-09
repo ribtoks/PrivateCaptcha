@@ -29,3 +29,5 @@ func (sm *stubMetrics) ObservePuzzleVerified(userID int32, result string, isStub
 
 func (sm *stubMetrics) ObserveHealth(postgres, clickhouse bool) {}
 func (sm *stubMetrics) ObserveCacheHitRatio(ratio float64)      {}
+
+func (sm *stubMetrics) ObserveHttpError(handlerID string, method string, code int) {}

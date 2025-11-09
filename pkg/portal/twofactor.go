@@ -12,8 +12,7 @@ import (
 )
 
 const (
-	twofactorFormTemplate = ""
-	twofactorTemplate     = "twofactor/twofactor.html"
+	twofactorTemplate = "twofactor/twofactor.html"
 )
 
 var (

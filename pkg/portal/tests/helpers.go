@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -44,9 +45,38 @@ func (f *StubPuzzleEngine) Verify(ctx context.Context, payload puzzle.SolutionPa
 	return f.Result, nil
 }
 
+func wrapScriptContentsWithCDATA(input []byte) []byte {
+	re := regexp.MustCompile(`(?s)(<script[^>]*>)(.*?)(</script>)`)
+
+	return re.ReplaceAllFunc(input, func(match []byte) []byte {
+		parts := re.FindSubmatch(match)
+		if len(parts) != 4 {
+			return match // safety fallback
+		}
+		openTag := parts[1]
+		content := parts[2]
+		closeTag := parts[3]
+
+		// Skip if already wrapped in CDATA
+		if bytes.Contains(content, []byte("<![CDATA[")) {
+			return match
+		}
+
+		var buf bytes.Buffer
+		buf.Write(openTag)
+		buf.WriteString("<![CDATA[")
+		buf.Write(content)
+		buf.WriteString("]]>")
+		buf.Write(closeTag)
+		return buf.Bytes()
+	})
+}
+
 // courtesy of https://martinfowler.com/articles/tdd-html-templates.html
 func AssertWellFormedHTML(t *testing.T, buf bytes.Buffer) {
 	data := buf.Bytes()
+	// '<=' (e.g. in for loops) in <script> breaks XML parser
+	data = wrapScriptContentsWithCDATA(data)
 	// special handling for Alpine.js, otherwise we get XML parsing error "attribute expected"
 	data = bytes.ReplaceAll(data, []byte(" @click="), []byte(" click="))
 	data = bytes.ReplaceAll(data, []byte(" hx-on::"), []byte(" hx-on-"))
