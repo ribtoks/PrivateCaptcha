@@ -27,6 +27,11 @@ const (
 	userIDLabel              = "user_id"
 	stubLabel                = "stub"
 	resultLabel              = "result"
+	// below is copy from go-http-metrics prometheus.go since they are not exposed publicly
+	statusCodeLabel = "code"
+	methodLabel     = "label"
+	handlerIDLabel  = "handler"
+	serviceLabel    = "service"
 )
 
 type Service struct {
@@ -35,6 +40,7 @@ type Service struct {
 	finePortalMiddleware   middleware.Middleware
 	coarseServerMiddleware middleware.Middleware
 	coarseCDNMiddleware    middleware.Middleware
+	errorCounter           *prometheus.CounterVec
 	puzzleCounter          *prometheus.CounterVec
 	verifyCounter          *prometheus.CounterVec
 	hitRatioGauge          *prometheus.GaugeVec
@@ -104,9 +110,20 @@ func NewService() *Service {
 	)
 	reg.MustRegister(verifyCounter)
 
+	errorCounter := prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "fine", // this is the same as fine http metrics below to match go-http-metrics logic
+			Subsystem: "http",
+			Name:      "error_total",
+			Help:      "Total number of Portal HTTP errors",
+		},
+		[]string{handlerIDLabel, statusCodeLabel, methodLabel, serviceLabel},
+	)
+	reg.MustRegister(errorCounter)
+
 	clickhouseHealthGauge := prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Namespace: MetricsNamespaceServer,
+			Namespace: MetricsNamespacePortal,
 			Subsystem: platformMetricsSubsystem,
 			Name:      "health_clickhouse",
 			Help:      "Health status of ClickHouse",
@@ -184,6 +201,7 @@ func NewService() *Service {
 		hitRatioGauge:         hitRatioGauge,
 		clickhouseHealthGauge: clickhouseHealthGauge,
 		postgresHealthGauge:   postgresHealthGauge,
+		errorCounter:          errorCounter,
 	}
 }
 
@@ -207,6 +225,15 @@ func (s *Service) HandlerIDFunc(handlerIDFunc func() string) func(http.Handler) 
 		handlerID := handlerIDFunc()
 		return std.Handler(handlerID, s.finePortalMiddleware, h)
 	}
+}
+
+func (s *Service) ObserveHttpError(handlerID string, method string, code int) {
+	s.errorCounter.With(prometheus.Labels{
+		handlerIDLabel:  handlerID,
+		statusCodeLabel: strconv.Itoa(code),
+		methodLabel:     method,
+		serviceLabel:    MetricsNamespacePortal,
+	}).Inc()
 }
 
 func (s *Service) ObservePuzzleCreated(userID int32) {

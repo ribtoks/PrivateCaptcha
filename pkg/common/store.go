@@ -59,4 +59,7 @@ type APIMetrics interface {
 
 type PortalMetrics interface {
 	HandlerIDFunc(handlerIDFunc func() string) func(http.Handler) http.Handler
+	// this method is used for our error page redirects that are not captured by usual monitoring middleware
+	// as we don't actually return an HTTP error out
+	ObserveHttpError(handlerID string, method string, code int)
 }

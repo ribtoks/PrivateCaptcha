@@ -94,6 +94,7 @@ func (s *Server) error(w http.ResponseWriter, r *http.Request) {
 func (s *Server) RedirectError(code int, w http.ResponseWriter, r *http.Request) {
 	url := s.RelURL(common.ErrorEndpoint + "/" + strconv.Itoa(code))
 	common.Redirect(url, code, w, r)
+	s.Metrics.ObserveHttpError(r.URL.Path, r.Method, code)
 }
 
 func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
