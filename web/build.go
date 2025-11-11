@@ -37,6 +37,7 @@ func Static(gitHash string) http.HandlerFunc {
 
 		common.WriteHeaders(w, common.CachedHeaders)
 		common.WriteHeaders(w, common.SecurityHeaders)
+		common.WriteHeaders(w, common.CorsAllowAllHeaders)
 		common.WriteHeaders(w, etagHeaders)
 		srv.ServeHTTP(w, r)
 	}

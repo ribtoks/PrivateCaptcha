@@ -35,6 +35,9 @@ var (
 		http.CanonicalHeaderKey("X-Frame-Options"):        []string{"DENY"},
 		http.CanonicalHeaderKey("X-Content-Type-Options"): []string{"nosniff"},
 	}
+	CorsAllowAllHeaders = map[string][]string{
+		HeaderAccessControlOrigin: []string{"*"},
+	}
 	HtmlContentHeaders = map[string][]string{
 		http.CanonicalHeaderKey(HeaderContentType): []string{ContentTypeHTML},
 	}
