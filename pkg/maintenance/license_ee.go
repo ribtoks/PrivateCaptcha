@@ -35,6 +35,7 @@ const (
 )
 
 var (
+	defaulLicenseURL = fmt.Sprintf("https://api.privatecaptcha.com/%s/%s", common.SelfHostedEndpoint, common.ActivationEndpoint)
 	// NOTE: for testing, replace with host.docker.internal domain
 	LicenseURL               string
 	errLicenseRequest        = errors.New("license request error")
@@ -45,8 +46,8 @@ var (
 )
 
 func init() {
-	if LicenseURL == "" {
-		LicenseURL = fmt.Sprintf("https://api.privatecaptcha.com/%s/%s", common.SelfHostedEndpoint, common.ActivationEndpoint)
+	if len(LicenseURL) == 0 {
+		LicenseURL = defaulLicenseURL
 	}
 }
 
