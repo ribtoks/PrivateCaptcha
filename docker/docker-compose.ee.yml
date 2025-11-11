@@ -2,9 +2,11 @@ services:
   server:
     build:
       args:
+        GO_LDFLAGS: '-s -w -X github.com/PrivateCaptcha/PrivateCaptcha/pkg/maintenance.LicenseURL=http://host.docker.internal:8181/selfhosted/activation'
         EXTRA_BUILD_FLAGS: '-tags enterprise'
 
   migration:
     build:
       args:
+        GO_LDFLAGS: '-s -w -X github.com/PrivateCaptcha/PrivateCaptcha/pkg/maintenance.LicenseURL=http://host.docker.internal:8181/selfhosted/activation'
         EXTRA_BUILD_FLAGS: '-tags enterprise'

@@ -36,13 +36,19 @@ const (
 
 var (
 	// NOTE: for testing, replace with host.docker.internal domain
-	licenseURL               = fmt.Sprintf("https://api.privatecaptcha.com/%s/%s", common.SelfHostedEndpoint, common.ActivationEndpoint)
+	LicenseURL               string
 	errLicenseRequest        = errors.New("license request error")
 	errLicenseServer         = errors.New("license server error")
 	errEnterpriseConfigError = errors.New("enterprise config error")
 	errNoEnterpriseKeys      = errors.New("enterprise keys not found")
 	errNoMacAddress          = errors.New("mac address not found")
 )
+
+func init() {
+	if LicenseURL == "" {
+		LicenseURL = fmt.Sprintf("https://api.privatecaptcha.com/%s/%s", common.SelfHostedEndpoint, common.ActivationEndpoint)
+	}
+}
 
 func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, version string, quitFunc func(ctx context.Context)) (common.PeriodicJob, error) {
 	keys, err := license.ActivationKeys()
@@ -54,14 +60,14 @@ func NewCheckLicenseJob(store db.Implementor, config common.ConfigStore, version
 		return nil, errNoEnterpriseKeys
 	}
 
-	if len(licenseURL) == 0 {
+	if len(LicenseURL) == 0 {
 		return nil, errEnterpriseConfigError
 	}
 
 	return &checkLicenseJob{
 		store:      store,
 		keys:       keys,
-		url:        licenseURL,
+		url:        LicenseURL,
 		licenseKey: config.Get(common.EnterpriseLicenseKeyKey),
 		adminEmail: config.Get(common.AdminEmailKey),
 		quitFunc:   quitFunc,
