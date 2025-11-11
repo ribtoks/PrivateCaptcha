@@ -97,8 +97,10 @@ type propertyDashboardRenderContext struct {
 type propertySettingsRenderContext struct {
 	propertyDashboardRenderContext
 	difficultyLevelsRenderContext
+	Orgs     []*userOrg
 	MinLevel int
 	MaxLevel int
+	CanMove  bool
 }
 
 func (pc *propertySettingsRenderContext) UpdateLevels() {
@@ -653,7 +655,13 @@ func (s *Server) getOrgProperty(w http.ResponseWriter, r *http.Request) (*proper
 }
 
 func (s *Server) getOrgPropertySettings(w http.ResponseWriter, r *http.Request) (*propertySettingsRenderContext, error) {
-	propertyRenderCtx, _, err := s.getOrgProperty(w, r)
+	ctx := r.Context()
+	user, err := s.SessionUser(ctx, s.Session(w, r))
+	if err != nil {
+		return nil, err
+	}
+
+	propertyRenderCtx, property, err := s.getOrgProperty(w, r)
 	if err != nil {
 		return nil, err
 	}
@@ -661,6 +669,23 @@ func (s *Server) getOrgPropertySettings(w http.ResponseWriter, r *http.Request) 
 	renderCtx := &propertySettingsRenderContext{
 		propertyDashboardRenderContext: *propertyRenderCtx,
 		difficultyLevelsRenderContext:  createDifficultyLevelsRenderContext(),
+		Orgs:                           []*userOrg{},
+		CanMove:                        false,
+	}
+
+	// only property owner can move it around
+	if user.ID == property.CreatorID.Int32 {
+		if orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user); err == nil {
+			renderCtx.Orgs = orgsToUserOrgs(orgs)
+
+			for _, org := range orgs {
+				if (org.Organization.ID != property.OrgID.Int32) && (org.Level == dbgen.AccessLevelOwner) {
+					slog.DebugContext(ctx, "Found at least one other user-owned org", "orgID", org.Organization.ID, "orgName", org.Organization.Name)
+					renderCtx.CanMove = true
+					break
+				}
+			}
+		}
 	}
 
 	renderCtx.Tab = propertySettingsTabIndex

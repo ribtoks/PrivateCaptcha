@@ -65,6 +65,7 @@ type Querier interface {
 	GetUsersWithoutSubscription(ctx context.Context, dollar_1 []int32) ([]*User, error)
 	InsertLock(ctx context.Context, arg *InsertLockParams) (*Lock, error)
 	InviteUserToOrg(ctx context.Context, arg *InviteUserToOrgParams) (*OrganizationUser, error)
+	MoveProperty(ctx context.Context, arg *MovePropertyParams) (*Property, error)
 	Ping(ctx context.Context) (int32, error)
 	RemoveUserFromOrg(ctx context.Context, arg *RemoveUserFromOrgParams) error
 	RotateAPIKey(ctx context.Context, arg *RotateAPIKeyParams) (*APIKey, error)

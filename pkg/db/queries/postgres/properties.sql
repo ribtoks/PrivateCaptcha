@@ -17,6 +17,11 @@ UPDATE backend.properties SET name = $2, level = $3, growth = $4, validity_inter
 WHERE id = $1
 RETURNING *;
 
+-- name: MoveProperty :one
+UPDATE backend.properties SET org_id = $2, org_owner_id = $3, updated_at = NOW()
+WHERE id = $1
+RETURNING *;
+
 -- name: GetOrgPropertyByName :one
 SELECT * from backend.properties WHERE org_id = $1 AND name = $2 AND deleted_at IS NULL;
 

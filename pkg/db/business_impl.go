@@ -2049,3 +2049,30 @@ func (s *BusinessStoreImpl) ExpireInternalTrials(ctx context.Context, from, to t
 
 	return nil
 }
+
+func (s *BusinessStoreImpl) MoveProperty(ctx context.Context, property *dbgen.Property, org *dbgen.GetUserOrganizationsRow) (*dbgen.Property, error) {
+	if s.querier == nil {
+		return nil, ErrMaintenance
+	}
+
+	if property.OrgID.Int32 == org.Organization.ID {
+		slog.WarnContext(ctx, "Property is already in the destination org", "propID", property.ID, "orgID", property.OrgID.Int32)
+		return nil, ErrInvalidInput
+	}
+
+	updatedProperty, err := s.querier.MoveProperty(ctx, &dbgen.MovePropertyParams{
+		ID:         property.ID,
+		OrgID:      Int(org.Organization.ID),
+		OrgOwnerID: org.Organization.UserID,
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to move property to another org", "propID", property.ID, "oldOrgID", property.OrgID.Int32, "newOrgID", org.Organization.ID, common.ErrAttr(err))
+		return nil, err
+	}
+
+	slog.InfoContext(ctx, "Moved property to another org", "propID", property.ID, "oldOrgID", property.OrgID.Int32, "newOrgID", org.Organization.ID)
+
+	s.cacheProperty(ctx, updatedProperty)
+
+	return updatedProperty, nil
+}

@@ -31,6 +31,7 @@ const (
 	UsageEndpoint        = "usage"
 	ReadyEndpoint        = "ready"
 	LiveEndpoint         = "live"
+	MoveEndpoint         = "move"
 	NotificationEndpoint = "notification"
 	SelfHostedEndpoint   = "selfhosted"
 	ActivationEndpoint   = "activation"

@@ -57,6 +57,8 @@ type RenderConstants struct {
 	IgnoreError          string
 	Terms                string
 	MaxReplayCount       string
+	MoveEndpoint         string
+	Org                  string
 }
 
 func NewRenderConstants() *RenderConstants {
@@ -105,6 +107,8 @@ func NewRenderConstants() *RenderConstants {
 		IgnoreError:          common.ParamIgnoreError,
 		Terms:                common.ParamTerms,
 		MaxReplayCount:       common.ParamMaxReplayCount,
+		MoveEndpoint:         common.MoveEndpoint,
+		Org:                  common.ParamOrg,
 	}
 }
 

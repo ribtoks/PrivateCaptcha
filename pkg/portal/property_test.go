@@ -146,3 +146,63 @@ func TestPostNewOrgProperty(t *testing.T) {
 		}
 	}
 }
+
+func TestMoveProperty(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := context.TODO()
+	user, org1, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	if err != nil {
+		t.Fatalf("Failed to create account: %v", err)
+	}
+
+	// Create a new property
+	property, err := server.Store.Impl().CreateNewProperty(ctx, &dbgen.CreatePropertyParams{
+		Name:       "propertyName",
+		OrgID:      db.Int(org1.ID),
+		CreatorID:  org1.UserID,
+		OrgOwnerID: org1.UserID,
+		Domain:     "example.com",
+		Level:      db.Int2(int16(common.DifficultyLevelMedium)),
+		Growth:     dbgen.DifficultyGrowthMedium,
+	})
+	if err != nil {
+		t.Fatalf("Failed to create new property: %v", err)
+	}
+
+	org2, err := store.Impl().CreateNewOrganization(ctx, t.Name()+"-another-org", user.ID)
+	if err != nil {
+		t.Fatalf("Failed to create extra org: %v", err)
+	}
+
+	srv := http.NewServeMux()
+	_ = server.Setup(srv, portalDomain(), common.NoopMiddleware)
+
+	cookie, err := portal_tests.AuthenticateSuite(ctx, user.Email, srv, server.XSRF, server.Sessions.CookieName, server.Mailer.(*email.StubMailer))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	form := url.Values{}
+	form.Set(common.ParamCSRFToken, server.XSRF.Token(strconv.Itoa(int(user.ID))))
+	form.Set(common.ParamOrg, strconv.Itoa(int(org2.ID)))
+
+	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%d/property/%d/move", org1.ID, property.ID), strings.NewReader(form.Encode()))
+	req.AddCookie(cookie)
+	req.Header.Set(common.HeaderContentType, common.ContentTypeURLEncoded)
+
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("Unexpected status code %v", resp.StatusCode)
+	}
+
+	properties, err := store.Impl().RetrieveOrgProperties(ctx, org2)
+	if len(properties) != 1 || properties[0].ID != property.ID {
+		t.Errorf("Property was not moved")
+	}
+}

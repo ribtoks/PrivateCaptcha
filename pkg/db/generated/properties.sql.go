@@ -400,6 +400,43 @@ func (q *Queries) GetUserPropertiesCount(ctx context.Context, orgOwnerID pgtype.
 	return count, err
 }
 
+const moveProperty = `-- name: MoveProperty :one
+UPDATE backend.properties SET org_id = $2, org_owner_id = $3, updated_at = NOW()
+WHERE id = $1
+RETURNING id, name, external_id, org_id, creator_id, org_owner_id, domain, level, salt, growth, created_at, updated_at, deleted_at, validity_interval, allow_subdomains, allow_localhost, max_replay_count
+`
+
+type MovePropertyParams struct {
+	ID         int32       `db:"id" json:"id"`
+	OrgID      pgtype.Int4 `db:"org_id" json:"org_id"`
+	OrgOwnerID pgtype.Int4 `db:"org_owner_id" json:"org_owner_id"`
+}
+
+func (q *Queries) MoveProperty(ctx context.Context, arg *MovePropertyParams) (*Property, error) {
+	row := q.db.QueryRow(ctx, moveProperty, arg.ID, arg.OrgID, arg.OrgOwnerID)
+	var i Property
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.ExternalID,
+		&i.OrgID,
+		&i.CreatorID,
+		&i.OrgOwnerID,
+		&i.Domain,
+		&i.Level,
+		&i.Salt,
+		&i.Growth,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeletedAt,
+		&i.ValidityInterval,
+		&i.AllowSubdomains,
+		&i.AllowLocalhost,
+		&i.MaxReplayCount,
+	)
+	return &i, err
+}
+
 const softDeleteProperty = `-- name: SoftDeleteProperty :one
 UPDATE backend.properties SET deleted_at = NOW(), updated_at = NOW(), name = name || ' deleted_' || substr(md5(random()::text), 1, 8) WHERE id = $1 RETURNING id, name, external_id, org_id, creator_id, org_owner_id, domain, level, salt, growth, created_at, updated_at, deleted_at, validity_interval, allow_subdomains, allow_localhost, max_replay_count
 `
