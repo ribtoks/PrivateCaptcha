@@ -237,6 +237,7 @@ type Subscription struct {
 	CancelFrom             pgtype.Timestamptz `db:"cancel_from" json:"cancel_from"`
 	CreatedAt              pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ExternalEmail          pgtype.Text        `db:"external_email" json:"external_email"`
 }
 
 type SystemNotification struct {

@@ -12,7 +12,7 @@ import (
 )
 
 const createSubscription = `-- name: CreateSubscription :one
-INSERT INTO backend.subscriptions (external_product_id, external_price_id, external_subscription_id, external_customer_id, status, source, trial_ends_at, next_billed_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, external_product_id, external_price_id, external_subscription_id, external_customer_id, status, source, trial_ends_at, next_billed_at, cancel_from, created_at, updated_at
+INSERT INTO backend.subscriptions (external_product_id, external_price_id, external_subscription_id, external_customer_id, external_email, status, source, trial_ends_at, next_billed_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, external_product_id, external_price_id, external_subscription_id, external_customer_id, status, source, trial_ends_at, next_billed_at, cancel_from, created_at, updated_at, external_email
 `
 
 type CreateSubscriptionParams struct {
@@ -20,6 +20,7 @@ type CreateSubscriptionParams struct {
 	ExternalPriceID        string             `db:"external_price_id" json:"external_price_id"`
 	ExternalSubscriptionID pgtype.Text        `db:"external_subscription_id" json:"external_subscription_id"`
 	ExternalCustomerID     pgtype.Text        `db:"external_customer_id" json:"external_customer_id"`
+	ExternalEmail          pgtype.Text        `db:"external_email" json:"external_email"`
 	Status                 string             `db:"status" json:"status"`
 	Source                 SubscriptionSource `db:"source" json:"source"`
 	TrialEndsAt            pgtype.Timestamptz `db:"trial_ends_at" json:"trial_ends_at"`
@@ -32,6 +33,7 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg *CreateSubscriptio
 		arg.ExternalPriceID,
 		arg.ExternalSubscriptionID,
 		arg.ExternalCustomerID,
+		arg.ExternalEmail,
 		arg.Status,
 		arg.Source,
 		arg.TrialEndsAt,
@@ -51,12 +53,13 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg *CreateSubscriptio
 		&i.CancelFrom,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ExternalEmail,
 	)
 	return &i, err
 }
 
 const getSubscriptionByID = `-- name: GetSubscriptionByID :one
-SELECT id, external_product_id, external_price_id, external_subscription_id, external_customer_id, status, source, trial_ends_at, next_billed_at, cancel_from, created_at, updated_at FROM backend.subscriptions WHERE id = $1
+SELECT id, external_product_id, external_price_id, external_subscription_id, external_customer_id, status, source, trial_ends_at, next_billed_at, cancel_from, created_at, updated_at, external_email FROM backend.subscriptions WHERE id = $1
 `
 
 func (q *Queries) GetSubscriptionByID(ctx context.Context, id int32) (*Subscription, error) {
@@ -75,12 +78,13 @@ func (q *Queries) GetSubscriptionByID(ctx context.Context, id int32) (*Subscript
 		&i.CancelFrom,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ExternalEmail,
 	)
 	return &i, err
 }
 
 const getSubscriptionsByUserIDs = `-- name: GetSubscriptionsByUserIDs :many
-SELECT s.id, s.external_product_id, s.external_price_id, s.external_subscription_id, s.external_customer_id, s.status, s.source, s.trial_ends_at, s.next_billed_at, s.cancel_from, s.created_at, s.updated_at, u.id AS user_id
+SELECT s.id, s.external_product_id, s.external_price_id, s.external_subscription_id, s.external_customer_id, s.status, s.source, s.trial_ends_at, s.next_billed_at, s.cancel_from, s.created_at, s.updated_at, s.external_email, u.id AS user_id
 FROM backend.subscriptions s
 JOIN backend.users u on u.subscription_id = s.id
 WHERE u.id = ANY($1::INT[]) AND u.subscription_id IS NOT NULL
@@ -113,6 +117,7 @@ func (q *Queries) GetSubscriptionsByUserIDs(ctx context.Context, dollar_1 []int3
 			&i.Subscription.CancelFrom,
 			&i.Subscription.CreatedAt,
 			&i.Subscription.UpdatedAt,
+			&i.Subscription.ExternalEmail,
 			&i.UserID,
 		); err != nil {
 			return nil, err
