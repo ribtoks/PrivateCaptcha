@@ -9,6 +9,7 @@ echo "Started in $PWD"
 
 TESTS_DIR="tests"
 COVERAGE_DIR="coverage_reports"
+TEST_NAME="${TEST_NAME:-}"
 
 if [ ! -d "$TESTS_DIR" ]; then
     echo "Tests directory does not exist"
@@ -24,7 +25,11 @@ mkdir -p "$COVERAGE_DIR"
 
 for f in `ls $TESTS_DIR/`; do
     echo "Running $f..."
-    ./$TESTS_DIR/$f -test.v -test.parallel 1 -test.coverprofile="$COVERAGE_DIR/$f.cov" # -test.run "^TestUniqueJob"
+    if [ -n "$TEST_NAME" ]; then
+        ./$TESTS_DIR/$f -test.v -test.parallel 1 -test.coverprofile="$COVERAGE_DIR/$f.cov" -test.run "^${TEST_NAME}$"
+    else
+        ./$TESTS_DIR/$f -test.v -test.parallel 1 -test.coverprofile="$COVERAGE_DIR/$f.cov"
+    fi
 done
 
 echo "Success"

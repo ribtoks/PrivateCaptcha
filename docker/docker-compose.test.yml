@@ -9,6 +9,7 @@ services:
     ports:
       - 8080:8080
     environment:
+      TEST_NAME: '${TEST_NAME}'
       STAGE: test
       PC_PORT: 8080
       PC_POSTGRES: postgres://captchasrv:QMS0fJmTHS8Gzq@postgres:5432/privatecaptcha?sslmode=disable&search_path=backend

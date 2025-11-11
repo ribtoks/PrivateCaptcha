@@ -5,6 +5,7 @@ GIT_COMMIT ?= $(shell git rev-list -1 HEAD)
 DOCKER_IMAGE ?= private-captcha
 SQLC_MIGRATION_FIX = pkg/db/migrations/postgres/000000_sqlc_fix.sql
 EXTRA_BUILD_FLAGS ?=
+TEST_NAME ?=
 
 test-unit:
 	@env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -short ./...
@@ -21,7 +22,7 @@ bench-unit:
 test-docker:
 	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.test.yml down -v --remove-orphans
 	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.test.yml run --build --remove-orphans --rm migration
-	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans --force-recreate testserver
+	@env GIT_COMMIT="$(GIT_COMMIT)" TEST_NAME="$(TEST_NAME)" docker compose -f docker/docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans --force-recreate testserver
 	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.test.yml down -v --remove-orphans
 
 vendors:
