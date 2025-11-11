@@ -171,7 +171,7 @@ func (impl *BusinessStoreImpl) DeleteExpiredCache(ctx context.Context) error {
 	return impl.querier.DeleteExpiredCache(ctx)
 }
 
-func (impl *BusinessStoreImpl) createNewSubscription(ctx context.Context, params *dbgen.CreateSubscriptionParams) (*dbgen.Subscription, error) {
+func (impl *BusinessStoreImpl) CreateNewSubscription(ctx context.Context, params *dbgen.CreateSubscriptionParams) (*dbgen.Subscription, error) {
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
@@ -1077,7 +1077,7 @@ func (impl *BusinessStoreImpl) RemoveUserFromOrg(ctx context.Context, org *dbgen
 	return nil
 }
 
-func (impl *BusinessStoreImpl) updateUserSubscription(ctx context.Context, userID, subscriptionID int32) (*dbgen.User, error) {
+func (impl *BusinessStoreImpl) UpdateUserSubscription(ctx context.Context, userID, subscriptionID int32) (*dbgen.User, error) {
 	if impl.querier == nil {
 		return nil, ErrMaintenance
 	}
@@ -1722,7 +1722,7 @@ func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.
 	var subscriptionID *int32
 
 	if params != nil {
-		subscription, err := s.createNewSubscription(ctx, params)
+		subscription, err := s.CreateNewSubscription(ctx, params)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1743,7 +1743,7 @@ func (s *BusinessStoreImpl) CreateNewAccount(ctx context.Context, params *dbgen.
 					}
 				}
 
-				updatedUser, err := s.updateUserSubscription(ctx, existingUser.ID, subscription.ID)
+				updatedUser, err := s.UpdateUserSubscription(ctx, existingUser.ID, subscription.ID)
 				if err != nil {
 					return nil, nil, err
 				}
