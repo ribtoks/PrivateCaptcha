@@ -125,10 +125,10 @@ func createDifficultyLevelsRenderContext() difficultyLevelsRenderContext {
 	}
 }
 
-func propertyToUserProperty(p *dbgen.Property) *userProperty {
+func propertyToUserProperty(p *dbgen.Property, hasher common.IdentifierHasher) *userProperty {
 	up := &userProperty{
-		ID:               strconv.Itoa(int(p.ID)),
-		OrgID:            strconv.Itoa(int(p.OrgID.Int32)),
+		ID:               hasher.Encrypt(int(p.ID)),
+		OrgID:            hasher.Encrypt(int(p.OrgID.Int32)),
 		Name:             p.Name,
 		Domain:           p.Domain,
 		Level:            int(p.Level.Int16),
@@ -144,7 +144,7 @@ func propertyToUserProperty(p *dbgen.Property) *userProperty {
 	return up
 }
 
-func propertiesToUserProperties(ctx context.Context, properties []*dbgen.Property) []*userProperty {
+func propertiesToUserProperties(ctx context.Context, properties []*dbgen.Property, hasher common.IdentifierHasher) []*userProperty {
 	result := make([]*userProperty, 0, len(properties))
 
 	for _, p := range properties {
@@ -153,7 +153,7 @@ func propertiesToUserProperties(ctx context.Context, properties []*dbgen.Propert
 			continue
 		}
 
-		result = append(result, propertyToUserProperty(p))
+		result = append(result, propertyToUserProperty(p, hasher))
 	}
 
 	return result
@@ -268,7 +268,7 @@ func (s *Server) getNewOrgProperty(w http.ResponseWriter, r *http.Request) (Mode
 		CsrfRenderContext: s.CreateCsrfContext(user),
 		CurrentOrg: &userOrg{
 			Name:  org.Name,
-			ID:    strconv.Itoa(int(org.ID)),
+			ID:    s.IDHasher.Encrypt(int(org.ID)),
 			Level: "",
 		},
 	}
@@ -497,7 +497,7 @@ func (s *Server) postNewOrgProperty(w http.ResponseWriter, r *http.Request) {
 	renderCtx := &propertyWizardRenderContext{
 		CsrfRenderContext:  s.CreateCsrfContext(user),
 		AlertRenderContext: AlertRenderContext{},
-		CurrentOrg:         orgToUserOrg(org, user.ID),
+		CurrentOrg:         orgToUserOrg(org, user.ID, s.IDHasher),
 	}
 
 	renderCtx.Name = strings.TrimSpace(r.FormValue(common.ParamName))
@@ -544,7 +544,7 @@ func (s *Server) postNewOrgProperty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dashboardURL := s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(org.ID)), common.PropertyEndpoint, strconv.Itoa(int(property.ID)))
+	dashboardURL := s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID)), common.PropertyEndpoint, s.IDHasher.Encrypt(int(property.ID)))
 	dashboardURL += fmt.Sprintf("?%s=integrations", common.ParamTab)
 	common.Redirect(dashboardURL, http.StatusOK, w, r)
 }
@@ -646,8 +646,8 @@ func (s *Server) getOrgProperty(w http.ResponseWriter, r *http.Request) (*proper
 	renderCtx := &propertyDashboardRenderContext{
 		CsrfRenderContext:    s.CreateCsrfContext(user),
 		CaptchaRenderContext: s.createDemoCaptchaRenderContext(strings.ReplaceAll(propertySettingsPropertyID, "-", "")),
-		Property:             propertyToUserProperty(property),
-		Org:                  orgToUserOrg(org, user.ID),
+		Property:             propertyToUserProperty(property, s.IDHasher),
+		Org:                  orgToUserOrg(org, user.ID, s.IDHasher),
 		CanEdit:              (user.ID == org.UserID.Int32) || (user.ID == property.CreatorID.Int32),
 	}
 
@@ -676,7 +676,7 @@ func (s *Server) getOrgPropertySettings(w http.ResponseWriter, r *http.Request) 
 	// only property owner can move it around
 	if user.ID == property.CreatorID.Int32 {
 		if orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user); err == nil {
-			renderCtx.Orgs = orgsToUserOrgs(orgs)
+			renderCtx.Orgs = orgsToUserOrgs(orgs, s.IDHasher)
 
 			for _, org := range orgs {
 				if (org.Organization.ID != property.OrgID.Int32) && (org.Level == dbgen.AccessLevelOwner) {
@@ -855,7 +855,7 @@ func (s *Server) putProperty(w http.ResponseWriter, r *http.Request) (Model, str
 		} else {
 			slog.InfoContext(ctx, "Edited property", "propID", property.ID, "orgID", org.ID)
 			renderCtx.SuccessMessage = "Settings were updated"
-			renderCtx.Property = propertyToUserProperty(updatedProperty)
+			renderCtx.Property = propertyToUserProperty(updatedProperty, s.IDHasher)
 		}
 	}
 
@@ -892,7 +892,7 @@ func (s *Server) deleteProperty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.Store.Impl().SoftDeleteProperty(ctx, property, org); err == nil {
-		common.Redirect(s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(org.ID))), http.StatusOK, w, r)
+		common.Redirect(s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID))), http.StatusOK, w, r)
 	} else {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 	}

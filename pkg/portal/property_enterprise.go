@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -24,7 +23,7 @@ func (s *Server) moveProperty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newOrgParam := strings.TrimSpace(r.FormValue(common.ParamOrg))
-	newOrgID, err := strconv.Atoi(newOrgParam)
+	newOrgID, err := s.IDHasher.Decrypt(newOrgParam)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to parse new org ID", "value", newOrgParam, common.ErrAttr(err))
 		s.RedirectError(http.StatusBadRequest, w, r)
@@ -82,7 +81,7 @@ func (s *Server) moveProperty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if updatedProperty, err := s.Store.Impl().MoveProperty(ctx, property, orgs[idx]); err == nil {
-		propertyDashboardURL := s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(updatedProperty.OrgID.Int32)), common.PropertyEndpoint, strconv.Itoa(int(updatedProperty.ID)))
+		propertyDashboardURL := s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(updatedProperty.OrgID.Int32)), common.PropertyEndpoint, s.IDHasher.Encrypt(int(updatedProperty.ID)))
 		common.Redirect(propertyDashboardURL, http.StatusOK, w, r)
 	} else {
 		s.RedirectError(http.StatusInternalServerError, w, r)

@@ -129,6 +129,7 @@ func TestMain(m *testing.M) {
 		PlanService:  planService,
 		DataCtx:      dataCtx,
 		PlatformCtx:  platformCtx,
+		IDHasher:     common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
 	}
 
 	ctx := context.TODO()

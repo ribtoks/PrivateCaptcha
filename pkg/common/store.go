@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+type IdentifierHasher interface {
+	Encrypt(id int) string
+	Decrypt(id string) (int, error)
+}
+
 // this is an exact copy of otter's Loader
 type CacheLoader[K comparable, V any] interface {
 	Load(ctx context.Context, key K) (V, error)

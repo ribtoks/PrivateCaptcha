@@ -41,6 +41,7 @@ const (
 	EnterpriseLicenseKeyKey
 	LocalAPIKeyKey
 	XSRFKeyKey
+	IDHasherSaltKey
 	// Add new fields _above_
 	COMMON_CONFIG_KEYS_COUNT
 )

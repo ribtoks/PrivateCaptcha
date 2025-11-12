@@ -106,7 +106,7 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 		if user, _, err := s.doRegister(ctx, sess); err == nil {
 			_ = sess.Set(session.KeyUserID, user.ID)
 			// NOTE: we can redirect user to create the first property instead of dashboard, but currently it's fine
-			// redirectURL = s.partsURL(common.OrgEndpoint, strconv.Itoa(int(org.ID)), common.PropertyEndpoint, common.NewEndpoint)
+			// redirectURL = s.partsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID)), common.PropertyEndpoint, common.NewEndpoint)
 		} else {
 			slog.ErrorContext(ctx, "Failed to complete registration", common.ErrAttr(err))
 			s.RedirectError(http.StatusInternalServerError, w, r)

@@ -103,6 +103,7 @@ type Server struct {
 	APIURL          string
 	CDNURL          string
 	Prefix          string
+	IDHasher        common.IdentifierHasher
 	template        *Templates
 	XSRF            *common.XSRFMiddleware
 	Sessions        *session.Manager

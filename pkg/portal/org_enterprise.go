@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -104,7 +103,7 @@ func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	common.Redirect(s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(org.ID))), http.StatusOK, w, r)
+	common.Redirect(s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID))), http.StatusOK, w, r)
 }
 
 // here we know that user is already organization owner
@@ -222,8 +221,8 @@ func (s *Server) postOrgMembers(w http.ResponseWriter, r *http.Request) (Model, 
 
 	renderCtx := &orgMemberRenderContext{
 		CsrfRenderContext: s.CreateCsrfContext(user),
-		CurrentOrg:        orgToUserOrg(org, user.ID),
-		Members:           usersToOrgUsers(members),
+		CurrentOrg:        orgToUserOrg(org, user.ID, s.IDHasher),
+		Members:           usersToOrgUsers(members, s.IDHasher),
 		CanEdit:           org.UserID.Int32 == user.ID,
 	}
 
@@ -252,12 +251,12 @@ func (s *Server) postOrgMembers(w http.ResponseWriter, r *http.Request) (Model, 
 	if err = s.Store.Impl().InviteUserToOrg(ctx, org, inviteUser); err != nil {
 		renderCtx.ErrorMessage = "Failed to invite user. Please try again."
 	} else {
-		ou := userToOrgUser(inviteUser, string(dbgen.AccessLevelInvited))
+		ou := userToOrgUser(inviteUser, string(dbgen.AccessLevelInvited), s.IDHasher)
 		renderCtx.Members = append(renderCtx.Members, ou)
 		renderCtx.SuccessMessage = "Invite is sent."
 
 		go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-			orgURLPath := s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(org.ID)))
+			orgURLPath := s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID)))
 			return s.Mailer.SendOrgInvite(bctx, inviteUser.Email, common.GuessFirstName(inviteUser.Name),
 				org.Name, user.Email, common.GuessFirstName(user.Name), orgURLPath)
 		})
@@ -281,7 +280,7 @@ func (s *Server) deleteOrgMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, value, err := common.IntPathArg(r, common.ParamUser)
+	userID, value, err := common.IntPathArg(r, common.ParamUser, s.IDHasher)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to parse user from request", "value", value, common.ErrAttr(err))
 		s.RedirectError(http.StatusBadRequest, w, r)
@@ -328,7 +327,7 @@ func (s *Server) joinOrg(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.Store.Impl().JoinOrg(ctx, orgID, user); err == nil {
 		// NOTE: we don't want to htmx-swap anything as we need to update the org dropdown
-		common.Redirect(s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(orgID))), http.StatusOK, w, r)
+		common.Redirect(s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(orgID))), http.StatusOK, w, r)
 	} else {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 	}
@@ -350,7 +349,7 @@ func (s *Server) leaveOrg(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.Store.Impl().LeaveOrg(ctx, orgID, user); err == nil {
 		// NOTE: we don't want to htmx-swap anything as we need to update the org dropdown
-		common.Redirect(s.PartsURL(common.OrgEndpoint, strconv.Itoa(int(orgID))), http.StatusOK, w, r)
+		common.Redirect(s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(orgID))), http.StatusOK, w, r)
 	} else {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 	}

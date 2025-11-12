@@ -105,7 +105,7 @@ func TestDeleteAPIKey(t *testing.T) {
 	}
 
 	csrfToken := server.XSRF.Token(strconv.Itoa(int(user.ID)))
-	req := httptest.NewRequest("DELETE", fmt.Sprintf("/apikeys/%v", key.ID), nil)
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/apikeys/%v", server.IDHasher.Encrypt(int(key.ID))), nil)
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderCSRFToken, csrfToken)
 
@@ -153,7 +153,7 @@ func TestRotateAPIKey(t *testing.T) {
 	secretOld := db.UUIDToSecret(key.ExternalID)
 
 	csrfToken := server.XSRF.Token(strconv.Itoa(int(user.ID)))
-	req := httptest.NewRequest("POST", fmt.Sprintf("/apikeys/%v", key.ID), nil)
+	req := httptest.NewRequest("POST", fmt.Sprintf("/apikeys/%v", server.IDHasher.Encrypt(int(key.ID))), nil)
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderCSRFToken, csrfToken)
 

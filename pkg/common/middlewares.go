@@ -133,10 +133,18 @@ func Redirect(url string, code int, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func IntPathArg(r *http.Request, name string) (int32, string, error) {
+func IntPathArg(r *http.Request, name string, hasher IdentifierHasher) (int32, string, error) {
 	value := r.PathValue(name)
 	if len(value) == 0 {
 		return 0, "", errPathArgEmpty
+	}
+
+	if hasher != nil {
+		i, err := hasher.Decrypt(value)
+		if err == nil {
+			return int32(i), value, nil
+		}
+		slog.ErrorContext(r.Context(), "Failed to decrypt hashed int param", "value", value, ErrAttr(err))
 	}
 
 	i, err := strconv.ParseInt(value, 10, 32)

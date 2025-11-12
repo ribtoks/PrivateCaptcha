@@ -19,6 +19,7 @@ require (
 	github.com/rs/cors v1.11.1
 	github.com/rs/xid v1.6.0
 	github.com/slok/go-http-metrics v0.13.0
+	github.com/speps/go-hashids/v2 v2.0.1
 	github.com/tsenart/vegeta/v12 v12.12.0
 	golang.org/x/crypto v0.43.0
 	golang.org/x/net v0.46.0

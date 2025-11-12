@@ -58,7 +58,7 @@ func (rg *RouteGenerator) LastPath() string {
 func (s *Server) Org(user *dbgen.User, r *http.Request) (*dbgen.Organization, error) {
 	ctx := r.Context()
 
-	orgID, value, err := common.IntPathArg(r, common.ParamOrg)
+	orgID, value, err := common.IntPathArg(r, common.ParamOrg, s.IDHasher)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to parse org path parameter", "value", value, common.ErrAttr(err))
 		return nil, errInvalidPathArg
@@ -89,7 +89,7 @@ func (s *Server) Org(user *dbgen.User, r *http.Request) (*dbgen.Organization, er
 func (s *Server) OrgID(r *http.Request) (int32, error) {
 	ctx := r.Context()
 
-	orgID, value, err := common.IntPathArg(r, common.ParamOrg)
+	orgID, value, err := common.IntPathArg(r, common.ParamOrg, s.IDHasher)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to parse org path parameter", "value", value, common.ErrAttr(err))
 		return -1, errInvalidPathArg
@@ -101,7 +101,7 @@ func (s *Server) OrgID(r *http.Request) (int32, error) {
 func (s *Server) Property(org *dbgen.Organization, r *http.Request) (*dbgen.Property, error) {
 	ctx := r.Context()
 
-	propertyID, value, err := common.IntPathArg(r, common.ParamProperty)
+	propertyID, value, err := common.IntPathArg(r, common.ParamProperty, s.IDHasher)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to parse property path parameter", "value", value, common.ErrAttr(err))
 		return nil, errInvalidPathArg

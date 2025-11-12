@@ -64,7 +64,7 @@ func TestPutPropertyInsufficientPermissions(t *testing.T) {
 	form.Set(common.ParamDifficulty, "0")
 	form.Set(common.ParamGrowth, "2")
 
-	req := httptest.NewRequest("PUT", fmt.Sprintf("/org/%d/property/%d/edit", org1.ID, property.ID),
+	req := httptest.NewRequest("PUT", fmt.Sprintf("/org/%s/property/%s/edit", server.IDHasher.Encrypt(int(org1.ID)), server.IDHasher.Encrypt(int(property.ID))),
 		strings.NewReader(form.Encode()))
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderContentType, common.ContentTypeURLEncoded)
@@ -110,7 +110,7 @@ func TestPostNewOrgProperty(t *testing.T) {
 	form.Set(common.ParamName, propertyName)
 	form.Set(common.ParamDomain, "google.com")
 
-	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%d/property/new", org.ID),
+	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%s/property/new", server.IDHasher.Encrypt(int(org.ID))),
 		strings.NewReader(form.Encode()))
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderContentType, common.ContentTypeURLEncoded)
@@ -128,7 +128,7 @@ func TestPostNewOrgProperty(t *testing.T) {
 		t.Fatalf("Expected redirect response but got error: %v", err)
 	}
 
-	expectedPrefix := fmt.Sprintf("/org/%d/property/", org.ID)
+	expectedPrefix := fmt.Sprintf("/org/%s/property/", server.IDHasher.Encrypt(int(org.ID)))
 	if path := location.String(); !strings.HasPrefix(path, expectedPrefix) {
 		t.Errorf("Unexpected redirect path: %s, expected prefix: %s", path, expectedPrefix)
 	}
@@ -187,9 +187,9 @@ func TestMoveProperty(t *testing.T) {
 
 	form := url.Values{}
 	form.Set(common.ParamCSRFToken, server.XSRF.Token(strconv.Itoa(int(user.ID))))
-	form.Set(common.ParamOrg, strconv.Itoa(int(org2.ID)))
+	form.Set(common.ParamOrg, server.IDHasher.Encrypt(int(org2.ID)))
 
-	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%d/property/%d/move", org1.ID, property.ID), strings.NewReader(form.Encode()))
+	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%s/property/%s/move", server.IDHasher.Encrypt(int(org1.ID)), server.IDHasher.Encrypt(int(property.ID))), strings.NewReader(form.Encode()))
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderContentType, common.ContentTypeURLEncoded)
 

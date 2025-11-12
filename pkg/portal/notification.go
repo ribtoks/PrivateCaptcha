@@ -4,7 +4,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"strconv"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
@@ -16,7 +15,7 @@ func (s *Server) createSystemNotificationContext(ctx context.Context, sess *sess
 	if notificationID, ok := sess.Get(ctx, session.KeyNotificationID).(int32); ok {
 		if notification, err := s.Store.Impl().RetrieveSystemNotification(ctx, notificationID); err == nil {
 			renderCtx.Notification = notification.Message
-			renderCtx.NotificationID = strconv.Itoa(int(notification.ID))
+			renderCtx.NotificationID = s.IDHasher.Encrypt(int(notification.ID))
 		}
 	}
 
@@ -27,8 +26,7 @@ func (s *Server) dismissNotification(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	sess := s.Sessions.SessionStart(w, r)
 
-	value := r.PathValue(common.ParamID)
-	id, err := strconv.ParseInt(value, 10, 32)
+	id, value, err := common.IntPathArg(r, common.ParamID, s.IDHasher)
 	if err == nil {
 		if notificationID, ok := sess.Get(ctx, session.KeyNotificationID).(int32); ok {
 			if notificationID != int32(id) {

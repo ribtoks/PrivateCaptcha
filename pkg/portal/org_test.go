@@ -42,7 +42,7 @@ func TestGetAnotherUsersOrg(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest("GET", fmt.Sprintf("/org/%d/%s/%s", org1.ID, common.TabEndpoint, common.DashboardEndpoint), nil)
+	req := httptest.NewRequest("GET", fmt.Sprintf("/org/%s/%s/%s", server.IDHasher.Encrypt(int(org1.ID)), common.TabEndpoint, common.DashboardEndpoint), nil)
 	req.AddCookie(cookie)
 
 	w := httptest.NewRecorder()
@@ -94,7 +94,7 @@ func TestInviteUser(t *testing.T) {
 	form.Set(common.ParamCSRFToken, server.XSRF.Token(strconv.Itoa(int(user1.ID))))
 	form.Set(common.ParamEmail, user2.Email)
 
-	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%d/members", org1.ID), strings.NewReader(form.Encode()))
+	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%s/members", server.IDHasher.Encrypt(int(org1.ID))), strings.NewReader(form.Encode()))
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderContentType, common.ContentTypeURLEncoded)
 
@@ -161,7 +161,7 @@ func TestDeleteUserFromOrgPermissions(t *testing.T) {
 	}
 
 	// user1 tries to delete user2 from org, despite note being the owner
-	req := httptest.NewRequest("DELETE", fmt.Sprintf("/org/%d/members/%d", org.ID, userMember2.ID), nil)
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/org/%s/members/%s", server.IDHasher.Encrypt(int(org.ID)), server.IDHasher.Encrypt(int(userMember2.ID))), nil)
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderContentType, common.ContentTypeURLEncoded)
 	req.Header.Set(common.HeaderCSRFToken, server.XSRF.Token(strconv.Itoa(int(userMember1.ID))))

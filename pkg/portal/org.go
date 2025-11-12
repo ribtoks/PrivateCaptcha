@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -78,29 +77,29 @@ type orgWizardRenderContext struct {
 	NameError string
 }
 
-func userToOrgUser(user *dbgen.User, level string) *orgUser {
+func userToOrgUser(user *dbgen.User, level string, hasher common.IdentifierHasher) *orgUser {
 	return &orgUser{
 		Name:      user.Name,
-		ID:        strconv.Itoa(int(user.ID)),
+		ID:        hasher.Encrypt(int(user.ID)),
 		CreatedAt: user.CreatedAt.Time.Format("02 Jan 2006"),
 		Level:     level,
 	}
 }
 
-func usersToOrgUsers(users []*dbgen.GetOrganizationUsersRow) []*orgUser {
+func usersToOrgUsers(users []*dbgen.GetOrganizationUsersRow, hasher common.IdentifierHasher) []*orgUser {
 	result := make([]*orgUser, 0, len(users))
 
 	for _, user := range users {
-		result = append(result, userToOrgUser(&user.User, string(user.Level)))
+		result = append(result, userToOrgUser(&user.User, string(user.Level), hasher))
 	}
 
 	return result
 }
 
-func orgToUserOrg(org *dbgen.Organization, userID int32) *userOrg {
+func orgToUserOrg(org *dbgen.Organization, userID int32, hasher common.IdentifierHasher) *userOrg {
 	uo := &userOrg{
 		Name: org.Name,
-		ID:   strconv.Itoa(int(org.ID)),
+		ID:   hasher.Encrypt(int(org.ID)),
 	}
 
 	if org.UserID.Int32 == userID {
@@ -110,12 +109,12 @@ func orgToUserOrg(org *dbgen.Organization, userID int32) *userOrg {
 	return uo
 }
 
-func orgsToUserOrgs(orgs []*dbgen.GetUserOrganizationsRow) []*userOrg {
+func orgsToUserOrgs(orgs []*dbgen.GetUserOrganizationsRow, hasher common.IdentifierHasher) []*userOrg {
 	result := make([]*userOrg, 0, len(orgs))
 	for _, org := range orgs {
 		result = append(result, &userOrg{
 			Name:  org.Organization.Name,
-			ID:    strconv.Itoa(int(org.Organization.ID)),
+			ID:    hasher.Encrypt(int(org.Organization.ID)),
 			Level: string(org.Level),
 		})
 	}
@@ -215,7 +214,7 @@ func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, ses
 	renderCtx := &orgDashboardRenderContext{
 		CsrfRenderContext:         s.CreateCsrfContext(user),
 		systemNotificationContext: s.createSystemNotificationContext(ctx, sess),
-		Orgs:                      orgsToUserOrgs(orgs),
+		Orgs:                      orgsToUserOrgs(orgs, s.IDHasher),
 		Properties:                []*userProperty{},
 		CurrentOrg:                stubUserOrg,
 	}
@@ -242,7 +241,7 @@ func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, ses
 	if (0 <= idx) && (idx < len(orgs)) {
 		if orgs[idx].Level != dbgen.AccessLevelInvited {
 			if properties, err := s.Store.Impl().RetrieveOrgProperties(ctx, &orgs[idx].Organization); err == nil {
-				renderCtx.Properties = propertiesToUserProperties(ctx, properties)
+				renderCtx.Properties = propertiesToUserProperties(ctx, properties, s.IDHasher)
 			}
 		}
 	}
@@ -256,7 +255,7 @@ func (s *Server) getPortal(w http.ResponseWriter, r *http.Request) {
 
 	sess := s.Sessions.SessionStart(w, r)
 
-	orgID, _, err := common.IntPathArg(r, common.ParamOrg)
+	orgID, _, err := common.IntPathArg(r, common.ParamOrg, s.IDHasher)
 	if err != nil {
 		slog.WarnContext(ctx, "Org path argument is missing", common.ErrAttr(err))
 		orgID = -1
@@ -302,8 +301,8 @@ func (s *Server) getOrgDashboard(w http.ResponseWriter, r *http.Request) (Model,
 
 	renderCtx := &orgPropertiesRenderContext{
 		CsrfRenderContext: s.CreateCsrfContext(user),
-		CurrentOrg:        orgToUserOrg(org, user.ID),
-		Properties:        propertiesToUserProperties(ctx, properties),
+		CurrentOrg:        orgToUserOrg(org, user.ID, s.IDHasher),
+		Properties:        propertiesToUserProperties(ctx, properties, s.IDHasher),
 	}
 
 	return renderCtx, orgPropertiesTemplate, nil
@@ -323,7 +322,7 @@ func (s *Server) getOrgMembers(w http.ResponseWriter, r *http.Request) (Model, s
 
 	renderCtx := &orgMemberRenderContext{
 		CsrfRenderContext: s.CreateCsrfContext(user),
-		CurrentOrg:        orgToUserOrg(org, user.ID),
+		CurrentOrg:        orgToUserOrg(org, user.ID, s.IDHasher),
 		CanEdit:           org.UserID.Int32 == user.ID,
 	}
 
@@ -338,7 +337,7 @@ func (s *Server) getOrgMembers(w http.ResponseWriter, r *http.Request) (Model, s
 		return nil, "", err
 	}
 
-	renderCtx.Members = usersToOrgUsers(members)
+	renderCtx.Members = usersToOrgUsers(members, s.IDHasher)
 
 	return renderCtx, orgMembersTemplate, nil
 }
@@ -357,7 +356,7 @@ func (s *Server) getOrgSettings(w http.ResponseWriter, r *http.Request) (Model, 
 
 	renderCtx := &orgSettingsRenderContext{
 		CsrfRenderContext: s.CreateCsrfContext(user),
-		CurrentOrg:        orgToUserOrg(org, user.ID),
+		CurrentOrg:        orgToUserOrg(org, user.ID, s.IDHasher),
 		CanEdit:           org.UserID.Int32 == user.ID,
 	}
 
@@ -383,7 +382,7 @@ func (s *Server) putOrg(w http.ResponseWriter, r *http.Request) (Model, string, 
 
 	renderCtx := &orgSettingsRenderContext{
 		CsrfRenderContext: s.CreateCsrfContext(user),
-		CurrentOrg:        orgToUserOrg(org, user.ID),
+		CurrentOrg:        orgToUserOrg(org, user.ID, s.IDHasher),
 		CanEdit:           org.UserID.Int32 == user.ID,
 	}
 
@@ -403,7 +402,7 @@ func (s *Server) putOrg(w http.ResponseWriter, r *http.Request) (Model, string, 
 			renderCtx.ErrorMessage = "Failed to update settings. Please try again."
 		} else {
 			renderCtx.SuccessMessage = "Settings were updated"
-			renderCtx.CurrentOrg = orgToUserOrg(updatedOrg, user.ID)
+			renderCtx.CurrentOrg = orgToUserOrg(updatedOrg, user.ID, s.IDHasher)
 		}
 	}
 

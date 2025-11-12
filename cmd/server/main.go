@@ -204,6 +204,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Mailer:       mailer,
 		RateLimiter:  ipRateLimiter,
 		DataCtx:      dataCtx,
+		IDHasher:     common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
 	}
 
 	templatesBuilder := portal.NewTemplatesBuilder()

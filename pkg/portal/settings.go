@@ -96,7 +96,7 @@ type settingsAPIKeysRenderContext struct {
 	CreateOpen bool
 }
 
-func apiKeyToUserAPIKey(key *dbgen.APIKey, tnow time.Time) *userAPIKey {
+func apiKeyToUserAPIKey(key *dbgen.APIKey, tnow time.Time, hasher common.IdentifierHasher) *userAPIKey {
 	// in terms of "leaky bucket" logic
 	capacity := float64(key.RequestsBurst)
 	leakInterval := float64(time.Second) / key.RequestsPerSecond
@@ -106,7 +106,7 @@ func apiKeyToUserAPIKey(key *dbgen.APIKey, tnow time.Time) *userAPIKey {
 	requestsPerMinute := capacity * periodsPerMinute
 
 	return &userAPIKey{
-		ID:                strconv.Itoa(int(key.ID)),
+		ID:                hasher.Encrypt(int(key.ID)),
 		Name:              key.Name,
 		ExpiresAt:         key.ExpiresAt.Time.Format("02 Jan 2006"),
 		ExpiresSoon:       key.ExpiresAt.Time.Sub(tnow) <= apiKeyExpirationNotificationDays*24*time.Hour,
@@ -114,11 +114,11 @@ func apiKeyToUserAPIKey(key *dbgen.APIKey, tnow time.Time) *userAPIKey {
 	}
 }
 
-func apiKeysToUserAPIKeys(keys []*dbgen.APIKey, tnow time.Time) []*userAPIKey {
+func apiKeysToUserAPIKeys(keys []*dbgen.APIKey, tnow time.Time, hasher common.IdentifierHasher) []*userAPIKey {
 	result := make([]*userAPIKey, 0, len(keys))
 
 	for _, key := range keys {
-		result = append(result, apiKeyToUserAPIKey(key, tnow))
+		result = append(result, apiKeyToUserAPIKey(key, tnow, hasher))
 	}
 
 	return result
@@ -395,7 +395,7 @@ func (s *Server) createAPIKeysSettingsModel(ctx context.Context, user *dbgen.Use
 
 	return &settingsAPIKeysRenderContext{
 		SettingsCommonRenderContext: commonCtx,
-		Keys:                        apiKeysToUserAPIKeys(keys, time.Now().UTC()),
+		Keys:                        apiKeysToUserAPIKeys(keys, time.Now().UTC(), s.IDHasher),
 	}
 }
 
@@ -547,7 +547,7 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (Mod
 	tnow := time.Now().UTC()
 	newKey, err := s.Store.Impl().CreateAPIKey(ctx, user, formName, tnow, time.Duration(days)*24*time.Hour, apiKeyRequestsPerSecond)
 	if err == nil {
-		userKey := apiKeyToUserAPIKey(newKey, tnow)
+		userKey := apiKeyToUserAPIKey(newKey, tnow, s.IDHasher)
 		userKey.Secret = db.UUIDToSecret(newKey.ExternalID)
 		renderCtx.Keys = append(renderCtx.Keys, userKey)
 		renderCtx.SuccessMessage = "API Key created successfully."
@@ -586,7 +586,7 @@ func (s *Server) rotateAPIKey(w http.ResponseWriter, r *http.Request) (Model, st
 		return nil, "", err
 	}
 
-	keyID, value, err := common.IntPathArg(r, common.ParamKey)
+	keyID, value, err := common.IntPathArg(r, common.ParamKey, s.IDHasher)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to parse key path parameter", "value", value)
 		return nil, "", errInvalidPathArg
@@ -598,7 +598,7 @@ func (s *Server) rotateAPIKey(w http.ResponseWriter, r *http.Request) (Model, st
 		return nil, "", err
 	}
 
-	userKey := apiKeyToUserAPIKey(key, time.Now().UTC())
+	userKey := apiKeyToUserAPIKey(key, time.Now().UTC(), s.IDHasher)
 	userKey.Secret = db.UUIDToSecret(key.ExternalID)
 
 	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
@@ -624,9 +624,9 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keyID, value, err := common.IntPathArg(r, common.ParamKey)
+	keyID, value, err := common.IntPathArg(r, common.ParamKey, s.IDHasher)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to parse key path parameter", "value", value)
+		slog.ErrorContext(ctx, "Failed to parse key path parameter", "value", value, common.ErrAttr(err))
 		s.RedirectError(http.StatusBadRequest, w, r)
 		return
 	}
