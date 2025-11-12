@@ -53,6 +53,10 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
+	platformCtx := PlatformRenderContext{
+		GitCommit:  "abcde",
+		Enterprise: true,
+	}
 	puzzleEngine := &portal_tests.StubPuzzleEngine{Result: &puzzle.VerifyResult{Error: puzzle.VerifyNoError}}
 
 	if testing.Short() {
@@ -70,6 +74,7 @@ func TestMain(m *testing.M) {
 			PuzzleEngine: puzzleEngine,
 			PlanService:  planService,
 			DataCtx:      dataCtx,
+			PlatformCtx:  platformCtx,
 		}
 
 		ctx := context.TODO()
@@ -123,6 +128,7 @@ func TestMain(m *testing.M) {
 		Metrics:      monitoring.NewStub(),
 		PlanService:  planService,
 		DataCtx:      dataCtx,
+		PlatformCtx:  platformCtx,
 	}
 
 	ctx := context.TODO()
