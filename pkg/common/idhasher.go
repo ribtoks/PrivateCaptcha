@@ -16,8 +16,13 @@ var errUnexpectedIdentifierLen = errors.New("unexpected identifier length")
 var _ IdentifierHasher = (*idHasher)(nil)
 
 func NewIDHasher(salt ConfigItem) IdentifierHasher {
+	saltValue := salt.Value()
+	if len(saltValue) == 0 {
+		return &idHasher{}
+	}
+
 	data := hashids.NewData()
-	data.Salt = salt.Value()
+	data.Salt = saltValue
 	data.MinLength = 10
 
 	return &idHasher{
@@ -26,18 +31,22 @@ func NewIDHasher(salt ConfigItem) IdentifierHasher {
 }
 
 func (ih *idHasher) Encrypt(id int) string {
-	h, err := hashids.NewWithData(ih.hashIDData)
-	if err != nil {
-		return strconv.Itoa(int(id))
+	if ih.hashIDData != nil {
+		if h, err := hashids.NewWithData(ih.hashIDData); err == nil {
+			if e, err := h.Encode([]int{id}); err == nil {
+				return e
+			}
+		}
 	}
-	e, err := h.Encode([]int{id})
-	if err != nil {
-		return strconv.Itoa(int(id))
-	}
-	return e
+
+	return strconv.Itoa(int(id))
 }
 
 func (ih *idHasher) Decrypt(hash string) (int, error) {
+	if ih.hashIDData == nil {
+		return strconv.Atoi(hash)
+	}
+
 	h, err := hashids.NewWithData(ih.hashIDData)
 	if err != nil {
 		return -1, err
