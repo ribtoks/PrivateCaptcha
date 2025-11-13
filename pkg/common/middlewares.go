@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"math"
 	"net/http"
 	"runtime/debug"
 	"strconv"
 	"time"
-	"math"
+
 	"golang.org/x/net/xsrftoken"
 )
 
@@ -16,9 +17,6 @@ const (
 	headerHtmxRedirect = "HX-Redirect"
 	maxHeaderLen       = 100
 )
-
-// Error returned when a path arg integer is out of int32 bounds
-var errPathArgOutOfBounds = errors.New("path arg integer out of int32 bounds")
 
 var (
 	headerHtmxRequest = http.CanonicalHeaderKey("HX-Request")
@@ -144,10 +142,7 @@ func IntPathArg(r *http.Request, name string, hasher IdentifierHasher) (int32, s
 
 	if hasher != nil {
 		i, err := hasher.Decrypt(value)
-		if err == nil {
-			if i < 0 || i > math.MaxInt32 {
-				return 0, value, errPathArgOutOfBounds
-			}
+		if (err == nil) && (i >= 0) && (i < math.MaxInt32) {
 			return int32(i), value, nil
 		}
 		slog.ErrorContext(r.Context(), "Failed to decrypt hashed int param", "value", value, ErrAttr(err))
