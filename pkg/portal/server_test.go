@@ -122,14 +122,15 @@ func TestMain(m *testing.M) {
 			Store:       sessionStore,
 			MaxLifetime: sessionStore.TTL(),
 		},
-		Mailer:       &email.StubMailer{},
-		RateLimiter:  &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
-		PuzzleEngine: puzzleEngine,
-		Metrics:      monitoring.NewStub(),
-		PlanService:  planService,
-		DataCtx:      dataCtx,
-		PlatformCtx:  platformCtx,
-		IDHasher:     common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
+		Mailer:            &email.StubMailer{},
+		RateLimiter:       &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
+		PuzzleEngine:      puzzleEngine,
+		Metrics:           monitoring.NewStub(),
+		PlanService:       planService,
+		DataCtx:           dataCtx,
+		PlatformCtx:       platformCtx,
+		IDHasher:          common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
+		CountryCodeHeader: cfg.Get(common.CountryCodeHeaderKey),
 	}
 
 	ctx := context.TODO()
