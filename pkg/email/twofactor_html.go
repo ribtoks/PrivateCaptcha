@@ -110,6 +110,14 @@ We want to make sure it's really you. Please enter the following verification co
 
 (This code is valid for 10 minutes)
 
+Please review the sign-in activity details below:
+Date: {{.Date}}
+Browser: {{.Browser}}
+Operating system: {{.OS}}
+{{if .Location}}Location: {{.Location}}{{end}}
+
+If this wasn't you, please let us know by replying to this email.
+
 ---
 
 Your are receiving this message because the action you are taking requires a verification.
