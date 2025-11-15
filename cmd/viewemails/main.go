@@ -11,6 +11,7 @@ import (
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
+	"github.com/medama-io/go-useragent"
 )
 
 const (
@@ -45,18 +46,21 @@ func homepage(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(rootTemplateEnd))
 }
 
-func serveExecute(templateBody string, w http.ResponseWriter) error {
+func serveExecute(templateBody string, r *http.Request, w http.ResponseWriter) error {
 	tpl, err := template.New("HtmlBody").Parse(templateBody)
 	if err != nil {
 		log.Printf("Failed to parse template: %v", err)
 		return err
 	}
 
+	ua := useragent.NewParser()
+	agent := ua.Parse(r.UserAgent())
+
 	data := struct {
 		email.OrgInvitationContext
 		email.APIKeyExpirationContext
+		email.TwoFactorEmailContext
 		// heap of everything else
-		Code        int
 		PortalURL   string
 		CurrentYear int
 		CDNURL      string
@@ -77,8 +81,14 @@ func serveExecute(templateBody string, w http.ResponseWriter) error {
 			OrgOwnerEmail: "john.doe@example.com",
 			OrgURL:        "https://portal.privatecaptcha.com/org/5",
 		},
+		TwoFactorEmailContext: email.TwoFactorEmailContext{
+			Code:     "123456",
+			Date:     time.Now().Format("02 Jan 2006 15:04:05 MST"),
+			Browser:  fmt.Sprintf("%s %s", agent.Browser().String(), agent.BrowserVersion()),
+			OS:       agent.OS().String(),
+			Location: "EE",
+		},
 		UserName:    "John Doe",
-		Code:        123456,
 		CDNURL:      "https://cdn.privatecaptcha.com",
 		PortalURL:   "https://portal.privatecaptcha.com",
 		CurrentYear: time.Now().Year(),
@@ -105,7 +115,7 @@ func serveTemplate(name string) http.HandlerFunc {
 			return
 		}
 
-		if err := serveExecute(templates[name], w); err != nil {
+		if err := serveExecute(templates[name], r, w); err != nil {
 			_, _ = w.Write([]byte(templates[name]))
 		}
 	}

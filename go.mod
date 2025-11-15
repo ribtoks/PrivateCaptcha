@@ -14,6 +14,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/justinas/alice v1.2.0
 	github.com/maypok86/otter/v2 v2.2.1
+	github.com/medama-io/go-useragent v1.2.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/realclientip/realclientip-go v1.0.0
 	github.com/rs/cors v1.11.1
@@ -31,6 +32,7 @@ require (
 	github.com/andybalholm/brotli v1.2.0 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/boyter/go-string v1.0.5 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/go-faster/city v1.0.1 // indirect
 	github.com/go-faster/errors v0.7.1 // indirect

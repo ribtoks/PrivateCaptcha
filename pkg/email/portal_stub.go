@@ -14,7 +14,7 @@ type StubMailer struct {
 
 var _ common.Mailer = (*StubMailer)(nil)
 
-func (sm *StubMailer) SendTwoFactor(ctx context.Context, email string, code int) error {
+func (sm *StubMailer) SendTwoFactor(ctx context.Context, email string, code int, ua string, location string) error {
 	slog.InfoContext(ctx, "Sent two factor code via email", "code", code, "email", email)
 	sm.LastCode = code
 	sm.LastEmail = email

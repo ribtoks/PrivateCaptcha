@@ -74,6 +74,7 @@ func init() {
 	configKeyToEnvName[common.EnterpriseLicenseKeyKey] = "EE_LICENSE_KEY"
 	configKeyToEnvName[common.XSRFKeyKey] = "PC_XSRF_KEY"
 	configKeyToEnvName[common.IDHasherSaltKey] = "PC_ID_HASH_SALT"
+	configKeyToEnvName[common.CountryCodeHeaderKey] = "PC_COUNTRY_CODE_HEADER"
 
 	for i, v := range configKeyToEnvName {
 		if len(v) == 0 {

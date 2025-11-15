@@ -2,6 +2,17 @@ package email
 
 import "github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 
+type TwoFactorEmailContext struct {
+	Code        string
+	PortalURL   string
+	CurrentYear int
+	CDNURL      string
+	Date        string
+	Browser     string
+	OS          string
+	Location    string
+}
+
 var (
 	TwoFactorEmailTemplate = common.NewEmailTemplate("twofactor", twoFactorHTMLTemplate, twoFactorTextTemplate)
 )
@@ -60,6 +71,18 @@ const (
                                 </tr>
                               </tbody>
                             </table>
+                            <p style="font-size:14px;line-height:24px;margin:24px 0;color:#072929;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;margin-bottom:14px">
+                                Please review the sign-in activity details below:
+                            </p>
+                            <table width="100%" style="margin-top: 10px; background-color: #f3f4f6; padding: 10px; font-size:14px;color:#072929;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;">
+                                <tr><td style="font-style: italic; padding-right:10px; max-width: 32px;">Date:</td><td style="max-width: 100px; word-wrap: break-word;">{{.Date}}</td></tr>
+                                <tr><td style="font-style: italic; padding-right:10px; max-width: 32px;">Browser:</td><td style="max-width: 100px; word-wrap: break-word;">{{.Browser}}</td></tr>
+                                <tr><td style="font-style: italic; padding-right:10px; max-width: 32px;">Operating system:</td><td style="max-width: 100px; word-wrap: break-word;">{{.OS}}</td></tr>
+                                {{if .Location}}<tr><td style="font-style: italic; padding-right:10px; max-width: 32px;">Location:</td><td style="max-width: 100px; word-wrap: break-word;">{{.Location}}</td></tr>{{end}}
+                            </table>
+                            <p style="font-size:14px;line-height:24px;color:#072929;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;margin-bottom:14px">
+                                If this wasn't you, please let us know by replying to this email.
+                            </p>
                           </td>
                         </tr>
                       </tbody>

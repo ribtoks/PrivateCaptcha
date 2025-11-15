@@ -13,8 +13,8 @@ func TestEmailTemplates(t *testing.T) {
 	data := struct {
 		OrgInvitationContext
 		APIKeyExpirationContext
+		TwoFactorEmailContext
 		// heap of everything else
-		Code        int
 		PortalURL   string
 		CurrentYear int
 		CDNURL      string
@@ -35,8 +35,14 @@ func TestEmailTemplates(t *testing.T) {
 			OrgOwnerEmail: "john.doe@example.com",
 			OrgURL:        "https://portal.privatecaptcha.com/org/5",
 		},
+		TwoFactorEmailContext: TwoFactorEmailContext{
+			Code:     "123456",
+			Date:     time.Now().Format("02 Jan 2006 15:04:05 MST"),
+			Browser:  "Firefox",
+			OS:       "Ubuntu",
+			Location: "EE",
+		},
 		UserName:    "John Doe",
-		Code:        123456,
 		CDNURL:      "https://cdn.privatecaptcha.com",
 		PortalURL:   "https://portal.privatecaptcha.com",
 		CurrentYear: time.Now().Year(),

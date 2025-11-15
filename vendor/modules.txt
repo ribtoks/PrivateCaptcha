@@ -30,6 +30,9 @@ github.com/badoux/checkmail
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
+# github.com/boyter/go-string v1.0.5
+## explicit; go 1.20
+github.com/boyter/go-string
 # github.com/cespare/xxhash/v2 v2.3.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
@@ -136,6 +139,11 @@ github.com/maypok86/otter/v2/internal/xmath
 github.com/maypok86/otter/v2/internal/xruntime
 github.com/maypok86/otter/v2/internal/xsync
 github.com/maypok86/otter/v2/stats
+# github.com/medama-io/go-useragent v1.2.2
+## explicit; go 1.21.4
+github.com/medama-io/go-useragent
+github.com/medama-io/go-useragent/agents
+github.com/medama-io/go-useragent/internal
 # github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822
 ## explicit
 github.com/munnerz/goautoneg

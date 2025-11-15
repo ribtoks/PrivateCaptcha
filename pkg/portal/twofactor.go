@@ -160,8 +160,9 @@ func (s *Server) resend2fa(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := twoFactorCode()
+	location := r.Header.Get(s.CountryCodeHeader.Value())
 
-	if err := s.Mailer.SendTwoFactor(ctx, email, code); err != nil {
+	if err := s.Mailer.SendTwoFactor(ctx, email, code, r.UserAgent(), location); err != nil {
 		slog.ErrorContext(ctx, "Failed to send email message", common.ErrAttr(err))
 		s.render(w, r, "twofactor/resend-error.html", renderContextNothing)
 		return

@@ -42,6 +42,7 @@ const (
 	LocalAPIKeyKey
 	XSRFKeyKey
 	IDHasherSaltKey
+	CountryCodeHeaderKey
 	// Add new fields _above_
 	COMMON_CONFIG_KEYS_COUNT
 )

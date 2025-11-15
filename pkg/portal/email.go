@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/medama-io/go-useragent"
+
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	emailpkg "github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 )
@@ -26,6 +28,7 @@ type PortalMailer struct {
 	TwofactorTemplate  *common.EmailTemplate
 	WelcomeTemplate    *common.EmailTemplate
 	OrgInviteItemplate *common.EmailTemplate
+	uaParser           *useragent.Parser
 }
 
 func NewPortalMailer(cdnURL, portalURL string, mailer emailpkg.Sender, cfg common.ConfigStore) *PortalMailer {
@@ -39,26 +42,28 @@ func NewPortalMailer(cdnURL, portalURL string, mailer emailpkg.Sender, cfg commo
 		TwofactorTemplate:  emailpkg.TwoFactorEmailTemplate,
 		WelcomeTemplate:    emailpkg.WelcomeEmailTemplate,
 		OrgInviteItemplate: emailpkg.OrgInvitationTemplate,
+		uaParser:           useragent.NewParser(),
 	}
 }
 
 var _ common.Mailer = (*PortalMailer)(nil)
 
-func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code int) error {
+func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code int, userAgent string, location string) error {
 	if len(email) == 0 {
 		return errInvalidEmail
 	}
 
-	data := struct {
-		Code        string
-		PortalURL   string
-		CurrentYear int
-		CDNURL      string
-	}{
+	agent := pm.uaParser.Parse(userAgent)
+
+	data := &emailpkg.TwoFactorEmailContext{
 		Code:        fmt.Sprintf("%06d", code),
 		CDNURL:      pm.CDNURL,
 		PortalURL:   pm.PortalURL,
 		CurrentYear: time.Now().Year(),
+		Date:        time.Now().Format("02 Jan 2006 15:04:05 MST"),
+		Browser:     fmt.Sprintf("%s %s", agent.Browser().String(), agent.BrowserVersion()),
+		OS:          agent.OS().String(),
+		Location:    location,
 	}
 
 	htmlBody, err := pm.TwofactorTemplate.RenderHTML(ctx, data)
@@ -78,6 +83,7 @@ func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code in
 		EmailTo:   email,
 		EmailFrom: pm.EmailFrom.Value(),
 		NameFrom:  common.PrivateCaptchaTeam,
+		ReplyTo:   pm.ReplyToEmail.Value(),
 	}
 
 	clog := slog.With("email", email, "code", data.Code)
