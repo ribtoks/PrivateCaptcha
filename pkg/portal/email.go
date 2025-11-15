@@ -54,13 +54,14 @@ func (pm *PortalMailer) SendTwoFactor(ctx context.Context, email string, code in
 	}
 
 	agent := pm.uaParser.Parse(userAgent)
+	tnow := time.Now()
 
 	data := &emailpkg.TwoFactorEmailContext{
 		Code:        fmt.Sprintf("%06d", code),
 		CDNURL:      pm.CDNURL,
 		PortalURL:   pm.PortalURL,
-		CurrentYear: time.Now().Year(),
-		Date:        time.Now().Format("02 Jan 2006 15:04:05 MST"),
+		CurrentYear: tnow.Year(),
+		Date:        tnow.Format("02 Jan 2006 15:04:05 MST"),
 		Browser:     fmt.Sprintf("%s %s", agent.Browser().String(), agent.BrowserVersion()),
 		OS:          agent.OS().String(),
 		Location:    location,
