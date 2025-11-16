@@ -370,7 +370,7 @@ func (impl *BusinessStoreImpl) RetrieveUserSession(ctx context.Context, sid stri
 		session, err := impl.doGetSessionbyID(ctx, sid)
 		if err == nil {
 			// yes, it's "skip READ from cache", not "skip cache ENTIRELY"
-			impl.cache.Set(ctx, SessionCacheKey(sid), session)
+			_ = impl.cache.Set(ctx, SessionCacheKey(sid), session)
 		}
 		return session, err
 	}
