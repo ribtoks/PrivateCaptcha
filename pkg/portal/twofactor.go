@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -25,19 +26,11 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, started := s.Sessions.SessionStart(w, r)
+	sess := s.Sessions.SessionStart(w, r)
 	ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.ID())
 
-	// we start session ONLY when session cookie is empty or when DB explicitly returned read error
-	// so "random" POST request to /twofactor might mean we access it from another node without this session
-	if started {
-		slog.DebugContext(ctx, "Attempting to reread potential stale session from DB", "started", started)
-		if dbSess, err := s.Sessions.RetrieveSession(ctx, sess.ID()); err == nil {
-			slog.InfoContext(ctx, "Using DB session instead for two factor")
-			sess.Merge(dbSess)
-		}
-	}
-
+	// "random" POST request to /twofactor with valid cookie might mean we access it from another node without this session
+	// BUT if we have a local "weird" cached session, something is wrong and if it's not cached, it will be pulled from DB
 	step, ok := sess.Get(ctx, session.KeyLoginStep).(int)
 	if !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
 		slog.WarnContext(ctx, "User session is not valid", "step", step)
@@ -66,7 +59,7 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 		Email: common.MaskEmail(email, '*'),
 	}
 
-	formCode := r.FormValue(common.ParamVerificationCode)
+	formCode := strings.TrimSpace(r.FormValue(common.ParamVerificationCode))
 	if enteredCode, err := strconv.Atoi(formCode); (err != nil) || (enteredCode != sentCode) {
 		data.CodeError = "Code is not valid."
 		slog.WarnContext(ctx, "Code verification failed", "actual", formCode, "expected", sentCode, common.ErrAttr(err))
@@ -118,7 +111,7 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 func (s *Server) resend2fa(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	sess, _ := s.Sessions.SessionStart(w, r)
+	sess := s.Sessions.SessionStart(w, r)
 	if step, ok := sess.Get(ctx, session.KeyLoginStep).(int); !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
 		slog.WarnContext(ctx, "User session is not valid", "step", step)
 		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)

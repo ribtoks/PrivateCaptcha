@@ -53,7 +53,7 @@ func (m *Manager) SessionGet(r *http.Request) (*Session, bool) {
 	return session, true
 }
 
-func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session *Session, started bool) {
+func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session *Session) {
 	cookie, err := r.Cookie(m.CookieName)
 	ctx := r.Context()
 	if err != nil || cookie.Value == "" {
@@ -61,7 +61,6 @@ func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session 
 		sid := m.sessionID()
 		sslog := slog.With(common.SessionIDAttr(sid))
 		session = NewSession(NewSessionData(sid), m.Store)
-		started = true
 		sslog.DebugContext(ctx, "Registering new session", "path", r.URL.Path, "method", r.Method)
 		if err = m.Store.Init(ctx, session); err != nil {
 			sslog.ErrorContext(ctx, "Failed to register session", common.SessionIDAttr(sid), common.ErrAttr(err))
@@ -88,7 +87,6 @@ func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session 
 			}
 			sslog.Log(ctx, level, "Failed to read session from store", common.ErrAttr(err))
 			session = NewSession(NewSessionData(sid), m.Store)
-			started = true
 			sslog.DebugContext(ctx, "Registering new session", "path", r.URL.Path, "method", r.Method)
 			if err = m.Store.Init(ctx, session); err != nil {
 				sslog.ErrorContext(ctx, "Failed to register session with existing cookie", common.ErrAttr(err))
@@ -98,8 +96,10 @@ func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session 
 	return
 }
 
-func (m *Manager) RetrieveSession(ctx context.Context, sid string) (*Session, error) {
-	return m.Store.Read(ctx, sid, true /*skip cache*/)
+func (m *Manager) RecoverSession(ctx context.Context, sess *Session) {
+	if dbSess, err := m.Store.Read(ctx, sess.ID(), true /*skip cache*/); err == nil {
+		sess.Merge(dbSess)
+	}
 }
 
 func (m *Manager) SessionDestroy(w http.ResponseWriter, r *http.Request) {

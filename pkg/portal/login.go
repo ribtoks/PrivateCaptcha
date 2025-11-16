@@ -125,7 +125,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess, _ := s.Sessions.SessionStart(w, r)
+	sess := s.Sessions.SessionStart(w, r)
 	if step, ok := sess.Get(ctx, session.KeyLoginStep).(int); ok {
 		if step == loginStepCompleted {
 			slog.DebugContext(ctx, "User seem to be already logged in", "email", email)

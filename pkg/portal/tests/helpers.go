@@ -146,16 +146,17 @@ func AuthenticateSuite(ctx context.Context, email string, srv *http.ServeMux, xs
 	req.AddCookie(cookie)
 	w = httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
+	resp = w.Result()
 
-	if w.Code != http.StatusSeeOther {
-		return nil, fmt.Errorf("unexpected post twofactor code: %v", w.Code)
+	if resp.StatusCode != http.StatusSeeOther {
+		return nil, fmt.Errorf("unexpected post twofactor code: %v", resp.StatusCode)
 	}
 
-	if location, _ := w.Result().Location(); location.String() != "/" {
+	if location, _ := resp.Location(); location.String() != "/" {
 		return nil, fmt.Errorf("unexpected redirect: %v", location)
 	}
 
-	slog.Log(ctx, common.LevelTrace, "Looks like we are authenticated", "code", w.Code)
+	slog.Log(ctx, common.LevelTrace, "Looks like we are authenticated", "code", resp.StatusCode)
 
 	return cookie, nil
 }

@@ -124,8 +124,8 @@ func TestGetPuzzleWithoutSubscription(t *testing.T) {
 	}
 
 	sitekey := db.UUIDToSiteKey(property.ExternalID)
-	if err := cache.Delete(ctx, db.PropertyBySitekeyCacheKey(sitekey)); err != nil {
-		t.Fatal(err)
+	if found := cache.Delete(ctx, db.PropertyBySitekeyCacheKey(sitekey)); !found {
+		t.Fatal("property was not found in cache")
 	}
 
 	puzzleSuiteWithBackfillWait(t, ctx, sitekey, property.Domain)

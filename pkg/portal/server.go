@@ -146,7 +146,7 @@ func (s *Server) createSettingsTabs() []*SettingsTab {
 	}
 }
 
-func (s *Server) Init(ctx context.Context, templateBuilder *TemplatesBuilder, gitCommit string) error {
+func (s *Server) Init(ctx context.Context, templateBuilder *TemplatesBuilder, gitCommit string, sessionPersistInterval time.Duration) error {
 	prefix := common.RelURL(s.Prefix, "/")
 
 	templateBuilder.AddFunctions(ctx, funcMap(prefix))
@@ -157,7 +157,7 @@ func (s *Server) Init(ctx context.Context, templateBuilder *TemplatesBuilder, gi
 		return err
 	}
 
-	s.Sessions.Init(PortalService, prefix, 30*time.Second)
+	s.Sessions.Init(PortalService, prefix, sessionPersistInterval)
 
 	s.Jobs = s
 	s.SettingsTabs = s.createSettingsTabs()
@@ -381,12 +381,19 @@ func (s *Server) private(next http.Handler) http.Handler {
 	)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sess, _ := s.Sessions.SessionStart(w, r)
+		sess := s.Sessions.SessionStart(w, r)
 
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.ID())
 
 		if step, ok := sess.Get(ctx, session.KeyLoginStep).(int); ok {
+			// this is a sign it could be a local stale session in case user finished login on another node
+			if (step == loginStepSignInVerify) || (step == loginStepSignUpVerify) {
+				slog.WarnContext(ctx, "About to recover potential stale session from DB")
+				s.Sessions.RecoverSession(ctx, sess)
+				step, ok = sess.Get(ctx, session.KeyLoginStep).(int)
+			}
+
 			if step == loginStepCompleted {
 				// update limits each time as rate limiting gets cleaned up frequently (impact shouldn't be much in portal)
 				s.RateLimiter.UpdateRequestLimits(r, authenticatedBucketCap, authenticatedLeakInterval)

@@ -73,15 +73,15 @@ func (c *TxCache) SetWithTTL(ctx context.Context, key CacheKey, t any, ttl time.
 	c.set[key] = &txCacheArg{item: t, ttl: ttl}
 	return nil
 }
-func (c *TxCache) Delete(ctx context.Context, key CacheKey) error {
+func (c *TxCache) Delete(ctx context.Context, key CacheKey) bool {
 	c.del[key] = struct{}{}
-	return nil
+	return true
 }
 
 func (c *TxCache) Commit(ctx context.Context, cache common.Cache[CacheKey, any]) {
 	for key := range c.del {
-		if err := cache.Delete(ctx, key); err != nil {
-			slog.ErrorContext(ctx, "Failed to delete from cache", "key", key, common.ErrAttr(err))
+		if deleted := cache.Delete(ctx, key); !deleted {
+			slog.WarnContext(ctx, "Cache item to delete was not found", "key", key)
 		}
 	}
 
@@ -336,8 +336,8 @@ func (impl *BusinessStoreImpl) doGetSessionbyID(ctx context.Context, sid string)
 }
 
 func (impl *BusinessStoreImpl) DeleteUserSession(ctx context.Context, sid string) error {
-	if err := impl.cache.Delete(ctx, SessionCacheKey(sid)); err != nil {
-		slog.ErrorContext(ctx, "Failed to delete user session from memory cache", common.ErrAttr(err))
+	if found := impl.cache.Delete(ctx, SessionCacheKey(sid)); !found {
+		slog.WarnContext(ctx, "User session was not found in memory cache to delete")
 	}
 
 	if impl.querier == nil {
@@ -367,12 +367,8 @@ func (impl *BusinessStoreImpl) RetrieveUserSession(ctx context.Context, sid stri
 	}
 
 	if skipCache {
-		session, err := impl.doGetSessionbyID(ctx, sid)
-		if err == nil {
-			// yes, it's "skip READ from cache", not "skip cache ENTIRELY"
-			_ = impl.cache.Set(ctx, SessionCacheKey(sid), session)
-		}
-		return session, err
+		// we do not re-cache it yet and let external changes to be merged first
+		return impl.doGetSessionbyID(ctx, sid)
 	}
 
 	reader := &StoreOneReader[string, session.SessionData]{

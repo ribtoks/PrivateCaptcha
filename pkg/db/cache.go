@@ -155,12 +155,12 @@ func (c *memcache[TKey, TValue]) SetWithTTL(ctx context.Context, key TKey, t TVa
 	return nil
 }
 
-func (c *memcache[TKey, TValue]) Delete(ctx context.Context, key TKey) error {
+func (c *memcache[TKey, TValue]) Delete(ctx context.Context, key TKey) bool {
 	_, found := c.store.Invalidate(key)
 
 	slog.Log(ctx, common.LevelTrace, "Deleted item from memory cache", "cache", c.name, "key", key, "found", found)
 
-	return nil
+	return found
 }
 
 type CacheKeyPrefix byte

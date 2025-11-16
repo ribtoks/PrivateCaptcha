@@ -36,13 +36,14 @@ import (
 )
 
 const (
-	modeMigrate          = "migrate"
-	modeRollback         = "rollback"
-	modeServer           = "server"
-	_readinessDrainDelay = 1 * time.Second
-	_shutdownHardPeriod  = 3 * time.Second
-	_shutdownPeriod      = 10 * time.Second
-	_dbConnectTimeout    = 30 * time.Second
+	modeMigrate             = "migrate"
+	modeRollback            = "rollback"
+	modeServer              = "server"
+	_readinessDrainDelay    = 1 * time.Second
+	_shutdownHardPeriod     = 3 * time.Second
+	_shutdownPeriod         = 10 * time.Second
+	_dbConnectTimeout       = 30 * time.Second
+	_sessionPersistInterval = 10 * time.Second
 )
 
 const (
@@ -213,7 +214,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		return err
 	}
 
-	if err := portalServer.Init(ctx, templatesBuilder, GitCommit); err != nil {
+	if err := portalServer.Init(ctx, templatesBuilder, GitCommit, _sessionPersistInterval); err != nil {
 		return err
 	}
 

@@ -17,9 +17,9 @@ func setupSessionSuite(ctx context.Context, manager *session.Manager, t *testing
 	req := httptest.NewRequest("GET", "/settings", nil)
 	w := httptest.NewRecorder()
 
-	sess, started := manager.SessionStart(w, req)
-	if !started {
-		t.Error("session was not started")
+	sess := manager.SessionStart(w, req)
+	if sess == nil {
+		t.Fatal("session was not started")
 	}
 	sess.Set(session.KeyUserName, t.Name())
 	sess.Set(session.KeyPersistent, true)
@@ -74,17 +74,15 @@ func TestPersistentSession(t *testing.T) {
 
 	sess1, cookie := setupSessionSuite(ctx, manager, t)
 
-	cache.Delete(ctx, db.SessionCacheKey(sess1.ID()))
+	if found := cache.Delete(ctx, db.SessionCacheKey(sess1.ID())); !found {
+		t.Fatal("Didn't find cached session to delete")
+	}
 
 	req2 := httptest.NewRequest("GET", "/support", nil)
 	req2.AddCookie(cookie)
 	w2 := httptest.NewRecorder()
 
-	sess2, started := manager.SessionStart(w2, req2)
-
-	if started {
-		t.Error("new session was started")
-	}
+	sess2 := manager.SessionStart(w2, req2)
 
 	if sess1.ID() != sess2.ID() {
 		t.Errorf("New session ID (%v) is different from original (%v)", sess2.ID(), sess1.ID())
@@ -122,11 +120,7 @@ func TestDeleteSession(t *testing.T) {
 	req3 := httptest.NewRequest("GET", "/about", nil)
 	req3.AddCookie(cookie)
 	w3 := httptest.NewRecorder()
-	sess2, started := manager.SessionStart(w3, req3)
-
-	if !started {
-		t.Error("new session was not started")
-	}
+	sess2 := manager.SessionStart(w3, req3)
 
 	if sess1.ID() != sess2.ID() {
 		t.Errorf("New session ID (%v) is different from original (%v)", sess2.ID(), sess1.ID())

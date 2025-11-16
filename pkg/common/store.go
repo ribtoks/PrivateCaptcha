@@ -23,7 +23,7 @@ type Cache[TKey comparable, TValue any] interface {
 	SetMissing(ctx context.Context, key TKey) error
 	Set(ctx context.Context, key TKey, t TValue) error
 	SetWithTTL(ctx context.Context, key TKey, t TValue, ttl time.Duration) error
-	Delete(ctx context.Context, key TKey) error
+	Delete(ctx context.Context, key TKey) bool
 	Missing() TValue
 	HitRatio() float64
 }

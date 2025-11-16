@@ -129,7 +129,7 @@ func (s *Server) Session(w http.ResponseWriter, r *http.Request) *session.Sessio
 		sess, found = s.Sessions.SessionGet(r)
 		if !found || (sess == nil) {
 			slog.ErrorContext(ctx, "Failed to get started session")
-			sess, _ = s.Sessions.SessionStart(w, r)
+			sess = s.Sessions.SessionStart(w, r)
 		}
 	}
 
