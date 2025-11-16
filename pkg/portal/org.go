@@ -253,7 +253,7 @@ func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, ses
 func (s *Server) getPortal(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	sess := s.Sessions.SessionStart(w, r)
+	sess := s.Session(w, r)
 
 	orgID, _, err := common.IntPathArg(r, common.ParamOrg, s.IDHasher)
 	if err != nil {

@@ -18,7 +18,12 @@ func (s *Server) CreateCsrfContext(user *dbgen.User) CsrfRenderContext {
 }
 
 func (s *Server) csrfUserEmailKeyFunc(w http.ResponseWriter, r *http.Request) string {
-	sess := s.Sessions.SessionStart(w, r)
+	// we're using session Get (and not Start) because we don't save session anywhere
+	sess, ok := s.Sessions.SessionGet(r)
+	if !ok {
+		return ""
+	}
+
 	ctx := r.Context()
 	userEmail, ok := sess.Get(ctx, session.KeyUserEmail).(string)
 	if !ok {
@@ -29,7 +34,12 @@ func (s *Server) csrfUserEmailKeyFunc(w http.ResponseWriter, r *http.Request) st
 }
 
 func (s *Server) csrfUserIDKeyFunc(w http.ResponseWriter, r *http.Request) string {
-	sess := s.Sessions.SessionStart(w, r)
+	// we're using session Get (and not Start) because we don't save session anywhere
+	sess, ok := s.Sessions.SessionGet(r)
+	if !ok {
+		return ""
+	}
+
 	ctx := r.Context()
 	userID, ok := sess.Get(ctx, session.KeyUserID).(int32)
 	if !ok {
@@ -62,10 +72,10 @@ func (s *Server) csrf(keyFunc CsrfKeyFunc) alice.Constructor {
 					next.ServeHTTP(w, r)
 					return
 				} else {
-					slog.WarnContext(ctx, "Failed to verify CSRF token")
+					slog.WarnContext(ctx, "Failed to verify CSRF token", "path", r.URL.Path, "method", r.Method, "userID", userID)
 				}
 			} else {
-				slog.WarnContext(ctx, "CSRF token is missing")
+				slog.WarnContext(ctx, "CSRF token is missing", "path", r.URL.Path, "method", r.Method)
 			}
 
 			common.Redirect(s.RelURL(common.ExpiredEndpoint), http.StatusUnauthorized, w, r)

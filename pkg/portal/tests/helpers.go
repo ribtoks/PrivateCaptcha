@@ -151,6 +151,10 @@ func AuthenticateSuite(ctx context.Context, email string, srv *http.ServeMux, xs
 		return nil, fmt.Errorf("unexpected post twofactor code: %v", w.Code)
 	}
 
+	if location, _ := w.Result().Location(); location.String() != "/" {
+		return nil, fmt.Errorf("unexpected redirect: %v", location)
+	}
+
 	slog.Log(ctx, common.LevelTrace, "Looks like we are authenticated", "code", w.Code)
 
 	return cookie, nil

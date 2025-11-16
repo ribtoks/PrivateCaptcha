@@ -28,7 +28,32 @@ func (m *Manager) Init(svc string, path string, interval time.Duration) {
 	m.Store.Start(context.WithValue(context.Background(), common.ServiceContextKey, svc), interval)
 }
 
-func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session *Session) {
+func (m *Manager) SessionGet(r *http.Request) (*Session, bool) {
+	cookie, err := r.Cookie(m.CookieName)
+	if err != nil || cookie.Value == "" {
+		return nil, false
+	}
+
+	sid, _ := url.QueryUnescape(cookie.Value)
+	sslog := slog.With(common.SessionIDAttr(sid))
+
+	ctx := r.Context()
+	sslog.Log(ctx, common.LevelTrace, "Session cookie found in the request for start", "path", r.URL.Path, "method", r.Method)
+	session, err := m.Store.Read(ctx, sid, false /*skip cache*/)
+	if err != nil {
+		level := slog.LevelWarn
+		if err != ErrSessionMissing {
+			level = slog.LevelError
+		}
+		sslog.Log(ctx, level, "Failed to read session from store", common.ErrAttr(err))
+
+		return nil, false
+	}
+
+	return session, true
+}
+
+func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session *Session, started bool) {
 	cookie, err := r.Cookie(m.CookieName)
 	ctx := r.Context()
 	if err != nil || cookie.Value == "" {
@@ -36,6 +61,7 @@ func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session 
 		sid := m.sessionID()
 		sslog := slog.With(common.SessionIDAttr(sid))
 		session = NewSession(NewSessionData(sid), m.Store)
+		started = true
 		sslog.DebugContext(ctx, "Registering new session", "path", r.URL.Path, "method", r.Method)
 		if err = m.Store.Init(ctx, session); err != nil {
 			sslog.ErrorContext(ctx, "Failed to register session", common.SessionIDAttr(sid), common.ErrAttr(err))
@@ -54,19 +80,26 @@ func (m *Manager) SessionStart(w http.ResponseWriter, r *http.Request) (session 
 		sid, _ := url.QueryUnescape(cookie.Value)
 		sslog := slog.With(common.SessionIDAttr(sid))
 		sslog.Log(ctx, common.LevelTrace, "Session cookie found in the request for start", "path", r.URL.Path, "method", r.Method)
-		session, err = m.Store.Read(ctx, sid)
-		if err == ErrSessionMissing {
-			sslog.WarnContext(ctx, "Session from cookie is missing")
+		session, err = m.Store.Read(ctx, sid, false /*skip cache*/)
+		if err != nil {
+			level := slog.LevelWarn
+			if err != ErrSessionMissing {
+				level = slog.LevelError
+			}
+			sslog.Log(ctx, level, "Failed to read session from store", common.ErrAttr(err))
 			session = NewSession(NewSessionData(sid), m.Store)
+			started = true
 			sslog.DebugContext(ctx, "Registering new session", "path", r.URL.Path, "method", r.Method)
 			if err = m.Store.Init(ctx, session); err != nil {
 				sslog.ErrorContext(ctx, "Failed to register session with existing cookie", common.ErrAttr(err))
 			}
-		} else if err != nil {
-			sslog.ErrorContext(ctx, "Failed to read session from store", common.ErrAttr(err))
 		}
 	}
 	return
+}
+
+func (m *Manager) RetrieveSession(ctx context.Context, sid string) (*Session, error) {
+	return m.Store.Read(ctx, sid, true /*skip cache*/)
 }
 
 func (m *Manager) SessionDestroy(w http.ResponseWriter, r *http.Request) {

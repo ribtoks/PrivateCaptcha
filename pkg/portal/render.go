@@ -153,9 +153,10 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 		CDN:         s.CDNURL,
 	}
 
-	sess := s.Sessions.SessionStart(w, r)
-	if username, ok := sess.Get(ctx, session.KeyUserName).(string); ok {
-		reqCtx.UserName = username
+	if sess, found := s.Sessions.SessionGet(r); found {
+		if username, ok := sess.Get(ctx, session.KeyUserName).(string); ok {
+			reqCtx.UserName = username
+		}
 	}
 
 	out, err := s.RenderResponse(ctx, name, data, reqCtx)

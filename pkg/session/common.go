@@ -104,6 +104,26 @@ func (sd *SessionData) UnmarshalBinary(data []byte) error {
 	return nil
 }
 
+func (sd *SessionData) Merge(from *SessionData) {
+	// Acquire locks in consistent order to prevent deadlock
+	first, second := sd, from
+	if sd.sid > from.sid {
+		first, second = from, sd
+	}
+
+	first.lock.Lock()
+	defer first.lock.Unlock()
+
+	second.lock.Lock()
+	defer second.lock.Unlock()
+
+	for key, value := range from.values {
+		if _, ok := sd.values[key]; !ok {
+			sd.values[key] = value
+		}
+	}
+}
+
 func (sd *SessionData) ID() string {
 	return sd.sid
 }
@@ -148,6 +168,10 @@ func NewSession(data *SessionData, store Store) *Session {
 	}
 }
 
+func (s *Session) Merge(from *Session) {
+	s.data.Merge(from.data)
+}
+
 func (s *Session) Data() *SessionData {
 	return s.data
 }
@@ -180,7 +204,7 @@ func (s *Session) Delete(key SessionKey) error {
 type Store interface {
 	Start(ctx context.Context, interval time.Duration)
 	Init(ctx context.Context, session *Session) error
-	Read(ctx context.Context, sid string) (*Session, error)
+	Read(ctx context.Context, sid string, skipCache bool) (*Session, error)
 	Update(session *Session) error
 	Destroy(ctx context.Context, sid string) error
 }

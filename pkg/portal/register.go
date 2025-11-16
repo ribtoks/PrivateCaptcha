@@ -24,29 +24,22 @@ var (
 )
 
 const (
-	registerFormTemplate = "register/form.html"
-	registerTemplate     = "register/register.html"
-	userNameErrorMessage = "Name contains invalid characters."
+	registerContentsTemplate = "login/register-contents.html"
+	userNameErrorMessage     = "Name contains invalid characters."
 )
-
-type registerRenderContext struct {
-	CsrfRenderContext
-	CaptchaRenderContext
-	NameError  string
-	EmailError string
-}
 
 func (s *Server) getRegister(w http.ResponseWriter, r *http.Request) (Model, string, error) {
 	if !s.canRegister.Load() {
 		return nil, "", errRegistrationDisabled
 	}
 
-	return &registerRenderContext{
+	return &loginRenderContext{
 		CsrfRenderContext: CsrfRenderContext{
 			Token: s.XSRF.Token(""),
 		},
 		CaptchaRenderContext: s.CreateCaptchaRenderContext(db.PortalRegisterSitekey),
-	}, registerTemplate, nil
+		IsRegister:           true,
+	}, loginTemplate, nil
 }
 
 func isUserNameValid(name string) bool {
@@ -88,15 +81,16 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := &registerRenderContext{
+	data := &loginRenderContext{
 		CsrfRenderContext: CsrfRenderContext{
 			Token: s.XSRF.Token(""),
 		},
 		CaptchaRenderContext: s.CreateCaptchaRenderContext(db.PortalRegisterSitekey),
+		IsRegister:           true,
 	}
 
 	if _, termsAndConditions := r.Form[common.ParamTerms]; !termsAndConditions {
-		// it's error because they are marked 'required' on the frontend, so something went terribly wrong
+		// it's an error because they are marked 'required' on the frontend, so something went terribly wrong
 		slog.ErrorContext(ctx, "Terms and conditions were not accepted")
 		s.RedirectError(http.StatusBadRequest, w, r)
 		return
@@ -106,14 +100,14 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	if len(captchaSolution) == 0 {
 		slog.WarnContext(ctx, "Captcha solution field is empty")
 		data.CaptchaError = "You need to solve captcha to register."
-		s.render(w, r, registerFormTemplate, data)
+		s.render(w, r, registerContentsTemplate, data)
 		return
 	}
 
 	payload, err := s.PuzzleEngine.ParseSolutionPayload(ctx, []byte(captchaSolution))
 	if err != nil {
 		data.CaptchaError = captchaVerificationFailed
-		s.render(w, r, registerFormTemplate, data)
+		s.render(w, r, registerContentsTemplate, data)
 		return
 	}
 
@@ -122,20 +116,20 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	if err != nil || !verifyResult.Success() {
 		slog.ErrorContext(ctx, "Failed to verify captcha", "errors", verifyResult.Error.String(), common.ErrAttr(err))
 		data.CaptchaError = captchaVerificationFailed
-		s.render(w, r, registerFormTemplate, data)
+		s.render(w, r, registerContentsTemplate, data)
 		return
 	}
 
 	name := strings.TrimSpace(r.FormValue(common.ParamName))
 	if len(name) < 3 {
 		data.NameError = "Please use a longer name."
-		s.render(w, r, registerFormTemplate, data)
+		s.render(w, r, registerContentsTemplate, data)
 		return
 	}
 
 	if !isUserNameValid(name) {
 		data.NameError = userNameErrorMessage
-		s.render(w, r, registerFormTemplate, data)
+		s.render(w, r, registerContentsTemplate, data)
 		return
 	}
 
@@ -143,14 +137,14 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	if err := checkmail.ValidateFormat(email); err != nil {
 		slog.WarnContext(ctx, "Failed to validate email format", common.ErrAttr(err))
 		data.EmailError = "Email address is not valid."
-		s.render(w, r, registerFormTemplate, data)
+		s.render(w, r, registerContentsTemplate, data)
 		return
 	}
 
 	if _, err := s.Store.Impl().FindUserByEmail(ctx, email); err == nil {
 		slog.WarnContext(ctx, "User with such email already exists", "email", email)
 		data.EmailError = "Such email is already registered. Login instead?"
-		s.render(w, r, registerFormTemplate, data)
+		s.render(w, r, registerContentsTemplate, data)
 		return
 	}
 
@@ -163,17 +157,22 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess := s.Sessions.SessionStart(w, r)
+	sess, _ := s.Sessions.SessionStart(w, r)
 	ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.ID())
 
 	_ = sess.Set(session.KeyLoginStep, loginStepSignUpVerify)
 	_ = sess.Set(session.KeyUserEmail, email)
 	_ = sess.Set(session.KeyUserName, name)
 	_ = sess.Set(session.KeyTwoFactorCode, code)
+	// see comment in postLogin() why we have to use persistent here (although "registered user" argument does not apply)
+	_ = sess.Set(session.KeyPersistent, true)
+
+	data.Token = s.XSRF.Token(email)
+	data.Email = common.MaskEmail(email, '*')
 
 	slog.DebugContext(ctx, "Started 2FA registration flow", "email", email)
 
-	common.Redirect(s.RelURL(common.TwoFactorEndpoint), http.StatusOK, w, r)
+	s.render(w, r, twofactorContentsTemplate, data)
 }
 
 func createInternalTrial(plan billing.Plan, status string) *dbgen.CreateSubscriptionParams {

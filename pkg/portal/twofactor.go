@@ -11,46 +11,9 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 )
 
-const (
-	twofactorTemplate = "twofactor/twofactor.html"
-)
-
 var (
 	renderContextNothing = struct{}{}
 )
-
-type twoFactorRenderContext struct {
-	CsrfRenderContext
-	Email string
-	Error string
-}
-
-func (s *Server) getTwoFactor(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	sess := s.Sessions.SessionStart(w, r)
-	if step, ok := sess.Get(ctx, session.KeyLoginStep).(int); !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
-		slog.WarnContext(ctx, "User session is not valid", "step", step, "found", ok)
-		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)
-		return
-	}
-
-	email, ok := sess.Get(ctx, session.KeyUserEmail).(string)
-	if !ok {
-		slog.ErrorContext(ctx, "Failed to get email from session")
-		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)
-		return
-	}
-
-	data := &twoFactorRenderContext{
-		CsrfRenderContext: CsrfRenderContext{
-			Token: s.XSRF.Token(email),
-		},
-		Email: common.MaskEmail(email, '*'),
-	}
-
-	s.render(w, r, twofactorTemplate, data)
-}
 
 func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -62,8 +25,18 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sess := s.Sessions.SessionStart(w, r)
+	sess, started := s.Sessions.SessionStart(w, r)
 	ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.ID())
+
+	// we start session ONLY when session cookie is empty or when DB explicitly returned read error
+	// so "random" POST request to /twofactor might mean we access it from another node without this session
+	if started {
+		slog.DebugContext(ctx, "Attempting to reread potential stale session from DB", "started", started)
+		if dbSess, err := s.Sessions.RetrieveSession(ctx, sess.ID()); err == nil {
+			slog.InfoContext(ctx, "Using DB session instead for two factor")
+			sess.Merge(dbSess)
+		}
+	}
 
 	step, ok := sess.Get(ctx, session.KeyLoginStep).(int)
 	if !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
@@ -86,7 +59,7 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := &twoFactorRenderContext{
+	data := &loginRenderContext{
 		CsrfRenderContext: CsrfRenderContext{
 			Token: s.XSRF.Token(email),
 		},
@@ -95,9 +68,9 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 
 	formCode := r.FormValue(common.ParamVerificationCode)
 	if enteredCode, err := strconv.Atoi(formCode); (err != nil) || (enteredCode != sentCode) {
-		data.Error = "Code is not valid."
+		data.CodeError = "Code is not valid."
 		slog.WarnContext(ctx, "Code verification failed", "actual", formCode, "expected", sentCode, common.ErrAttr(err))
-		s.render(w, r, "twofactor/form.html", data)
+		s.render(w, r, "login/twofactor-form.html", data)
 		return
 	}
 
@@ -145,7 +118,7 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 func (s *Server) resend2fa(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	sess := s.Sessions.SessionStart(w, r)
+	sess, _ := s.Sessions.SessionStart(w, r)
 	if step, ok := sess.Get(ctx, session.KeyLoginStep).(int); !ok || ((step != loginStepSignInVerify) && (step != loginStepSignUpVerify)) {
 		slog.WarnContext(ctx, "User session is not valid", "step", step)
 		common.Redirect(s.RelURL(common.LoginEndpoint), http.StatusUnauthorized, w, r)
@@ -164,10 +137,10 @@ func (s *Server) resend2fa(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.Mailer.SendTwoFactor(ctx, email, code, r.UserAgent(), location); err != nil {
 		slog.ErrorContext(ctx, "Failed to send email message", common.ErrAttr(err))
-		s.render(w, r, "twofactor/resend-error.html", renderContextNothing)
+		s.render(w, r, "login/resend-error.html", renderContextNothing)
 		return
 	}
 
 	_ = sess.Set(session.KeyTwoFactorCode, code)
-	s.render(w, r, "twofactor/resend.html", renderContextNothing)
+	s.render(w, r, "login/resend.html", renderContextNothing)
 }

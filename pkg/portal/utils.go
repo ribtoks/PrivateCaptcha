@@ -125,7 +125,12 @@ func (s *Server) Session(w http.ResponseWriter, r *http.Request) *session.Sessio
 	sess, ok := ctx.Value(common.SessionContextKey).(*session.Session)
 	if !ok || (sess == nil) {
 		slog.ErrorContext(ctx, "Failed to get session from context")
-		sess = s.Sessions.SessionStart(w, r)
+		var found bool
+		sess, found = s.Sessions.SessionGet(r)
+		if !found || (sess == nil) {
+			slog.ErrorContext(ctx, "Failed to get started session")
+			sess, _ = s.Sessions.SessionStart(w, r)
+		}
 	}
 
 	return sess

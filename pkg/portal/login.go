@@ -19,9 +19,10 @@ const (
 	loginStepSignInVerify     = 1
 	loginStepSignUpVerify     = 2
 	loginStepCompleted        = 3
-	loginFormTemplate         = "login/form.html"
 	loginTemplate             = "login/login.html"
+	loginContentsTemplate     = "login/login-contents.html"
 	captchaVerificationFailed = "Captcha verification failed."
+	twofactorContentsTemplate = "login/twofactor-contents.html"
 )
 
 var (
@@ -31,8 +32,12 @@ var (
 type loginRenderContext struct {
 	CsrfRenderContext
 	CaptchaRenderContext
+	Email       string
 	EmailError  string
+	CodeError   string
+	NameError   string
 	CanRegister bool
+	IsRegister  bool
 }
 
 type portalPropertyOwnerSource struct {
@@ -84,14 +89,14 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	if len(captchaSolution) == 0 {
 		slog.WarnContext(ctx, "Captcha solution field is empty")
 		data.CaptchaError = "You need to solve captcha to login."
-		s.render(w, r, loginFormTemplate, data)
+		s.render(w, r, loginContentsTemplate, data)
 		return
 	}
 
 	payload, err := s.PuzzleEngine.ParseSolutionPayload(ctx, []byte(captchaSolution))
 	if err != nil {
 		data.CaptchaError = captchaVerificationFailed
-		s.render(w, r, loginFormTemplate, data)
+		s.render(w, r, loginContentsTemplate, data)
 		return
 	}
 
@@ -100,7 +105,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil || !verifyResult.Success() {
 		slog.ErrorContext(ctx, "Failed to verify captcha", "verify", verifyResult.Error.String(), common.ErrAttr(err))
 		data.CaptchaError = captchaVerificationFailed
-		s.render(w, r, loginFormTemplate, data)
+		s.render(w, r, loginContentsTemplate, data)
 		return
 	}
 
@@ -108,7 +113,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	if err = checkmail.ValidateFormat(email); err != nil {
 		slog.WarnContext(ctx, "Failed to validate email format", common.ErrAttr(err))
 		data.EmailError = "Email address is not valid."
-		s.render(w, r, loginFormTemplate, data)
+		s.render(w, r, loginContentsTemplate, data)
 		return
 	}
 
@@ -116,11 +121,11 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.WarnContext(ctx, "Failed to find user by email", "email", email, common.ErrAttr(err))
 		data.EmailError = "User with such email does not exist."
-		s.render(w, r, loginFormTemplate, data)
+		s.render(w, r, loginContentsTemplate, data)
 		return
 	}
 
-	sess := s.Sessions.SessionStart(w, r)
+	sess, _ := s.Sessions.SessionStart(w, r)
 	if step, ok := sess.Get(ctx, session.KeyLoginStep).(int); ok {
 		if step == loginStepCompleted {
 			slog.DebugContext(ctx, "User seem to be already logged in", "email", email)
@@ -145,6 +150,13 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	_ = sess.Set(session.KeyUserName, user.Name)
 	_ = sess.Set(session.KeyTwoFactorCode, code)
 	_ = sess.Set(session.KeyUserID, user.ID)
+	// this is needed in case we will be routed to another server that does not have our session in memory
+	// (previously we persisted ONLY logged in sessions, but if we're rerouted during login, it will break)
+	// this should be OK now because we verified that user is a registered user AND they solved captcha
+	_ = sess.Set(session.KeyPersistent, true)
 
-	common.Redirect(s.RelURL(common.TwoFactorEndpoint), http.StatusOK, w, r)
+	data.Token = s.XSRF.Token(email)
+	data.Email = common.MaskEmail(email, '*')
+
+	s.render(w, r, twofactorContentsTemplate, data)
 }

@@ -78,14 +78,20 @@ func TestRenderHTML(t *testing.T) {
 			model:    &loginRenderContext{CsrfRenderContext: stubToken()},
 		},
 		{
-			path:     []string{common.TwoFactorEndpoint},
-			template: twofactorTemplate,
-			model:    &twoFactorRenderContext{CsrfRenderContext: stubToken(), Email: "foo@bar.com"},
+			path:     []string{common.LoginEndpoint},
+			template: twofactorContentsTemplate,
+			model:    &loginRenderContext{CsrfRenderContext: stubToken(), Email: "foo@bar.com"},
 		},
 		{
 			path:     []string{common.RegisterEndpoint},
-			template: registerTemplate,
-			model:    &registerRenderContext{CsrfRenderContext: stubToken()},
+			template: loginTemplate,
+			model:    &loginRenderContext{CsrfRenderContext: stubToken(), IsRegister: true},
+		},
+		// technically this is not needed (copy of the above), but it's an insurance against typos in case IsRegister will change
+		{
+			path:     []string{common.RegisterEndpoint},
+			template: registerContentsTemplate,
+			model:    &loginRenderContext{CsrfRenderContext: stubToken(), IsRegister: true},
 		},
 		{
 			path:     []string{common.OrgEndpoint, common.NewEndpoint},

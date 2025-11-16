@@ -361,9 +361,18 @@ func (impl *BusinessStoreImpl) CacheUserSession(ctx context.Context, data *sessi
 	return impl.cache.Set(ctx, SessionCacheKey(data.ID()), data)
 }
 
-func (impl *BusinessStoreImpl) RetrieveUserSession(ctx context.Context, sid string) (*session.SessionData, error) {
+func (impl *BusinessStoreImpl) RetrieveUserSession(ctx context.Context, sid string, skipCache bool) (*session.SessionData, error) {
 	if len(sid) == 0 {
 		return nil, ErrInvalidInput
+	}
+
+	if skipCache {
+		session, err := impl.doGetSessionbyID(ctx, sid)
+		if err == nil {
+			// yes, it's "skip READ from cache", not "skip cache ENTIRELY"
+			impl.cache.Set(ctx, SessionCacheKey(sid), session)
+		}
+		return session, err
 	}
 
 	reader := &StoreOneReader[string, session.SessionData]{

@@ -252,7 +252,6 @@ func (s *Server) setupWithPrefix(router *http.ServeMux, rg *RouteGenerator, secu
 	openRead := public.Append(s.maintenance, publicTimeout)
 	router.Handle(rg.Get(common.LoginEndpoint), openRead.Then(common.Cached(s.Handler(s.getLogin))))
 	router.Handle(rg.Get(common.RegisterEndpoint), openRead.Then(common.Cached(s.Handler(s.getRegister))))
-	router.Handle(rg.Get(common.TwoFactorEndpoint), openRead.ThenFunc(s.getTwoFactor))
 	router.Handle(rg.Get(common.ErrorEndpoint, arg(common.ParamCode)), public.ThenFunc(s.error))
 	router.Handle(rg.Get(common.ExpiredEndpoint), public.ThenFunc(s.expired))
 	router.Handle(rg.Get(common.LogoutEndpoint), public.ThenFunc(s.logout))
@@ -382,7 +381,7 @@ func (s *Server) private(next http.Handler) http.Handler {
 	)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		sess := s.Sessions.SessionStart(w, r)
+		sess, _ := s.Sessions.SessionStart(w, r)
 
 		ctx := r.Context()
 		ctx = context.WithValue(ctx, common.SessionIDContextKey, sess.ID())

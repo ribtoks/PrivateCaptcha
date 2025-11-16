@@ -1,0 +1,11 @@
+<div class="flex items-center justify-between">
+    <h1 class="pc-form-caption">Sign up</h1>
+
+    <p class="pc-form-text">Already joined? <a href="{{ relURL .Const.LoginEndpoint }}" title="" class="pc-form-link">Login now</a></p>
+</div>
+
+<form hx-post='{{ relURL .Const.RegisterEndpoint }}' hx-indicator="#spinner" hx-disabled-elt="input, button" hx-target="#login-container" hx-swap="innerHTML" class="mt-12">
+    {{template "register-form.html" .}}
+</form>
+
+{{ template "dashes.html" . }}

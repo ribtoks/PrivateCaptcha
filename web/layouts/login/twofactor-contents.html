@@ -1,0 +1,11 @@
+<div class="flex items-center justify-between">
+    <h1 class="pc-form-caption">Verify your account</h1>
+
+    <p class="pc-form-text"><a href='{{ relURL .Const.LoginEndpoint }}' title="" class="pc-form-link">Back to Login</a></p>
+</div>
+
+<form hx-post='{{ relURL .Const.TwoFactorEndpoint }}' class="mt-12" hx-target="this" hx-swap="innerHTML" {{ if .Params.Token }}hx-headers='{"{{ .Const.HeaderCSRFToken }}": "{{ .Params.Token }}"}'{{ end }}>
+    {{template "twofactor-form.html" .}}
+</form>
+
+{{ template "dashes.html" . }}

@@ -51,8 +51,8 @@ func (ss *SessionStore) Init(ctx context.Context, session *session.Session) erro
 	return ss.store.Impl().CacheUserSession(ctx, session.Data())
 }
 
-func (ss *SessionStore) Read(ctx context.Context, sid string) (*session.Session, error) {
-	sd, err := ss.store.Impl().RetrieveUserSession(ctx, sid)
+func (ss *SessionStore) Read(ctx context.Context, sid string, skipCache bool) (*session.Session, error) {
+	sd, err := ss.store.Impl().RetrieveUserSession(ctx, sid, skipCache)
 	if err != nil {
 		if (err == ErrNegativeCacheHit) || (err == ErrCacheMiss) {
 			return nil, session.ErrSessionMissing

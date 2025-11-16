@@ -139,7 +139,7 @@ func TestPostLogin(t *testing.T) {
 	rr = httptest.NewRecorder()
 	server.postLogin(rr, req)
 
-	if rr.Code != http.StatusSeeOther {
+	if rr.Code != http.StatusOK {
 		t.Errorf("Unexpected post login code: %v", rr.Code)
 	}
 

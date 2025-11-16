@@ -8,5 +8,21 @@
             submitButton.disabled = false;
         }
     }
+
+    function resendTimer() {
+        return {
+            countdown: 25,
+            canResend: false,
+            init() {
+                const interval = setInterval(() => {
+                    this.countdown--;
+                    if (this.countdown <= 0) {
+                        clearInterval(interval);
+                        this.canResend = true;
+                    }
+                }, 1000);
+            }
+        }
+    }
 </script>
 {{end}}
