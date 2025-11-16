@@ -391,7 +391,7 @@ func (s *Server) private(next http.Handler) http.Handler {
 			if (step == loginStepSignInVerify) || (step == loginStepSignUpVerify) {
 				slog.WarnContext(ctx, "About to recover potential stale session from DB")
 				s.Sessions.RecoverSession(ctx, sess)
-				step, ok = sess.Get(ctx, session.KeyLoginStep).(int)
+				step, _ = sess.Get(ctx, session.KeyLoginStep).(int)
 			}
 
 			if step == loginStepCompleted {
