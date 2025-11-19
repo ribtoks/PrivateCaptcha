@@ -20,7 +20,11 @@ const (
 
 type UserLimiter interface {
 	CheckUsers(ctx context.Context, users map[int32]uint) error
-	Evaluate(ctx context.Context, userID int32) (bool, error)
+	// for properties we want to ensure they belong to an org owned by an active subscriber
+	EvaluatePropertyAccess(ctx context.Context, userID int32) (bool, error)
+	// for API we want to check if user is accessing a resource owned by an active subscriber
+	// (but this check is more down the callstack inside Verifier)
+	EvaluateAPIAccess(ctx context.Context, userID int32) (bool, error)
 }
 
 type AuthMiddleware struct {
@@ -88,10 +92,14 @@ func (ul *baseUserLimiter) CheckUsers(ctx context.Context, batch map[int32]uint)
 	return err
 }
 
-func (ul *baseUserLimiter) Evaluate(ctx context.Context, userID int32) (bool, error) {
+func (ul *baseUserLimiter) EvaluateAPIAccess(ctx context.Context, userID int32) (bool, error) {
 	_, err := ul.userLimits.Get(ctx, userID)
 	// "false" because by we only check if user has a subscription at all, we don't verify usage limits
 	return false, err
+}
+
+func (ul *baseUserLimiter) EvaluatePropertyAccess(ctx context.Context, userID int32) (bool, error) {
+	return ul.EvaluateAPIAccess(ctx, userID)
 }
 
 func NewUserLimiter(store db.Implementor) *baseUserLimiter {
@@ -281,7 +289,7 @@ func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
 				return
 			}
 
-			if softRestriction, err := am.Limiter.Evaluate(ctx, property.OrgOwnerID.Int32); err == nil {
+			if softRestriction, err := am.Limiter.EvaluatePropertyAccess(ctx, property.OrgOwnerID.Int32); err == nil {
 				// if user is not an active subscriber, their properties and orgs might still exist but should not serve puzzles
 				if !softRestriction {
 					http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
@@ -368,7 +376,7 @@ func (am *AuthMiddleware) APIKey(keyFunc func(r *http.Request) string) func(http
 				}
 
 				// if user is not an active subscriber, their properties and orgs might still exist but should not allow API
-				if softRestriction, err := am.Limiter.Evaluate(ctx, apiKey.UserID.Int32); (err == nil) && !softRestriction {
+				if softRestriction, err := am.Limiter.EvaluateAPIAccess(ctx, apiKey.UserID.Int32); (err == nil) && !softRestriction {
 					slog.WarnContext(ctx, "User is limited", "userID", apiKey.UserID.Int32)
 					http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 					return
