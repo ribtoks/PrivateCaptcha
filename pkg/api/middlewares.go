@@ -172,6 +172,11 @@ func (am *AuthMiddleware) backfillSitekeyImpl(ctx context.Context, batch map[str
 			if p.CreatorID.Valid && (!p.OrgOwnerID.Valid || (p.CreatorID.Int32 != p.OrgOwnerID.Int32)) {
 				am.UsersChan <- p.CreatorID.Int32
 			}
+			if orgMembers, err := am.Store.Impl().RetrieveOrganizationUsers(ctx, p.OrgID.Int32); err == nil {
+				for _, user := range orgMembers {
+					am.UsersChan <- user.User.ID
+				}
+			}
 		}
 	} else {
 		slog.ErrorContext(ctx, "Failed to retrieve properties by sitekey", "count", len(batch), common.ErrAttr(err))
