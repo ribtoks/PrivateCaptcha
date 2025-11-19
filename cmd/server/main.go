@@ -160,13 +160,14 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 
 	rateLimitHeader := cfg.Get(common.RateLimitHeaderKey).Value()
 	ipRateLimiter := ratelimit.NewIPAddrRateLimiter(rateLimitHeader, newIPAddrBuckets(cfg))
+	userLimiter := api.NewUserLimiter(businessDB)
 
 	apiServer := &api.Server{
 		Stage:           stage,
 		BusinessDB:      businessDB,
 		TimeSeries:      timeSeriesDB,
 		RateLimiter:     ipRateLimiter,
-		Auth:            api.NewAuthMiddleware(businessDB, api.NewUserLimiter(businessDB), planService),
+		Auth:            api.NewAuthMiddleware(businessDB, userLimiter, planService),
 		VerifyLogChan:   make(chan *common.VerifyRecord, 10*api.VerifyBatchSize),
 		Verifier:        puzzleVerifier,
 		Metrics:         metrics,
@@ -207,6 +208,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		DataCtx:           dataCtx,
 		IDHasher:          common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
 		CountryCodeHeader: cfg.Get(common.CountryCodeHeaderKey),
+		UserLimiter:       userLimiter,
 	}
 
 	templatesBuilder := portal.NewTemplatesBuilder()

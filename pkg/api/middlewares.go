@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/maypok86/otter/v2"
+
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/billing"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
@@ -13,9 +15,7 @@ import (
 )
 
 const (
-	userLimitTTL     = 1 * time.Hour
-	userLimitRefresh = 3 * time.Hour
-	AuthService      = "auth"
+	AuthService = "auth"
 )
 
 type UserLimiter interface {
@@ -25,6 +25,8 @@ type UserLimiter interface {
 	// for API we want to check if user is accessing a resource owned by an active subscriber
 	// (but this check is more down the callstack inside Verifier)
 	EvaluateAPIAccess(ctx context.Context, userID int32) (bool, error)
+	// dropping a user means they will be checked again
+	DropUser(ctx context.Context, userID int32)
 }
 
 type AuthMiddleware struct {
@@ -57,6 +59,12 @@ func (ul *baseUserLimiter) unknownUsers(ctx context.Context, users map[int32]uin
 	}
 
 	return result
+}
+
+func (ul *baseUserLimiter) DropUser(ctx context.Context, userID int32) {
+	if found := ul.userLimits.Delete(ctx, userID); found {
+		slog.DebugContext(ctx, "Removed user from user limiter", "userID", userID)
+	}
 }
 
 func (ul *baseUserLimiter) CheckUsers(ctx context.Context, batch map[int32]uint) error {
@@ -104,10 +112,15 @@ func (ul *baseUserLimiter) EvaluatePropertyAccess(ctx context.Context, userID in
 
 func NewUserLimiter(store db.Implementor) *baseUserLimiter {
 	const maxLimitedUsers = 10_000
+	const userLimitTTL = 30 * time.Minute
 	var userLimits common.Cache[int32, bool]
 	var err error
 	// missing TTL should be equal to "usual" TTL here because it has the same meaning (we mark user has no violation)
-	userLimits, err = db.NewMemoryCache[int32, bool]("user_limits", maxLimitedUsers, false /*missing value*/, userLimitTTL, userLimitRefresh, userLimitTTL)
+	userLimits, err = db.NewMemoryCacheEx[int32, bool]("user_limits", maxLimitedUsers, false /*missing value*/, userLimitTTL,
+		func(o *otter.Options[int32, bool]) {
+			// we want to ONLY use ExpiryAccessing so that we _force_ re-checking various user limit conditions
+			o.ExpiryCalculator = otter.ExpiryAccessing[int32, bool](userLimitTTL)
+		})
 	if err != nil {
 		slog.Error("Failed to create memory cache for user limits", common.ErrAttr(err))
 		userLimits = db.NewStaticCache[int32, bool](maxLimitedUsers, false /*missing data*/)

@@ -331,6 +331,14 @@ func (s *Server) joinOrg(w http.ResponseWriter, r *http.Request) {
 	} else {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 	}
+
+	// if user has no subscription, but joins the org, owned by a subscriber, user can access org resources
+	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
+		// purely theoretically it could have been better to first check if they have a subscription etc. etc.
+		// but there's already a background pipeline for that, so...
+		s.UserLimiter.DropUser(ctx, user.ID)
+		return nil
+	})
 }
 
 func (s *Server) leaveOrg(w http.ResponseWriter, r *http.Request) {

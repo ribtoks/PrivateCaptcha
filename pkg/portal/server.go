@@ -14,6 +14,7 @@ import (
 	"github.com/justinas/alice"
 	"github.com/rs/xid"
 
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/api"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/billing"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/config"
@@ -121,6 +122,7 @@ type Server struct {
 	PlatformCtx       interface{}
 	DataCtx           interface{}
 	CountryCodeHeader common.ConfigItem
+	UserLimiter       api.UserLimiter
 }
 
 func (s *Server) createSettingsTabs() []*SettingsTab {

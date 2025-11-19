@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/api"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/billing"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/config"
@@ -131,6 +132,7 @@ func TestMain(m *testing.M) {
 		PlatformCtx:       platformCtx,
 		IDHasher:          common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
 		CountryCodeHeader: cfg.Get(common.CountryCodeHeaderKey),
+		UserLimiter:       api.NewUserLimiter(store),
 	}
 
 	ctx := context.TODO()
