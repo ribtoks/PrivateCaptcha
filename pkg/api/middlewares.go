@@ -291,6 +291,7 @@ func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
 
 			if softRestriction, err := am.Limiter.EvaluatePropertyAccess(ctx, property.OrgOwnerID.Int32); err == nil {
 				// if user is not an active subscriber, their properties and orgs might still exist but should not serve puzzles
+				slog.WarnContext(ctx, "User is limited for property access", "userID", property.OrgOwnerID.Int32, "soft", softRestriction)
 				if !softRestriction {
 					http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				} else {
@@ -377,7 +378,7 @@ func (am *AuthMiddleware) APIKey(keyFunc func(r *http.Request) string) func(http
 
 				// if user is not an active subscriber, their properties and orgs might still exist but should not allow API
 				if softRestriction, err := am.Limiter.EvaluateAPIAccess(ctx, apiKey.UserID.Int32); (err == nil) && !softRestriction {
-					slog.WarnContext(ctx, "User is limited", "userID", apiKey.UserID.Int32)
+					slog.WarnContext(ctx, "User is limited for API access", "userID", apiKey.UserID.Int32)
 					http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 					return
 				}
