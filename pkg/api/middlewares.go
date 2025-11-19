@@ -164,25 +164,26 @@ func (am *AuthMiddleware) Shutdown() {
 // we cache properties and send owners down the background pipeline
 func (am *AuthMiddleware) backfillSitekeyImpl(ctx context.Context, batch map[string]uint) error {
 	properties, err := am.Store.Impl().RetrievePropertiesBySitekey(ctx, batch, am.NegativeSitekeyThreshold)
-	if err == nil {
-		for _, p := range properties {
-			if p.OrgOwnerID.Valid {
-				am.UsersChan <- p.OrgOwnerID.Int32
-			}
-			if p.CreatorID.Valid && (!p.OrgOwnerID.Valid || (p.CreatorID.Int32 != p.OrgOwnerID.Int32)) {
-				am.UsersChan <- p.CreatorID.Int32
-			}
-			if orgMembers, err := am.Store.Impl().RetrieveOrganizationUsers(ctx, p.OrgID.Int32); err == nil {
-				for _, user := range orgMembers {
-					am.UsersChan <- user.User.ID
-				}
-			}
-		}
-	} else {
+	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve properties by sitekey", "count", len(batch), common.ErrAttr(err))
+		return err
 	}
 
-	return err
+	for _, p := range properties {
+		if p.OrgOwnerID.Valid {
+			am.UsersChan <- p.OrgOwnerID.Int32
+		}
+		if p.CreatorID.Valid && (!p.OrgOwnerID.Valid || (p.CreatorID.Int32 != p.OrgOwnerID.Int32)) {
+			am.UsersChan <- p.CreatorID.Int32
+		}
+		if orgMembers, err := am.Store.Impl().RetrieveOrganizationUsers(ctx, p.OrgID.Int32); err == nil {
+			for _, user := range orgMembers {
+				am.UsersChan <- user.User.ID
+			}
+		}
+	}
+
+	return nil
 }
 
 // we block users without a subscription and (re)cache users API keys to ensure smooth auth in /verify codepath
