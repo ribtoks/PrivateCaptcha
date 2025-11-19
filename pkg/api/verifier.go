@@ -165,6 +165,30 @@ func (v *Verifier) verifyPuzzleValid(ctx context.Context, payload puzzle.Solutio
 	return p, property, puzzle.VerifyNoError
 }
 
+func (v *Verifier) checkUserPermissions(ctx context.Context, property *dbgen.Property, userID int32) bool {
+	// TODO: User should only access property that belongs to active subscriber
+	// currently we just allow all access and rely on userLimiter logic in APIs but we should somehow check
+	// this here as well. So if user has inactive subscription, they shouldn't access their own properties
+	// but they can access properties from other ("valid") orgs where they are a member
+	if (property.OrgOwnerID.Int32 == userID) || (property.CreatorID.Int32 == userID) {
+		return true
+	}
+
+	slog.DebugContext(ctx, "Org owner does not match expected owner", "expectedOwner", userID,
+		"orgOwner", property.OrgOwnerID.Int32, "propertyCreator", property.CreatorID.Int32)
+
+	// at this point we know user is a legit user (due to OwnerIDSource found someone) and we only need to check if
+	// they are the org member, because currently they are NOT an org/property owner
+
+	if v.Store.CheckUserPropertyAccess(ctx, property, userID) {
+		return true
+	}
+
+	slog.WarnContext(ctx, "User does not have permissions to access property", "userID", userID, "propID", property.ID)
+
+	return false
+}
+
 func (v *Verifier) Verify(ctx context.Context, verifyPayload puzzle.SolutionPayload, expectedOwner puzzle.OwnerIDSource, tnow time.Time) (*puzzle.VerifyResult, error) {
 	result := &puzzle.VerifyResult{}
 	puzzleObject, property, perr := v.verifyPuzzleValid(ctx, verifyPayload, tnow)
@@ -193,9 +217,7 @@ func (v *Verifier) Verify(ctx context.Context, verifyPayload puzzle.SolutionPayl
 		// position in code where expected owner is checked is a tradeoff between compute for verifying solutions (below)
 		// and IO for accessing DB of potentially malicious request (in case not-yet-checked API key turns out invalid)
 		if ownerID, err := expectedOwner.OwnerID(ctx, tnow); err == nil {
-			if (property.OrgOwnerID.Int32 != ownerID) && (property.CreatorID.Int32 != ownerID) {
-				slog.WarnContext(ctx, "Org owner does not match expected owner", "expectedOwner", ownerID,
-					"orgOwner", property.OrgOwnerID.Int32, "propertyCreator", property.CreatorID.Int32)
+			if !v.checkUserPermissions(ctx, property, ownerID) {
 				result.SetError(puzzle.WrongOwnerError)
 				return result, nil
 			}

@@ -213,7 +213,7 @@ func (s *Server) postOrgMembers(w http.ResponseWriter, r *http.Request) (Model, 
 		return nil, "", err
 	}
 
-	members, err := s.Store.Impl().RetrieveOrganizationUsers(ctx, org)
+	members, err := s.Store.Impl().RetrieveOrganizationUsers(ctx, org.ID)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve org users", common.ErrAttr(err))
 		return nil, "", err

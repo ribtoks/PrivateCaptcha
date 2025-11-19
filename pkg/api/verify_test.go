@@ -588,3 +588,80 @@ func TestVerifyTestShortcut(t *testing.T) {
 		t.Errorf("Unexpected verification result: %v", result.Error.String())
 	}
 }
+
+func TestVerifyByOrgMember(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := context.TODO()
+
+	owner, org, err := db_test.CreateNewAccountForTest(ctx, store, t.Name()+"_owner", testPlan)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	property, err := store.Impl().CreateNewProperty(ctx, &dbgen.CreatePropertyParams{
+		Name:       t.Name(),
+		OrgID:      db.Int(org.ID),
+		CreatorID:  db.Int(owner.ID),
+		OrgOwnerID: db.Int(owner.ID),
+		Domain:     testPropertyDomain,
+		Level:      db.Int2(int16(common.DifficultyLevelMedium)),
+		Growth:     dbgen.DifficultyGrowthMedium,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	puzzleStr, solutionsStr, err := solutionsSuite(ctx, db.UUIDToSiteKey(property.ExternalID), property.Domain)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := fmt.Sprintf("%s.%s", solutionsStr, puzzleStr)
+
+	member, _, err := db_test.CreateNewAccountForTest(ctx, store, t.Name()+"_member", testPlan)
+
+	apikey, err := store.Impl().CreateAPIKey(ctx, member, t.Name()+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	secret := db.UUIDToSecret(apikey.ExternalID)
+
+	resp, err := verifySuite(payload, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected verify status code %d", resp.StatusCode)
+	}
+
+	if err := checkVerifyError(resp, puzzle.WrongOwnerError); err != nil {
+		t.Fatal(err)
+	}
+
+	// join the org
+	if err := store.Impl().InviteUserToOrg(ctx, org, member); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := store.Impl().JoinOrg(ctx, org.ID, member); err != nil {
+		t.Fatal(err)
+	}
+
+	// now, after we join the org, should be OK
+	resp, err = verifySuite(payload, secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected verify status code %d", resp.StatusCode)
+	}
+
+	if err := checkVerifyError(resp, puzzle.VerifyNoError); err != nil {
+		t.Fatal(err)
+	}
+}

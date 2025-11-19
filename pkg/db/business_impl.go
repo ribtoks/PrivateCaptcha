@@ -968,9 +968,9 @@ func (impl *BusinessStoreImpl) SoftDeleteOrganization(ctx context.Context, org *
 }
 
 // NOTE: by definition this does not include the owner as this relationship is set directly in the 'organizations' table
-func (impl *BusinessStoreImpl) RetrieveOrganizationUsers(ctx context.Context, org *dbgen.Organization) ([]*dbgen.GetOrganizationUsersRow, error) {
+func (impl *BusinessStoreImpl) RetrieveOrganizationUsers(ctx context.Context, orgID int32) ([]*dbgen.GetOrganizationUsersRow, error) {
 	reader := &StoreArrayReader[int32, dbgen.GetOrganizationUsersRow]{
-		CacheKey: orgUsersCacheKey(org.ID),
+		CacheKey: orgUsersCacheKey(orgID),
 		Cache:    impl.cache,
 	}
 

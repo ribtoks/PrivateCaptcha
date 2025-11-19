@@ -55,6 +55,7 @@ type Implementor interface {
 	Ping(ctx context.Context) error
 	CheckVerifiedPuzzle(ctx context.Context, p puzzle.Puzzle, maxCount uint32) bool
 	CacheVerifiedPuzzle(ctx context.Context, p puzzle.Puzzle, tnow time.Time)
+	CheckUserPropertyAccess(ctx context.Context, property *dbgen.Property, userID int32) bool
 	CacheHitRatio() float64
 }
 
@@ -171,4 +172,24 @@ func (s *BusinessStore) CacheVerifiedPuzzle(ctx context.Context, p puzzle.Puzzle
 
 	value := s.puzzleCache.Inc(ctx, p.HashKey(), expiration.Sub(tnow))
 	slog.Log(ctx, common.LevelTrace, "Cached verified puzzle", "times", value)
+}
+
+func (s *BusinessStore) CheckUserPropertyAccess(ctx context.Context, property *dbgen.Property, userID int32) bool {
+	_, level, err := s.cacheOnlyImpl.retrieveOrganizationWithAccess(ctx, userID, property.OrgID.Int32)
+	if (err == nil) && level.Valid {
+		return (level.AccessLevel == dbgen.AccessLevelMember) || (level.AccessLevel == dbgen.AccessLevelOwner)
+	}
+
+	// the reason we use orgUsers() API and not userOrgs() API is that the former is a bit faster
+	members, err := s.Impl().RetrieveOrganizationUsers(ctx, property.OrgID.Int32)
+	if (err == nil) && (len(members) > 0) {
+		for _, user := range members {
+			if user.User.ID == userID {
+				slog.DebugContext(ctx, "Found user as org member", "level", user.Level, "userID", userID, "orgID", property.OrgID)
+				return (user.Level == dbgen.AccessLevelMember) || (level.AccessLevel == dbgen.AccessLevelOwner)
+			}
+		}
+	}
+
+	return false
 }

@@ -106,7 +106,7 @@ func TestInviteUser(t *testing.T) {
 		t.Errorf("Unexpected status code %v", resp.StatusCode)
 	}
 
-	members, err := store.Impl().RetrieveOrganizationUsers(ctx, org1)
+	members, err := store.Impl().RetrieveOrganizationUsers(ctx, org1.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestDeleteUserFromOrgPermissions(t *testing.T) {
 		t.Errorf("Unexpected redirect: %s", path)
 	}
 
-	members, err := store.Impl().RetrieveOrganizationUsers(ctx, org)
+	members, err := store.Impl().RetrieveOrganizationUsers(ctx, org.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
