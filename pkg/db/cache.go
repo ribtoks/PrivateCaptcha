@@ -40,17 +40,40 @@ func (pcOtterLogger) Error(ctx context.Context, msg string, err error) {
 	slog.ErrorContext(ctx, msg, "source", "otter", common.ErrAttr(err))
 }
 
-func NewMemoryCache[TKey comparable, TValue comparable](name string, maxCacheSize int, missingValue TValue, expiryTTL, refreshTTL, missingTTL time.Duration) (*memcache[TKey, TValue], error) {
-	counter := stats.NewCounter()
-	store, err := otter.New(&otter.Options[TKey, TValue]{
-		MaximumSize:       maxCacheSize,
-		InitialCapacity:   max(100, maxCacheSize/1000),
-		ExpiryCalculator:  otter.ExpiryAccessing[TKey, TValue](expiryTTL),
-		RefreshCalculator: otter.RefreshWriting[TKey, TValue](refreshTTL),
-		StatsRecorder:     counter,
-		Logger:            &pcOtterLogger{},
-	})
+type OtterCacheOption[TKey comparable, TValue comparable] func(*otter.Options[TKey, TValue])
 
+func NewMemoryCache[TKey comparable, TValue comparable](name string, maxCacheSize int, missingValue TValue, expiryTTL, refreshTTL, missingTTL time.Duration) (*memcache[TKey, TValue], error) {
+	return NewMemoryCacheEx[TKey, TValue](name, maxCacheSize, missingValue, missingTTL,
+		func(o *otter.Options[TKey, TValue]) {
+			o.ExpiryCalculator = otter.ExpiryAccessing[TKey, TValue](10 * time.Minute)
+			o.RefreshCalculator = otter.RefreshWriting[TKey, TValue](5 * time.Minute)
+		})
+}
+
+func NewMemoryCacheEx[TKey comparable, TValue comparable](
+	name string,
+	maxCacheSize int,
+	missingValue TValue,
+	missingTTL time.Duration,
+	opts ...OtterCacheOption[TKey, TValue],
+) (*memcache[TKey, TValue], error) {
+
+	counter := stats.NewCounter()
+
+	// Defaults
+	cfg := &otter.Options[TKey, TValue]{
+		MaximumSize:     maxCacheSize,
+		InitialCapacity: max(100, maxCacheSize/1000),
+		StatsRecorder:   counter,
+		Logger:          &pcOtterLogger{},
+	}
+
+	// Apply user-supplied overrides
+	for _, opt := range opts {
+		opt(cfg)
+	}
+
+	store, err := otter.New(cfg)
 	if err != nil {
 		return nil, err
 	}
