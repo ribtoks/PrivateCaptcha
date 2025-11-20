@@ -1336,27 +1336,6 @@ func (impl *BusinessStoreImpl) RetrieveUsersWithoutSubscription(ctx context.Cont
 	return users, err
 }
 
-func (impl *BusinessStoreImpl) RetrieveSubscriptionsByUserIDs(ctx context.Context, userIDs []int32) ([]*dbgen.GetSubscriptionsByUserIDsRow, error) {
-	if impl.querier == nil {
-		return nil, ErrMaintenance
-	}
-
-	subscriptions, err := impl.querier.GetSubscriptionsByUserIDs(ctx, userIDs)
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return []*dbgen.GetSubscriptionsByUserIDsRow{}, nil
-		}
-
-		slog.ErrorContext(ctx, "Failed to retrieve user subscriptions", "userIDs", len(userIDs), common.ErrAttr(err))
-
-		return nil, err
-	}
-
-	slog.DebugContext(ctx, "Fetched users subscriptions", "count", len(subscriptions), "userIDs", len(userIDs))
-
-	return subscriptions, err
-}
-
 func (impl *BusinessStoreImpl) AcquireLock(ctx context.Context, name string, data []byte, expiration time.Time) (*dbgen.Lock, error) {
 	if (len(name) == 0) || expiration.IsZero() {
 		return nil, ErrInvalidInput

@@ -53,7 +53,6 @@ type Querier interface {
 	GetSoftDeletedProperties(ctx context.Context, arg *GetSoftDeletedPropertiesParams) ([]*GetSoftDeletedPropertiesRow, error)
 	GetSoftDeletedUsers(ctx context.Context, arg *GetSoftDeletedUsersParams) ([]*GetSoftDeletedUsersRow, error)
 	GetSubscriptionByID(ctx context.Context, id int32) (*Subscription, error)
-	GetSubscriptionsByUserIDs(ctx context.Context, dollar_1 []int32) ([]*GetSubscriptionsByUserIDsRow, error)
 	GetSystemNotificationById(ctx context.Context, id int32) (*SystemNotification, error)
 	GetTrialUsers(ctx context.Context, arg *GetTrialUsersParams) ([]*User, error)
 	GetUserAPIKeyByName(ctx context.Context, arg *GetUserAPIKeyByNameParams) (*APIKey, error)

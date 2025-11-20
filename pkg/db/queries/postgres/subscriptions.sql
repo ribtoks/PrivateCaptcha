@@ -1,12 +1,6 @@
 -- name: GetSubscriptionByID :one
 SELECT * FROM backend.subscriptions WHERE id = $1;
 
--- name: GetSubscriptionsByUserIDs :many
-SELECT sqlc.embed(s), u.id AS user_id
-FROM backend.subscriptions s
-JOIN backend.users u on u.subscription_id = s.id
-WHERE u.id = ANY($1::INT[]) AND u.subscription_id IS NOT NULL;
-
 -- name: CreateSubscription :one
 INSERT INTO backend.subscriptions (external_product_id, external_price_id, external_subscription_id, external_customer_id, external_email, status, source, trial_ends_at, next_billed_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *;
 

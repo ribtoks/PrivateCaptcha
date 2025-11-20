@@ -83,53 +83,6 @@ func (q *Queries) GetSubscriptionByID(ctx context.Context, id int32) (*Subscript
 	return &i, err
 }
 
-const getSubscriptionsByUserIDs = `-- name: GetSubscriptionsByUserIDs :many
-SELECT s.id, s.external_product_id, s.external_price_id, s.external_subscription_id, s.external_customer_id, s.status, s.source, s.trial_ends_at, s.next_billed_at, s.cancel_from, s.created_at, s.updated_at, s.external_email, u.id AS user_id
-FROM backend.subscriptions s
-JOIN backend.users u on u.subscription_id = s.id
-WHERE u.id = ANY($1::INT[]) AND u.subscription_id IS NOT NULL
-`
-
-type GetSubscriptionsByUserIDsRow struct {
-	Subscription Subscription `db:"subscription" json:"subscription"`
-	UserID       int32        `db:"user_id" json:"user_id"`
-}
-
-func (q *Queries) GetSubscriptionsByUserIDs(ctx context.Context, dollar_1 []int32) ([]*GetSubscriptionsByUserIDsRow, error) {
-	rows, err := q.db.Query(ctx, getSubscriptionsByUserIDs, dollar_1)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*GetSubscriptionsByUserIDsRow
-	for rows.Next() {
-		var i GetSubscriptionsByUserIDsRow
-		if err := rows.Scan(
-			&i.Subscription.ID,
-			&i.Subscription.ExternalProductID,
-			&i.Subscription.ExternalPriceID,
-			&i.Subscription.ExternalSubscriptionID,
-			&i.Subscription.ExternalCustomerID,
-			&i.Subscription.Status,
-			&i.Subscription.Source,
-			&i.Subscription.TrialEndsAt,
-			&i.Subscription.NextBilledAt,
-			&i.Subscription.CancelFrom,
-			&i.Subscription.CreatedAt,
-			&i.Subscription.UpdatedAt,
-			&i.Subscription.ExternalEmail,
-			&i.UserID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const updateInternalSubscriptions = `-- name: UpdateInternalSubscriptions :exec
 UPDATE backend.subscriptions
 SET status = $1, updated_at = NOW()
