@@ -725,7 +725,13 @@ func (s *Server) createUsageSettingsModel(ctx context.Context, user *dbgen.User)
 	}
 
 	if orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user); err == nil {
-		renderCtx.OrgsCount = len(orgs)
+		count := 0
+		for _, org := range orgs {
+			if org.Level == dbgen.AccessLevelOwner {
+				count++
+			}
+		}
+		renderCtx.OrgsCount = count
 	}
 
 	if count, err := s.Store.Impl().RetrieveUserPropertiesCount(ctx, user.ID); err == nil {
