@@ -150,7 +150,7 @@ func (s *Server) CreateAuditLogsContext(ctx context.Context, user *dbgen.User, d
 		CsrfRenderContext:  s.CreateCsrfContext(user),
 		AlertRenderContext: AlertRenderContext{},
 		AuditLogsRenderContext: AuditLogsRenderContext{
-			AuditLogs: s.newUserAuditLogs(ctx, user, logs),
+			AuditLogs: s.newUserAuditLogs(ctx, logs),
 			Count:     len(allLogs),
 			PerPage:   perPageEventLogs,
 			Page:      page,

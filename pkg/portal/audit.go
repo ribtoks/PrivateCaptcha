@@ -278,13 +278,19 @@ func (s *Server) newUserAuditLog(ctx context.Context, log *dbgen.AuditLog) (*use
 	return ul, nil
 }
 
-func (s *Server) newUserAuditLogs(ctx context.Context, user *dbgen.User, logs []*dbgen.GetUserAuditLogsRow) []*userAuditLog {
+func (s *Server) newUserAuditLogs(ctx context.Context, logs []*dbgen.GetUserAuditLogsRow) []*userAuditLog {
 	result := make([]*userAuditLog, 0, len(logs))
 
 	for _, log := range logs {
 		if ul, err := s.newUserAuditLog(ctx, &log.AuditLog); err == nil {
-			ul.UserName = user.Name
-			ul.UserEmail = common.MaskEmail(user.Email, '*')
+			if log.Name.Valid && log.Email.Valid {
+				ul.UserName = log.Name.String
+				ul.UserEmail = common.MaskEmail(log.Email.String, '*')
+			} else {
+				ul.UserName = "Unknown User"
+				ul.UserEmail = "-"
+			}
+
 			result = append(result, ul)
 		}
 	}
