@@ -52,6 +52,8 @@ func (p *basePlan) PriceIDs() (string, string)          { return p.priceIDMonthl
 func (p *basePlan) TrialDays() int                      { return 14 }
 func (p *basePlan) RequestsLimit() int64                { return p.requestsLimit }
 func (p *basePlan) APIRequestsPerSecond() float64       { return p.apiRequestsPerSecond }
+func (p *basePlan) PropertiesLimit() int                { return 50 }
+func (p *basePlan) OrgsLimit() int                      { return 10 }
 
 const (
 	version1 = 1
@@ -74,6 +76,8 @@ type Plan interface {
 	CheckPropertiesLimit(count int) bool
 	TrialDays() int
 	RequestsLimit() int64
+	PropertiesLimit() int
+	OrgsLimit() int
 	APIRequestsPerSecond() float64
 }
 

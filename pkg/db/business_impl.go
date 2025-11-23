@@ -870,6 +870,7 @@ func (impl *BusinessStoreImpl) CreateNewProperty(ctx context.Context, params *db
 	impl.cacheProperty(ctx, property)
 	// invalidate org properties in cache as we just created a new property
 	_ = impl.cache.Delete(ctx, orgPropertiesCacheKey(params.OrgID.Int32))
+	_ = impl.cache.Delete(ctx, userPropertiesCountCacheKey(property.CreatorID.Int32))
 
 	auditEvent := newCreatePropertyAuditLogEvent(property, org)
 
@@ -919,6 +920,7 @@ func (impl *BusinessStoreImpl) SoftDeleteProperty(ctx context.Context, prop *dbg
 	_ = impl.cache.SetMissing(ctx, propertyByIDCacheKey(prop.ID))
 	// invalidate org properties in cache as we just deleted a property
 	_ = impl.cache.Delete(ctx, orgPropertiesCacheKey(org.ID))
+	_ = impl.cache.Delete(ctx, userPropertiesCountCacheKey(user.ID))
 
 	auditEvent := newDeletePropertyAuditLogEvent(prop, org, user)
 
@@ -987,6 +989,7 @@ func (impl *BusinessStoreImpl) SoftDeleteOrganization(ctx context.Context, org *
 	_ = impl.cache.SetMissing(ctx, orgCacheKey(org.ID))
 	// invalidate user orgs in cache as we just deleted one
 	_ = impl.cache.Delete(ctx, userOrgsCacheKey(user.ID))
+	_ = impl.cache.Delete(ctx, userPropertiesCountCacheKey(user.ID))
 
 	auditEvent := newOrgAuditLogEvent(user.ID, org, common.AuditLogActionSoftDelete)
 
@@ -1688,6 +1691,11 @@ func (impl *BusinessStoreImpl) RetrieveUserPropertiesCount(ctx context.Context, 
 		return 0, ErrMaintenance
 	}
 
+	cacheKey := userPropertiesCountCacheKey(userID)
+	if count, err := FetchCachedOne[int64](ctx, impl.cache, cacheKey); err == nil {
+		return *count, nil
+	}
+
 	count, err := impl.querier.GetUserPropertiesCount(ctx, Int(userID))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve user properties count", "userID", userID, common.ErrAttr(err))
@@ -1695,6 +1703,11 @@ func (impl *BusinessStoreImpl) RetrieveUserPropertiesCount(ctx context.Context, 
 	}
 
 	slog.DebugContext(ctx, "Fetched user properties count", "userID", userID, "count", count)
+
+	const propertiesCountTTL = 5 * time.Minute
+	c := new(int64)
+	*c = count
+	_ = impl.cache.SetWithTTL(ctx, cacheKey, c, propertiesCountTTL)
 
 	return count, nil
 }

@@ -66,7 +66,11 @@ type SettingsCommonRenderContext struct {
 
 type settingsUsageRenderContext struct {
 	SettingsCommonRenderContext
-	Limit int
+	PropertiesCount         int
+	OrgsCount               int
+	IncludedPropertiesCount int
+	IncludedOrgsCount       int
+	Limit                   int
 }
 
 type settingsGeneralRenderContext struct {
@@ -720,6 +724,14 @@ func (s *Server) createUsageSettingsModel(ctx context.Context, user *dbgen.User)
 		SettingsCommonRenderContext: s.CreateSettingsCommonRenderContext(common.UsageEndpoint, user),
 	}
 
+	if orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user); err == nil {
+		renderCtx.OrgsCount = len(orgs)
+	}
+
+	if count, err := s.Store.Impl().RetrieveUserPropertiesCount(ctx, user.ID); err == nil {
+		renderCtx.PropertiesCount = int(count)
+	}
+
 	if user.SubscriptionID.Valid {
 		subscription, err := s.Store.Impl().RetrieveSubscription(ctx, user.SubscriptionID.Int32)
 		if err != nil {
@@ -729,6 +741,8 @@ func (s *Server) createUsageSettingsModel(ctx context.Context, user *dbgen.User)
 			if plan, err := s.PlanService.FindPlan(subscription.ExternalProductID, subscription.ExternalPriceID, s.Stage,
 				db.IsInternalSubscription(subscription.Source)); err == nil {
 				renderCtx.Limit = int(plan.RequestsLimit())
+				renderCtx.IncludedPropertiesCount = plan.PropertiesLimit()
+				renderCtx.IncludedOrgsCount = plan.OrgsLimit()
 			} else {
 				slog.ErrorContext(ctx, "Failed to find billing plan for usage tab", "productID", subscription.ExternalProductID, "priceID", subscription.ExternalPriceID, common.ErrAttr(err))
 				renderCtx.ErrorMessage = "Could not determine usage limits from your plan."
