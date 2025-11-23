@@ -546,8 +546,9 @@ func (s *Server) postNewOrgProperty(w http.ResponseWriter, r *http.Request) {
 		Growth:    dbgen.DifficultyGrowthMedium,
 	}, org)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to create property", common.ErrAttr(err))
-		s.RedirectError(http.StatusInternalServerError, w, r)
+		slog.ErrorContext(ctx, "Failed to create the property", common.ErrAttr(err))
+		renderCtx.ErrorMessage = "Failed to create the property. Please try again later."
+		s.render(w, r, createPropertyFormTemplate, renderCtx)
 		return
 	}
 

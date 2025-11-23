@@ -81,6 +81,8 @@ func (s *Server) moveProperty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: Show user success message after property is moved to new org
+	// can put it in the session
 	if updatedProperty, auditEvent, err := s.Store.Impl().MoveProperty(ctx, user, property, orgs[idx]); err == nil {
 		propertyDashboardURL := s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(updatedProperty.OrgID.Int32)), common.PropertyEndpoint, s.IDHasher.Encrypt(int(updatedProperty.ID)))
 		common.Redirect(propertyDashboardURL, http.StatusOK, w, r)

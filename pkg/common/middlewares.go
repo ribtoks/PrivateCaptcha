@@ -19,7 +19,7 @@ const (
 )
 
 var (
-	headerHtmxRequest = http.CanonicalHeaderKey("HX-Request")
+	HeaderHtmxRequest = http.CanonicalHeaderKey("HX-Request")
 	errPathArgEmpty   = errors.New("path argument is empty")
 	epoch             = time.Unix(0, 0).UTC().Format(http.TimeFormat)
 	// taken from chi, which took it from nginx
@@ -123,7 +123,7 @@ func HttpStatus(code int) http.Handler {
 }
 
 func Redirect(url string, code int, w http.ResponseWriter, r *http.Request) {
-	if _, ok := r.Header[headerHtmxRequest]; ok {
+	if _, ok := r.Header[HeaderHtmxRequest]; ok {
 		slog.Log(r.Context(), LevelTrace, "Redirecting using htmx header", "url", url)
 		w.Header().Set(headerHtmxRedirect, url)
 		w.WriteHeader(code)

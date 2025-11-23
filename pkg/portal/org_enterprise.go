@@ -98,8 +98,9 @@ func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
 
 	org, auditEvent, err := s.Store.Impl().CreateNewOrganization(ctx, name, user.ID)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to create organization", common.ErrAttr(err))
-		s.RedirectError(http.StatusInternalServerError, w, r)
+		slog.ErrorContext(ctx, "Failed to create the organization", common.ErrAttr(err))
+		renderCtx.ErrorMessage = "Failed to create the organization. Please try again later."
+		s.render(w, r, createOrgFormTemplate, renderCtx)
 		return
 	}
 
