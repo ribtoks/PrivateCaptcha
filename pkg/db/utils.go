@@ -179,7 +179,7 @@ func FetchCachedArray[T any](ctx context.Context, cache common.Cache[CacheKey, a
 	return nil, errInvalidCacheType
 }
 
-func queryKeyInt(ck CacheKey) (int32, error) {
+func QueryKeyInt(ck CacheKey) (int32, error) {
 	return ck.IntValue, nil
 }
 

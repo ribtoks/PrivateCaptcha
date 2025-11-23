@@ -604,7 +604,7 @@ func (impl *BusinessStoreImpl) retrieveUser(ctx context.Context, userID int32) (
 	}
 
 	if impl.querier != nil {
-		reader.QueryKeyFunc = queryKeyInt
+		reader.QueryKeyFunc = QueryKeyInt
 		reader.QueryFunc = impl.querier.GetUserByID
 	}
 
@@ -788,7 +788,7 @@ func (impl *BusinessStoreImpl) RetrieveSubscription(ctx context.Context, sID int
 	}
 
 	if impl.querier != nil {
-		reader.QueryKeyFunc = queryKeyInt
+		reader.QueryKeyFunc = QueryKeyInt
 		reader.QueryFunc = impl.querier.GetSubscriptionByID
 	}
 
@@ -1001,7 +1001,7 @@ func (impl *BusinessStoreImpl) RetrieveOrganizationUsers(ctx context.Context, or
 	}
 
 	if impl.querier != nil {
-		reader.QueryKeyFunc = queryKeyInt
+		reader.QueryKeyFunc = QueryKeyInt
 		reader.QueryFunc = impl.querier.GetOrganizationUsers
 	}
 
@@ -1592,7 +1592,7 @@ func (impl *BusinessStoreImpl) RetrieveSystemNotification(ctx context.Context, i
 	}
 
 	if impl.querier != nil {
-		reader.QueryKeyFunc = queryKeyInt
+		reader.QueryKeyFunc = QueryKeyInt
 		reader.QueryFunc = impl.querier.GetSystemNotificationById
 	}
 
