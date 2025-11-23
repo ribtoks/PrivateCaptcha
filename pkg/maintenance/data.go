@@ -8,7 +8,6 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/billing"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
-	"github.com/jpillora/backoff"
 )
 
 const (
@@ -114,79 +113,6 @@ func (j *GarbageCollectDataJob) RunOnce(ctx context.Context, params any) error {
 
 	if err := j.purgeUsers(ctx, before); err != nil {
 		return err
-	}
-
-	return nil
-}
-
-type CleanupExpiredTrialUsersJob struct {
-	Age         time.Duration
-	BusinessDB  db.Implementor
-	PlanService billing.PlanService
-	ChunkSize   int
-	Months      int
-}
-
-var _ common.PeriodicJob = (*CleanupExpiredTrialUsersJob)(nil)
-
-func (j *CleanupExpiredTrialUsersJob) Interval() time.Duration {
-	return 12 * time.Hour
-}
-
-func (j *CleanupExpiredTrialUsersJob) Jitter() time.Duration {
-	return 6 * time.Hour
-}
-
-func (j *CleanupExpiredTrialUsersJob) Name() string {
-	return "cleanup_expired_trial_users_job"
-}
-
-type CleanupExpiredTrialUsersParams struct {
-	Age       time.Duration `json:"age"`
-	ChunkSize int           `json:"chunk_size"`
-	Months    int           `json:"months"`
-}
-
-func (j *CleanupExpiredTrialUsersJob) NewParams() any {
-	return &CleanupExpiredTrialUsersParams{
-		Age:       j.Age,
-		ChunkSize: j.ChunkSize,
-		Months:    j.Months,
-	}
-}
-
-func (j *CleanupExpiredTrialUsersJob) RunOnce(ctx context.Context, params any) error {
-	p, ok := params.(*CleanupExpiredTrialUsersParams)
-	if !ok || (p == nil) {
-		slog.ErrorContext(ctx, "Job parameter has incorrect type", "params", params, "job", j.Name())
-		p = j.NewParams().(*CleanupExpiredTrialUsersParams)
-	}
-
-	expiredTo := time.Now().Add(-p.Age)
-	expiredFrom := expiredTo.AddDate(0, -p.Months, 0)
-	users, err := j.BusinessDB.Impl().RetrieveTrialUsers(ctx, expiredFrom, expiredTo, j.PlanService.ExpiredTrialStatus(), int32(p.ChunkSize), true /*internal*/)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve users with expired trials", common.ErrAttr(err))
-		return err
-	}
-
-	b := &backoff.Backoff{
-		Min:    200 * time.Millisecond,
-		Max:    1 * time.Second,
-		Factor: 2,
-		Jitter: true,
-	}
-
-	for i, u := range users {
-		if (i > 0) && (err == nil) {
-			time.Sleep(b.Duration())
-		}
-
-		// NOTE: we don't record audit event because this is not what user did themselves
-		_, err = j.BusinessDB.Impl().SoftDeleteUser(ctx, u)
-		if err != nil {
-			slog.ErrorContext(ctx, "Failed to soft-delete user", "userID", u.ID, common.ErrAttr(err))
-		}
 	}
 
 	return nil

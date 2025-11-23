@@ -366,13 +366,6 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		NotificationMonths: 6,
 		TemplateMonths:     7,
 	})
-	jobs.AddLocked(24*time.Hour, &maintenance.CleanupExpiredTrialUsersJob{
-		Age:         30 * 24 * time.Hour,
-		BusinessDB:  businessDB,
-		PlanService: planService,
-		ChunkSize:   20,
-		Months:      6,
-	})
 	jobs.AddLocked(3*time.Hour, &maintenance.ExpireInternalTrialsJob{
 		PastInterval: 3 * time.Hour,
 		Age:          24 * time.Hour,
