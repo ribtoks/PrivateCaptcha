@@ -133,6 +133,10 @@ func (al *AuditLog) RecordEvent(ctx context.Context, event *common.AuditLogEvent
 		slog.WarnContext(ctx, "Audit log event has no payload", "table", event.TableName, "entityID", event.EntityID, "action", event.Action.String())
 	}
 
+	if event.UserID == 0 {
+		slog.ErrorContext(ctx, "Recording audit event without user ID", "table", event.TableName, "entityID", event.EntityID, "action", event.Action.String())
+	}
+
 	if sid, ok := ctx.Value(common.SessionIDContextKey).(string); ok && (len(sid) > 0) {
 		event.SessionID = sid
 	}
