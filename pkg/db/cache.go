@@ -178,6 +178,14 @@ func (c *memcache[TKey, TValue]) SetWithTTL(ctx context.Context, key TKey, t TVa
 	return nil
 }
 
+func (c *memcache[TKey, TValue]) SetTTL(ctx context.Context, key TKey, ttl time.Duration) error {
+	c.store.SetExpiresAfter(key, ttl)
+
+	slog.Log(ctx, common.LevelTrace, "Set item TTL", "cache", c.name, "key", key, "ttl", ttl)
+
+	return nil
+}
+
 func (c *memcache[TKey, TValue]) Delete(ctx context.Context, key TKey) bool {
 	_, found := c.store.Invalidate(key)
 

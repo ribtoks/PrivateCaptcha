@@ -73,6 +73,14 @@ func (c *TxCache) SetWithTTL(ctx context.Context, key CacheKey, t any, ttl time.
 	c.set[key] = &txCacheArg{item: t, ttl: ttl}
 	return nil
 }
+
+func (c *TxCache) SetTTL(ctx context.Context, key CacheKey, ttl time.Duration) error {
+	if item, ok := c.set[key]; ok {
+		item.ttl = ttl
+		return nil
+	}
+	return ErrRecordNotFound
+}
 func (c *TxCache) Delete(ctx context.Context, key CacheKey) bool {
 	c.del[key] = struct{}{}
 	return true
@@ -2211,103 +2219,67 @@ func (impl *BusinessStoreImpl) GetCachedAuditLogs(ctx context.Context, user *dbg
 }
 
 func (impl *BusinessStoreImpl) RetrieveUserAuditLogs(ctx context.Context, user *dbgen.User, limit int, after time.Time) ([]*dbgen.GetUserAuditLogsRow, error) {
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	reader := &StoreArrayReader[*dbgen.GetUserAuditLogsParams, dbgen.GetUserAuditLogsRow]{
+		CacheKey: userAuditLogsCacheKey(user.ID, after.Format(time.DateOnly)),
+		Cache:    impl.cache,
+		TTL:      5 * time.Minute,
 	}
 
-	cacheKey := userAuditLogsCacheKey(user.ID, after.Format(time.DateOnly))
-	if logs, err := FetchCachedArray[dbgen.GetUserAuditLogsRow](ctx, impl.cache, cacheKey); err == nil {
-		return logs, nil
-	}
-
-	logs, err := impl.querier.GetUserAuditLogs(ctx, &dbgen.GetUserAuditLogsParams{
-		UserID:    Int(user.ID),
-		Offset:    0,
-		Limit:     int32(limit),
-		CreatedAt: Timestampz(after),
-	})
-
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return []*dbgen.GetUserAuditLogsRow{}, nil
+	if impl.querier != nil {
+		reader.QueryKeyFunc = func(ck CacheKey) (*dbgen.GetUserAuditLogsParams, error) {
+			return &dbgen.GetUserAuditLogsParams{
+				UserID:    Int(user.ID),
+				Offset:    0,
+				Limit:     int32(limit),
+				CreatedAt: Timestampz(after),
+			}, nil
 		}
-
-		slog.ErrorContext(ctx, "Failed to fetch user audit logs", "limit", limit, "userID", user.ID, "after", after, common.ErrAttr(err))
-		return nil, err
+		reader.QueryFunc = impl.querier.GetUserAuditLogs
 	}
 
-	slog.DebugContext(ctx, "Fetched user audit logs", "userID", user.ID, "count", len(logs), "limit", limit, "after", after)
-
-	const auditLogsTTL = 5 * time.Minute
-	_ = impl.cache.SetWithTTL(ctx, cacheKey, logs, auditLogsTTL)
-
-	return logs, nil
+	return reader.Read(ctx)
 }
 
 func (impl *BusinessStoreImpl) RetrievePropertyAuditLogs(ctx context.Context, property *dbgen.Property, limit int) ([]*dbgen.GetPropertyAuditLogsRow, error) {
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	reader := &StoreArrayReader[*dbgen.GetPropertyAuditLogsParams, dbgen.GetPropertyAuditLogsRow]{
+		CacheKey: propertyAuditLogsCacheKey(property.ID),
+		Cache:    impl.cache,
+		TTL:      5 * time.Minute,
 	}
 
-	cacheKey := propertyAuditLogsCacheKey(property.ID)
-	if logs, err := FetchCachedArray[dbgen.GetPropertyAuditLogsRow](ctx, impl.cache, cacheKey); err == nil {
-		return logs, nil
-	}
-
-	logs, err := impl.querier.GetPropertyAuditLogs(ctx, &dbgen.GetPropertyAuditLogsParams{
-		EntityID:  Int8(int64(property.ID)),
-		CreatedAt: property.CreatedAt,
-		Offset:    0,
-		Limit:     int32(limit),
-	})
-
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return []*dbgen.GetPropertyAuditLogsRow{}, nil
+	if impl.querier != nil {
+		reader.QueryKeyFunc = func(ck CacheKey) (*dbgen.GetPropertyAuditLogsParams, error) {
+			return &dbgen.GetPropertyAuditLogsParams{
+				EntityID:  Int8(int64(property.ID)),
+				CreatedAt: property.CreatedAt,
+				Offset:    0,
+				Limit:     int32(limit),
+			}, nil
 		}
-
-		slog.ErrorContext(ctx, "Failed to fetch property audit logs", "limit", limit, "propID", property.ID, common.ErrAttr(err))
-		return nil, err
+		reader.QueryFunc = impl.querier.GetPropertyAuditLogs
 	}
 
-	slog.DebugContext(ctx, "Fetched property audit logs", "propID", property.ID, "count", len(logs), "limit", limit)
-
-	const auditLogsTTL = 5 * time.Minute
-	_ = impl.cache.SetWithTTL(ctx, cacheKey, logs, auditLogsTTL)
-
-	return logs, nil
+	return reader.Read(ctx)
 }
 
 func (impl *BusinessStoreImpl) RetrieveOrganizationAuditLogs(ctx context.Context, org *dbgen.Organization, limit int) ([]*dbgen.GetOrgAuditLogsRow, error) {
-	if impl.querier == nil {
-		return nil, ErrMaintenance
+	reader := &StoreArrayReader[*dbgen.GetOrgAuditLogsParams, dbgen.GetOrgAuditLogsRow]{
+		CacheKey: orgAuditLogsCacheKey(org.ID),
+		Cache:    impl.cache,
+		TTL:      5 * time.Minute,
 	}
 
-	cacheKey := orgAuditLogsCacheKey(org.ID)
-	if logs, err := FetchCachedArray[dbgen.GetOrgAuditLogsRow](ctx, impl.cache, cacheKey); err == nil {
-		return logs, nil
-	}
-
-	logs, err := impl.querier.GetOrgAuditLogs(ctx, &dbgen.GetOrgAuditLogsParams{
-		EntityID:  Int8(int64(org.ID)),
-		CreatedAt: org.CreatedAt,
-		Offset:    0,
-		Limit:     int32(limit),
-	})
-
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			return []*dbgen.GetOrgAuditLogsRow{}, nil
+	if impl.querier != nil {
+		reader.QueryKeyFunc = func(ck CacheKey) (*dbgen.GetOrgAuditLogsParams, error) {
+			return &dbgen.GetOrgAuditLogsParams{
+				EntityID:  Int8(int64(org.ID)),
+				CreatedAt: org.CreatedAt,
+				Offset:    0,
+				Limit:     int32(limit),
+			}, nil
 		}
-
-		slog.ErrorContext(ctx, "Failed to fetch organization audit logs", "limit", limit, "orgID", org.ID, common.ErrAttr(err))
-		return nil, err
+		reader.QueryFunc = impl.querier.GetOrgAuditLogs
 	}
 
-	slog.DebugContext(ctx, "Fetched organization audit logs", "orgID", org.ID, "count", len(logs), "limit", limit)
-
-	const auditLogsTTL = 5 * time.Minute
-	_ = impl.cache.SetWithTTL(ctx, cacheKey, logs, auditLogsTTL)
-
-	return logs, nil
+	return reader.Read(ctx)
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"log/slog"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -239,6 +240,8 @@ type StoreOneReader[TKey any, T any] struct {
 	QueryFunc    func(context.Context, TKey) (*T, error)
 	QueryKeyFunc func(CacheKey) (TKey, error)
 	Cache        common.Cache[CacheKey, any]
+	TTL          time.Duration
+	readFlag     int32
 }
 
 func (sf *StoreOneReader[TKey, T]) Reload(ctx context.Context, key CacheKey, old any) (any, error) {
@@ -273,6 +276,7 @@ func (sf *StoreOneReader[TKey, T]) Load(ctx context.Context, key CacheKey) (any,
 	}
 
 	slog.Log(ctx, common.LevelTrace, "Retrieved entity from DB", "cacheKey", key)
+	atomic.StoreInt32(&sf.readFlag, 1)
 
 	return t, nil
 }
@@ -285,6 +289,12 @@ func (sf *StoreOneReader[TKey, T]) Read(ctx context.Context) (*T, error) {
 	}
 
 	if t, ok := data.(*T); ok {
+		slog.Log(ctx, common.LevelTrace, "Read object through cache", "cacheKey", sf.CacheKey)
+
+		if (sf.TTL > 0) && (atomic.LoadInt32(&sf.readFlag) == 1) {
+			_ = sf.Cache.SetTTL(ctx, sf.CacheKey, sf.TTL)
+		}
+
 		return t, nil
 	}
 
@@ -296,6 +306,8 @@ type StoreArrayReader[TKey any, T any] struct {
 	QueryFunc    func(context.Context, TKey) ([]*T, error)
 	QueryKeyFunc func(CacheKey) (TKey, error)
 	Cache        common.Cache[CacheKey, any]
+	TTL          time.Duration
+	readFlag     int32
 }
 
 func (sf *StoreArrayReader[TKey, T]) Reload(ctx context.Context, key CacheKey, old any) (any, error) {
@@ -330,6 +342,7 @@ func (sf *StoreArrayReader[TKey, T]) Load(ctx context.Context, key CacheKey) (an
 	}
 
 	slog.Log(ctx, common.LevelTrace, "Retrieved entities from DB", "cacheKey", key, "count", len(t))
+	atomic.StoreInt32(&sf.readFlag, 1)
 
 	return t, nil
 }
@@ -342,7 +355,12 @@ func (sf *StoreArrayReader[TKey, T]) Read(ctx context.Context) ([]*T, error) {
 	}
 
 	if t, ok := data.([]*T); ok {
-		slog.Log(ctx, common.LevelTrace, "Found array in cache", "cacheKey", sf.CacheKey, "count", len(t))
+		slog.Log(ctx, common.LevelTrace, "Read array through cache", "cacheKey", sf.CacheKey, "count", len(t))
+
+		if (sf.TTL > 0) && (atomic.LoadInt32(&sf.readFlag) == 1) {
+			_ = sf.Cache.SetTTL(ctx, sf.CacheKey, sf.TTL)
+		}
+
 		return t, nil
 	}
 

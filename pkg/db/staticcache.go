@@ -109,6 +109,11 @@ func (c *StaticCache[TKey, TValue]) SetWithTTL(ctx context.Context, key TKey, t 
 	return c.Set(ctx, key, t)
 }
 
+func (c *StaticCache[TKey, TValue]) SetTTL(ctx context.Context, key TKey, _ time.Duration) error {
+	// ttl is not supported here
+	return ErrInvalidInput
+}
+
 func (c *StaticCache[TKey, TValue]) Delete(ctx context.Context, key TKey) bool {
 	c.mux.Lock()
 	defer c.mux.Unlock()
