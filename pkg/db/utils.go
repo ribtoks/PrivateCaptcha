@@ -184,7 +184,7 @@ func QueryKeyInt(ck CacheKey) (int32, error) {
 	return ck.IntValue, nil
 }
 
-func queryKeyString(ck CacheKey) (string, error) {
+func QueryKeyString(ck CacheKey) (string, error) {
 	return ck.StrValue, nil
 }
 

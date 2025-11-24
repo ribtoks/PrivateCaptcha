@@ -396,7 +396,7 @@ func (impl *BusinessStoreImpl) RetrieveUserSession(ctx context.Context, sid stri
 
 	if impl.querier != nil {
 		reader.QueryFunc = impl.doGetSessionbyID
-		reader.QueryKeyFunc = queryKeyString
+		reader.QueryKeyFunc = QueryKeyString
 	}
 
 	return reader.Read(ctx)
@@ -1894,7 +1894,7 @@ func (impl *BusinessStoreImpl) RetrieveNotificationTemplate(ctx context.Context,
 	}
 
 	if impl.querier != nil {
-		reader.QueryKeyFunc = queryKeyString
+		reader.QueryKeyFunc = QueryKeyString
 		reader.QueryFunc = impl.querier.GetNotificationTemplateByHash
 	}
 
