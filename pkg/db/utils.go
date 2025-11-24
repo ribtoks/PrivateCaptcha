@@ -405,6 +405,7 @@ func (br *StoreBulkReader[TArg, TKey, T]) Read(ctx context.Context, args map[TAr
 	queryKeys := make([]TKey, 0, len(args))
 	argsMap := make(map[TArg]struct{})
 	cached := make([]*T, 0, len(args))
+	anyInputError := false
 
 	for arg := range args {
 		cacheKey := br.CacheKeyFunc(arg)
@@ -420,6 +421,7 @@ func (br *StoreBulkReader[TArg, TKey, T]) Read(ctx context.Context, args map[TAr
 			argsMap[arg] = struct{}{}
 		} else {
 			slog.ErrorContext(ctx, "Failed to create query key", "arg", arg, common.ErrAttr(err))
+			anyInputError = true
 		}
 	}
 
@@ -430,7 +432,10 @@ func (br *StoreBulkReader[TArg, TKey, T]) Read(ctx context.Context, args map[TAr
 		}
 
 		slog.WarnContext(ctx, "No valid keys to fetch from DB")
-		return nil, nil, ErrInvalidInput
+		if anyInputError {
+			return nil, nil, ErrInvalidInput
+		}
+		return nil, nil, ErrNegativeCacheHit
 	}
 
 	if br.QueryFunc == nil {

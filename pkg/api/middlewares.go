@@ -178,7 +178,11 @@ func (am *AuthMiddleware) Shutdown() {
 func (am *AuthMiddleware) backfillSitekeyImpl(ctx context.Context, batch map[string]uint) error {
 	properties, err := am.Store.Impl().RetrievePropertiesBySitekey(ctx, batch, am.NegativeSitekeyThreshold)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve properties by sitekey", "count", len(batch), common.ErrAttr(err))
+		level := slog.LevelError
+		if err == db.ErrNegativeCacheHit {
+			level = slog.LevelWarn
+		}
+		slog.Log(ctx, level, "Failed to retrieve properties by sitekey", "count", len(batch), common.ErrAttr(err))
 		return err
 	}
 
