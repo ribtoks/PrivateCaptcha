@@ -291,6 +291,7 @@ func (am *AuthMiddleware) Sitekey(next http.Handler) http.Handler {
 			switch err {
 			// this will happen when the user does not have such property or it was deleted
 			case db.ErrNegativeCacheHit, db.ErrRecordNotFound, db.ErrSoftDeleted:
+				slog.Log(ctx, common.LevelTrace, "Sitekey is not found", "sitekey", len(sitekey), "origin", origin)
 				http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 				return
 			case db.ErrInvalidInput:
