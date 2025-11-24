@@ -182,8 +182,20 @@ func ParseAuditLogPayloads[T any](ctx context.Context, log *dbgen.AuditLog) (*T,
 }
 
 type AuditLogUser struct {
-	Name                   string `json:"name,omitempty"`
-	Email                  string `json:"email,omitempty"`
+	Name           string `json:"name,omitempty"`
+	Email          string `json:"email,omitempty"`
+	SubscriptionID int32  `json:"subscription_id,omitempty"`
+}
+
+func newAuditLogUser(user *dbgen.User) *AuditLogUser {
+	return &AuditLogUser{
+		Name:           user.Name,
+		Email:          user.Email,
+		SubscriptionID: user.SubscriptionID.Int32,
+	}
+}
+
+type AuditLogSubscription struct {
 	SubscriptionID         int32  `json:"subscription_id,omitempty"`
 	SubscriptionSource     string `json:"subscription_source,omitempty"`
 	ExternalProductID      string `json:"external_product_id,omitempty"`
@@ -191,22 +203,14 @@ type AuditLogUser struct {
 	ExternalPriceID        string `json:"external_price_id,omitempty"`
 }
 
-func newAuditLogUser(user *dbgen.User, subscription *dbgen.Subscription) *AuditLogUser {
-	event := &AuditLogUser{
-		Name:           user.Name,
-		Email:          user.Email,
-		SubscriptionID: user.SubscriptionID.Int32,
+func newAuditLogSubscription(subscription *dbgen.Subscription) *AuditLogSubscription {
+	return &AuditLogSubscription{
+		SubscriptionID:         subscription.ID,
+		SubscriptionSource:     string(subscription.Source),
+		ExternalProductID:      subscription.ExternalProductID,
+		ExternalSubscriptionID: subscription.ExternalSubscriptionID.String,
+		ExternalPriceID:        subscription.ExternalPriceID,
 	}
-
-	if subscription != nil {
-		event.SubscriptionID = subscription.ID
-		event.SubscriptionSource = string(subscription.Source)
-		event.ExternalProductID = subscription.ExternalProductID
-		event.ExternalSubscriptionID = subscription.ExternalSubscriptionID.String
-		event.ExternalPriceID = subscription.ExternalPriceID
-	}
-
-	return event
 }
 
 func newUserAuditLogEvent(user *dbgen.User, subscription *dbgen.Subscription, action common.AuditLogAction) *common.AuditLogEvent {
@@ -221,9 +225,9 @@ func newUserAuditLogEvent(user *dbgen.User, subscription *dbgen.Subscription, ac
 
 	switch action {
 	case common.AuditLogActionCreate, common.AuditLogActionRecover:
-		event.NewValue = newAuditLogUser(user, subscription)
+		event.NewValue = newAuditLogUser(user)
 	case common.AuditLogActionDelete, common.AuditLogActionSoftDelete:
-		event.OldValue = newAuditLogUser(user, subscription)
+		event.OldValue = newAuditLogUser(user)
 	}
 
 	return event
@@ -237,10 +241,10 @@ func newUpdateUserSubscriptionEvent(user *dbgen.User, oldSubscription, newSubscr
 	return &common.AuditLogEvent{
 		UserID:    user.ID,
 		Action:    common.AuditLogActionUpdate,
-		EntityID:  int64(user.ID),
-		TableName: TableNameUsers,
-		OldValue:  newAuditLogUser(user, oldSubscription),
-		NewValue:  newAuditLogUser(user, newSubscription),
+		EntityID:  int64(newSubscription.ID),
+		TableName: TableNameSubscriptions,
+		OldValue:  newAuditLogSubscription(oldSubscription),
+		NewValue:  newAuditLogSubscription(newSubscription),
 	}
 }
 
@@ -250,8 +254,8 @@ func newUpdateUserAuditLogEvent(oldUser *dbgen.User, newUser *dbgen.User) *commo
 		Action:    common.AuditLogActionUpdate,
 		EntityID:  int64(oldUser.ID),
 		TableName: TableNameUsers,
-		OldValue:  newAuditLogUser(oldUser, nil),
-		NewValue:  newAuditLogUser(newUser, nil),
+		OldValue:  newAuditLogUser(oldUser),
+		NewValue:  newAuditLogUser(newUser),
 	}
 }
 

@@ -46,7 +46,7 @@ var (
 	errUnexpectedAuditLogPayload = errors.New("unexpected audit log payload")
 )
 
-func (ul *userAuditLog) initFromUser(oldValue, newValue *db.AuditLogUser, planService billing.PlanService, stage string) error {
+func (ul *userAuditLog) initFromUser(oldValue, newValue *db.AuditLogUser) error {
 	ul.Resource = "User"
 
 	if (oldValue != nil) && (newValue != nil) {
@@ -58,15 +58,6 @@ func (ul *userAuditLog) initFromUser(oldValue, newValue *db.AuditLogUser, planSe
 			ul.Value = newValue.Email
 		} else if oldValue.SubscriptionID != newValue.SubscriptionID {
 			ul.Property = "Subscription"
-		} else if (oldValue.SubscriptionSource != newValue.SubscriptionSource) ||
-			(oldValue.ExternalSubscriptionID != newValue.ExternalSubscriptionID) ||
-			(oldValue.ExternalProductID != newValue.ExternalProductID) {
-			ul.Property = "Subscription"
-
-			internal := db.IsInternalSubscription(dbgen.SubscriptionSource(newValue.SubscriptionSource))
-			if plan, err := planService.FindPlan(newValue.ExternalProductID, newValue.ExternalPriceID, stage, internal); err == nil {
-				ul.Value = plan.Name()
-			}
 		}
 	}
 
@@ -87,6 +78,34 @@ func (ul *userAuditLog) initFromOrg(oldValue, newValue *db.AuditLogOrg) error {
 			org = oldValue
 		}
 		ul.Resource = fmt.Sprintf("Organization '%s'", org.Name)
+	}
+
+	return nil
+}
+
+func (ul *userAuditLog) initFromSubscription(oldValue, newValue *db.AuditLogSubscription, planService billing.PlanService, stage string) error {
+	ul.Resource = "Subscription"
+
+	if oldValue.SubscriptionSource != newValue.SubscriptionSource {
+		ul.Property = "Type"
+		ul.Value = newValue.SubscriptionSource
+	} else if oldValue.ExternalSubscriptionID != newValue.ExternalSubscriptionID {
+		// shouldn't be happening
+	} else if (oldValue.ExternalProductID != newValue.ExternalProductID) ||
+		(oldValue.ExternalPriceID != newValue.ExternalPriceID) {
+		ul.Property = "Product"
+
+		internal := db.IsInternalSubscription(dbgen.SubscriptionSource(newValue.SubscriptionSource))
+		if plan, err := planService.FindPlan(newValue.ExternalProductID, newValue.ExternalPriceID, stage, internal); err == nil {
+			priceMonthly, priceYearly := plan.PriceIDs()
+			if priceMonthly == newValue.ExternalPriceID {
+				ul.Value = fmt.Sprintf("%s (Monthly)", plan.Name())
+			} else if priceYearly == newValue.ExternalPriceID {
+				ul.Value = fmt.Sprintf("%s (Yearly)", plan.Name())
+			} else {
+				ul.Value = plan.Name()
+			}
+		}
 	}
 
 	return nil
@@ -246,7 +265,12 @@ func (s *Server) newUserAuditLog(ctx context.Context, log *dbgen.AuditLog) (*use
 		case db.TableNameUsers:
 			var oldUser, newUser *db.AuditLogUser
 			if oldUser, newUser, err = db.ParseAuditLogPayloads[db.AuditLogUser](ctx, log); err == nil {
-				err = ul.initFromUser(oldUser, newUser, s.PlanService, s.Stage)
+				err = ul.initFromUser(oldUser, newUser)
+			}
+		case db.TableNameSubscriptions:
+			var oldSub, newSub *db.AuditLogSubscription
+			if oldSub, newSub, err = db.ParseAuditLogPayloads[db.AuditLogSubscription](ctx, log); err == nil {
+				err = ul.initFromSubscription(oldSub, newSub, s.PlanService, s.Stage)
 			}
 		case db.TableNameOrgs:
 			var oldOrg, newOrg *db.AuditLogOrg
