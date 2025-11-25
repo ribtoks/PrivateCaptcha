@@ -65,8 +65,10 @@ func (ul *userAuditLog) initFromUser(oldValue, newValue *db.AuditLogUser) error 
 }
 
 func (ul *userAuditLog) initFromOrg(oldValue, newValue *db.AuditLogOrg) error {
+	ul.Resource = "Organization"
+
 	if (oldValue != nil) && (newValue != nil) {
-		ul.Resource = "Organization"
+		ul.Resource = fmt.Sprintf("Organization '%s'", newValue.Name)
 
 		if oldValue.Name != newValue.Name {
 			ul.Property = "Name"
@@ -145,6 +147,8 @@ func (ul *userAuditLog) initFromOrgUser(oldValue, newValue *db.AuditLogOrgUser) 
 }
 
 func (ul *userAuditLog) initFromProperty(oldValue, newValue *db.AuditLogProperty) error {
+	ul.Resource = "Property"
+
 	if (oldValue != nil) && (newValue != nil) {
 		ul.Resource = fmt.Sprintf("Property '%s'", oldValue.Name)
 		if oldValue.Name != newValue.Name {
@@ -185,10 +189,11 @@ func (ul *userAuditLog) initFromProperty(oldValue, newValue *db.AuditLogProperty
 	}
 
 	return nil
-
 }
 
 func (ul *userAuditLog) initFromAPIKey(oldValue, newValue *db.AuditLogAPIKey) error {
+	ul.Resource = "API key"
+
 	if (oldValue != nil) && (newValue != nil) {
 		ul.Resource = fmt.Sprintf("API key %s", oldValue.Name)
 		if !newValue.ExpiresAt.Time().Equal(oldValue.ExpiresAt.Time()) {
@@ -329,6 +334,8 @@ func (s *Server) newUserAuditLogs(ctx context.Context, logs []*dbgen.GetUserAudi
 			}
 
 			result = append(result, ul)
+		} else {
+			slog.ErrorContext(ctx, "Failed to create audit log model", common.ErrAttr(err))
 		}
 	}
 
