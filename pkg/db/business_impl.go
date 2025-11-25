@@ -1143,6 +1143,10 @@ func (impl *BusinessStoreImpl) RemoveUserFromOrg(ctx context.Context, user *dbge
 }
 
 func (impl *BusinessStoreImpl) UpdateUserSubscription(ctx context.Context, user *dbgen.User, subscription *dbgen.Subscription) (*dbgen.User, *common.AuditLogEvent, error) {
+	if subscription == nil {
+		return nil, nil, ErrInvalidInput
+	}
+
 	if impl.querier == nil {
 		return nil, nil, ErrMaintenance
 	}

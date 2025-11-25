@@ -238,14 +238,19 @@ func newUserAuditLogEvent(user *dbgen.User, subscription *dbgen.Subscription, ac
 }
 
 func newUpdateUserSubscriptionEvent(user *dbgen.User, oldSubscription, newSubscription *dbgen.Subscription) *common.AuditLogEvent {
-	return &common.AuditLogEvent{
+	event := &common.AuditLogEvent{
 		UserID:    user.ID,
 		Action:    common.AuditLogActionUpdate,
 		EntityID:  int64(newSubscription.ID),
 		TableName: TableNameSubscriptions,
-		OldValue:  newAuditLogSubscription(oldSubscription),
 		NewValue:  newAuditLogSubscription(newSubscription),
 	}
+
+	if oldSubscription != nil {
+		event.OldValue = newAuditLogSubscription(oldSubscription)
+	}
+
+	return event
 }
 
 func newUpdateUserAuditLogEvent(oldUser *dbgen.User, newUser *dbgen.User) *common.AuditLogEvent {
