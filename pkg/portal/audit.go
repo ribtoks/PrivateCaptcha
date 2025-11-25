@@ -86,16 +86,14 @@ func (ul *userAuditLog) initFromOrg(oldValue, newValue *db.AuditLogOrg) error {
 func (ul *userAuditLog) initFromSubscription(oldValue, newValue *db.AuditLogSubscription, planService billing.PlanService, stage string) error {
 	ul.Resource = "Subscription"
 
-	if oldValue.SubscriptionSource != newValue.SubscriptionSource {
+	if oldValue.Source != newValue.Source {
 		ul.Property = "Type"
-		ul.Value = newValue.SubscriptionSource
-	} else if oldValue.ExternalSubscriptionID != newValue.ExternalSubscriptionID {
-		// shouldn't be happening
+		ul.Value = newValue.Source
 	} else if (oldValue.ExternalProductID != newValue.ExternalProductID) ||
 		(oldValue.ExternalPriceID != newValue.ExternalPriceID) {
 		ul.Property = "Product"
 
-		internal := db.IsInternalSubscription(dbgen.SubscriptionSource(newValue.SubscriptionSource))
+		internal := db.IsInternalSubscription(dbgen.SubscriptionSource(newValue.Source))
 		if plan, err := planService.FindPlan(newValue.ExternalProductID, newValue.ExternalPriceID, stage, internal); err == nil {
 			priceMonthly, priceYearly := plan.PriceIDs()
 			if priceMonthly == newValue.ExternalPriceID {
@@ -106,6 +104,11 @@ func (ul *userAuditLog) initFromSubscription(oldValue, newValue *db.AuditLogSubs
 				ul.Value = plan.Name()
 			}
 		}
+	} else if oldValue.Status != newValue.Status {
+		ul.Property = "Status"
+		ul.Value = newValue.Status
+	} else if oldValue.ExternalSubscriptionID != newValue.ExternalSubscriptionID {
+		// shouldn't be happening
 	}
 
 	return nil

@@ -200,8 +200,8 @@ func newAuditLogUser(user *dbgen.User) *AuditLogUser {
 }
 
 type AuditLogSubscription struct {
-	SubscriptionID         int32  `json:"subscription_id,omitempty"`
-	SubscriptionSource     string `json:"subscription_source,omitempty"`
+	Source                 string `json:"source,omitempty"`
+	Status                 string `json:"status,omitempty"`
 	ExternalProductID      string `json:"external_product_id,omitempty"`
 	ExternalSubscriptionID string `json:"external_subscription_id,omitempty"`
 	ExternalPriceID        string `json:"external_price_id,omitempty"`
@@ -209,8 +209,8 @@ type AuditLogSubscription struct {
 
 func newAuditLogSubscription(subscription *dbgen.Subscription) *AuditLogSubscription {
 	return &AuditLogSubscription{
-		SubscriptionID:         subscription.ID,
-		SubscriptionSource:     string(subscription.Source),
+		Source:                 string(subscription.Source),
+		Status:                 subscription.Status,
 		ExternalProductID:      subscription.ExternalProductID,
 		ExternalSubscriptionID: subscription.ExternalSubscriptionID.String,
 		ExternalPriceID:        subscription.ExternalPriceID,
@@ -238,10 +238,6 @@ func newUserAuditLogEvent(user *dbgen.User, subscription *dbgen.Subscription, ac
 }
 
 func newUpdateUserSubscriptionEvent(user *dbgen.User, oldSubscription, newSubscription *dbgen.Subscription) *common.AuditLogEvent {
-	if (oldSubscription == nil) && (newSubscription == nil) {
-		return nil
-	}
-
 	return &common.AuditLogEvent{
 		UserID:    user.ID,
 		Action:    common.AuditLogActionUpdate,

@@ -2259,7 +2259,14 @@ func (impl *BusinessStoreImpl) RetrievePropertyAuditLogs(ctx context.Context, pr
 		reader.QueryFunc = impl.querier.GetPropertyAuditLogs
 	}
 
-	return reader.Read(ctx)
+	logs, err := reader.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// extra slice is due to possible caching in portal where for /auditlogs we can fetch and cache multiple entries
+	// but later for /property/auditlogs we will show only up to {limit}
+	return logs[0:min(len(logs), limit)], nil
 }
 
 func (impl *BusinessStoreImpl) RetrieveOrganizationAuditLogs(ctx context.Context, org *dbgen.Organization, limit int) ([]*dbgen.GetOrgAuditLogsRow, error) {
@@ -2281,5 +2288,12 @@ func (impl *BusinessStoreImpl) RetrieveOrganizationAuditLogs(ctx context.Context
 		reader.QueryFunc = impl.querier.GetOrgAuditLogs
 	}
 
-	return reader.Read(ctx)
+	logs, err := reader.Read(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// extra slice is due to possible caching in portal where for /auditlogs we can fetch and cache multiple entries
+	// but later for /org/auditlogs we will show only up to {limit}
+	return logs[0:min(len(logs), limit)], nil
 }
