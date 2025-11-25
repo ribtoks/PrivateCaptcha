@@ -107,8 +107,6 @@ func (ul *userAuditLog) initFromSubscription(oldValue, newValue *db.AuditLogSubs
 	} else if oldValue.Status != newValue.Status {
 		ul.Property = "Status"
 		ul.Value = newValue.Status
-	} else if oldValue.ExternalSubscriptionID != newValue.ExternalSubscriptionID {
-		// shouldn't be happening
 	}
 
 	return nil
