@@ -373,7 +373,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		PlanService:  planService,
 	})
 	jobs.AddLocked(24*time.Hour, &maintenance.CleanupAuditLogJob{
-		PastInterval: 365 * 24 * time.Hour,
+		PastInterval: portalServer.MaxAuditLogsRetention(),
 		BusinessDB:   businessDB,
 	})
 	jobs.RunAll()

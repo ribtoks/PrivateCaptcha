@@ -76,6 +76,10 @@ func newStubAuditLog() *userAuditLog {
 	}
 }
 
+func (s *Server) MaxAuditLogsRetention() time.Duration {
+	return 14 * 24 * time.Hour
+}
+
 func (s *Server) createOrgAuditLogsContext(ctx context.Context, org *dbgen.Organization, user *dbgen.User) (*orgAuditLogsRenderContext, *common.AuditLogEvent, error) {
 	renderCtx := &orgAuditLogsRenderContext{
 		AuditLogsRenderContext: AuditLogsRenderContext{},

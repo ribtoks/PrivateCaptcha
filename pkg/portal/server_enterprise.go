@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
@@ -23,6 +24,10 @@ func (s *Server) checkUserOrgAccess(user *dbgen.User, org *dbgen.Organization) b
 
 func (s *Server) checkUserOrgsLimit(ctx context.Context, user *dbgen.User, count int) bool {
 	return true
+}
+
+func (s *Server) MaxAuditLogsRetention() time.Duration {
+	return 365 * 24 * time.Hour
 }
 
 func (s *Server) setupEnterprise(rg *RouteGenerator, privateRead, privateWrite alice.Chain) {
