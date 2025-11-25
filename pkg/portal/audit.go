@@ -72,7 +72,7 @@ func (ul *userAuditLog) initFromOrg(oldValue, newValue *db.AuditLogOrg) error {
 			ul.Property = "Name"
 			ul.Value = newValue.Name
 		}
-	} else {
+	} else if (oldValue != nil) || (newValue != nil) {
 		org := newValue
 		if org == nil {
 			org = oldValue
@@ -83,30 +83,42 @@ func (ul *userAuditLog) initFromOrg(oldValue, newValue *db.AuditLogOrg) error {
 	return nil
 }
 
+func (ul *userAuditLog) initFromSubscriptionPlan(sub *db.AuditLogSubscription, planService billing.PlanService, stage string) {
+	ul.Property = "Product"
+
+	internal := db.IsInternalSubscription(dbgen.SubscriptionSource(sub.Source))
+	if plan, err := planService.FindPlan(sub.ExternalProductID, sub.ExternalPriceID, stage, internal); err == nil {
+		priceMonthly, priceYearly := plan.PriceIDs()
+		if priceMonthly == sub.ExternalPriceID {
+			ul.Value = fmt.Sprintf("%s (Monthly)", plan.Name())
+		} else if priceYearly == sub.ExternalPriceID {
+			ul.Value = fmt.Sprintf("%s (Yearly)", plan.Name())
+		} else {
+			ul.Value = plan.Name()
+		}
+	}
+}
+
 func (ul *userAuditLog) initFromSubscription(oldValue, newValue *db.AuditLogSubscription, planService billing.PlanService, stage string) error {
 	ul.Resource = "Subscription"
 
-	if oldValue.Source != newValue.Source {
-		ul.Property = "Type"
-		ul.Value = newValue.Source
-	} else if (oldValue.ExternalProductID != newValue.ExternalProductID) ||
-		(oldValue.ExternalPriceID != newValue.ExternalPriceID) {
-		ul.Property = "Product"
-
-		internal := db.IsInternalSubscription(dbgen.SubscriptionSource(newValue.Source))
-		if plan, err := planService.FindPlan(newValue.ExternalProductID, newValue.ExternalPriceID, stage, internal); err == nil {
-			priceMonthly, priceYearly := plan.PriceIDs()
-			if priceMonthly == newValue.ExternalPriceID {
-				ul.Value = fmt.Sprintf("%s (Monthly)", plan.Name())
-			} else if priceYearly == newValue.ExternalPriceID {
-				ul.Value = fmt.Sprintf("%s (Yearly)", plan.Name())
-			} else {
-				ul.Value = plan.Name()
-			}
+	if (oldValue != nil) && (newValue != nil) {
+		if oldValue.Source != newValue.Source {
+			ul.Property = "Type"
+			ul.Value = newValue.Source
+		} else if (oldValue.ExternalProductID != newValue.ExternalProductID) ||
+			(oldValue.ExternalPriceID != newValue.ExternalPriceID) {
+			ul.initFromSubscriptionPlan(newValue, planService, stage)
+		} else if oldValue.Status != newValue.Status {
+			ul.Property = "Status"
+			ul.Value = newValue.Status
 		}
-	} else if oldValue.Status != newValue.Status {
-		ul.Property = "Status"
-		ul.Value = newValue.Status
+	} else if (oldValue != nil) || (newValue != nil) {
+		sub := newValue
+		if sub == nil {
+			sub = oldValue
+		}
+		ul.initFromSubscriptionPlan(sub, planService, stage)
 	}
 
 	return nil
@@ -164,7 +176,7 @@ func (ul *userAuditLog) initFromProperty(oldValue, newValue *db.AuditLogProperty
 			ul.Property = "Localhost"
 			ul.Value = strconv.FormatBool(newValue.AllowLocalhost)
 		}
-	} else {
+	} else if (oldValue != nil) || (newValue != nil) {
 		prop := newValue
 		if prop == nil {
 			prop = oldValue
@@ -186,7 +198,7 @@ func (ul *userAuditLog) initFromAPIKey(oldValue, newValue *db.AuditLogAPIKey) er
 			ul.Property = "Period"
 			ul.Value = strconv.Itoa(int(newValue.Period.Hours() / 24.0))
 		}
-	} else {
+	} else if (oldValue != nil) || (newValue != nil) {
 		key := newValue
 		if key == nil {
 			key = oldValue
