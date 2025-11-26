@@ -128,7 +128,7 @@ func (s *Server) getPropertyAuditLogs(w http.ResponseWriter, r *http.Request) (*
 	return renderCtx, nil, nil
 }
 
-func (s *Server) createAuditLogsContext(ctx context.Context, user *dbgen.User, days int, page int) (*MainAuditLogsRenderContext, error) {
+func (s *Server) CreateAuditLogsContext(ctx context.Context, user *dbgen.User, days int, page int) (*MainAuditLogsRenderContext, error) {
 	logs := make([]*userAuditLog, 0)
 	const maxAuditLogs = 8
 	for i := 0; i < maxAuditLogs; i++ {

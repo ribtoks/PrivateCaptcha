@@ -176,7 +176,7 @@ func (s *Server) Init(ctx context.Context, templateBuilder *TemplatesBuilder, gi
 	s.Jobs = s
 	s.SettingsTabs = s.createSettingsTabs()
 	s.RenderConstants = NewRenderConstants()
-	s.AuditLogsFunc = s.createAuditLogsContext
+	s.AuditLogsFunc = s.CreateAuditLogsContext
 
 	platformCtx := &PlatformRenderContext{
 		GitCommit:  gitCommit,

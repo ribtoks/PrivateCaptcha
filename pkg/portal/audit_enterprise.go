@@ -126,7 +126,7 @@ func (s *Server) exportAuditLogsCSV(w http.ResponseWriter, r *http.Request) {
 	slog.InfoContext(ctx, "Successfully exported audit logs to CSV", "userID", user.ID, "days", days, "count", len(logs))
 }
 
-func (s *Server) createAuditLogsContext(ctx context.Context, user *dbgen.User, days int, page int) (*MainAuditLogsRenderContext, error) {
+func (s *Server) CreateAuditLogsContext(ctx context.Context, user *dbgen.User, days int, page int) (*MainAuditLogsRenderContext, error) {
 	slog.DebugContext(ctx, "Creating audit logs context", "userID", user.ID, "days", days, "page", page)
 	maxLogs := maxAuditLogsForDays(days)
 
