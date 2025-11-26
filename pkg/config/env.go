@@ -75,6 +75,7 @@ func init() {
 	configKeyToEnvName[common.XSRFKeyKey] = "PC_XSRF_KEY"
 	configKeyToEnvName[common.IDHasherSaltKey] = "PC_ID_HASH_SALT"
 	configKeyToEnvName[common.CountryCodeHeaderKey] = "PC_COUNTRY_CODE_HEADER"
+	configKeyToEnvName[common.EnterpriseAuditLogDaysKey] = "EE_AUDIT_LOGS_DAYS"
 
 	for i, v := range configKeyToEnvName {
 		if len(v) == 0 {

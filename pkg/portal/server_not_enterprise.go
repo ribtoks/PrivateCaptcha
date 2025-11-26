@@ -59,6 +59,10 @@ func maxAuditLogsForDays(days int) int {
 	return 5
 }
 
+func MaxAuditLogsRetention(cfg common.ConfigStore) time.Duration {
+	return 14 * 24 * time.Hour
+}
+
 func newStubAuditLog() *userAuditLog {
 	actions := []dbgen.AuditLogAction{dbgen.AuditLogActionAccess, dbgen.AuditLogActionCreate, dbgen.AuditLogActionUpdate,
 		dbgen.AuditLogActionDelete, dbgen.AuditLogActionUnknown}
@@ -74,10 +78,6 @@ func newStubAuditLog() *userAuditLog {
 		TableName: string(tables[randv2.IntN(len(tables))]),
 		Time:      time.Now().Add(-time.Duration(randv2.IntN(60*24*3)) * time.Minute).Format(auditLogTimeFormat),
 	}
-}
-
-func (s *Server) MaxAuditLogsRetention() time.Duration {
-	return 14 * 24 * time.Hour
 }
 
 func (s *Server) createOrgAuditLogsContext(ctx context.Context, org *dbgen.Organization, user *dbgen.User) (*orgAuditLogsRenderContext, *common.AuditLogEvent, error) {

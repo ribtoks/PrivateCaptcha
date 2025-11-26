@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/config"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/justinas/alice"
 )
@@ -26,8 +27,14 @@ func (s *Server) checkUserOrgsLimit(ctx context.Context, user *dbgen.User, count
 	return true
 }
 
-func (s *Server) MaxAuditLogsRetention() time.Duration {
-	return 365 * 24 * time.Hour
+func MaxAuditLogsRetention(cfg common.ConfigStore) time.Duration {
+	daysConfigItem := cfg.Get(common.EnterpriseAuditLogDaysKey)
+	days := config.AsInt(daysConfigItem, 365)
+	if days <= 0 {
+		days = 14
+	}
+
+	return time.Duration(days) * 24 * time.Hour
 }
 
 func (s *Server) setupEnterprise(rg *RouteGenerator, privateRead, privateWrite alice.Chain) {
