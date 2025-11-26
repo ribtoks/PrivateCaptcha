@@ -331,7 +331,7 @@ func TestRenderHTML(t *testing.T) {
 		{
 			path:     []string{common.AuditLogsEndpoint},
 			template: auditLogsTemplate,
-			model: &mainAuditLogsRenderContext{
+			model: &MainAuditLogsRenderContext{
 				CsrfRenderContext: stubToken(),
 				AuditLogsRenderContext: AuditLogsRenderContext{
 					AuditLogs: stubAuditLogs(),

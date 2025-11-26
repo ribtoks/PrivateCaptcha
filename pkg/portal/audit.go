@@ -236,7 +236,7 @@ func (ul *userAuditLog) initFromAccess(log *dbgen.AuditLog, payload *db.AuditLog
 	return nil
 }
 
-type mainAuditLogsRenderContext struct {
+type MainAuditLogsRenderContext struct {
 	CsrfRenderContext
 	AlertRenderContext
 	AuditLogsRenderContext
@@ -253,7 +253,7 @@ func (s *Server) getAuditLogs(w http.ResponseWriter, r *http.Request) (*ViewMode
 		return nil, err
 	}
 
-	renderCtx, err := s.CreateAuditLogsContext(ctx, user, 14, 0)
+	renderCtx, err := s.AuditLogsFunc(ctx, user, 14, 0)
 	if err != nil {
 		return nil, err
 	}

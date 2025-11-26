@@ -54,7 +54,7 @@ func (s *Server) getAuditLogEvents(w http.ResponseWriter, r *http.Request) (*Vie
 		}
 	}
 
-	renderCtx, err := s.CreateAuditLogsContext(ctx, user, days, page)
+	renderCtx, err := s.AuditLogsFunc(ctx, user, days, page)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (s *Server) exportAuditLogsCSV(w http.ResponseWriter, r *http.Request) {
 	slog.InfoContext(ctx, "Successfully exported audit logs to CSV", "userID", user.ID, "days", days, "count", len(logs))
 }
 
-func (s *Server) CreateAuditLogsContext(ctx context.Context, user *dbgen.User, days int, page int) (*mainAuditLogsRenderContext, error) {
+func (s *Server) createAuditLogsContext(ctx context.Context, user *dbgen.User, days int, page int) (*MainAuditLogsRenderContext, error) {
 	slog.DebugContext(ctx, "Creating audit logs context", "userID", user.ID, "days", days, "page", page)
 	maxLogs := maxAuditLogsForDays(days)
 
@@ -146,7 +146,7 @@ func (s *Server) CreateAuditLogsContext(ctx context.Context, user *dbgen.User, d
 		logs = allLogs[start:end]
 	}
 
-	return &mainAuditLogsRenderContext{
+	return &MainAuditLogsRenderContext{
 		CsrfRenderContext:  s.CreateCsrfContext(user),
 		AlertRenderContext: AlertRenderContext{},
 		AuditLogsRenderContext: AuditLogsRenderContext{

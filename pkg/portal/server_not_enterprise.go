@@ -128,14 +128,14 @@ func (s *Server) getPropertyAuditLogs(w http.ResponseWriter, r *http.Request) (*
 	return renderCtx, nil, nil
 }
 
-func (s *Server) CreateAuditLogsContext(ctx context.Context, user *dbgen.User, days int, page int) (*mainAuditLogsRenderContext, error) {
+func (s *Server) createAuditLogsContext(ctx context.Context, user *dbgen.User, days int, page int) (*MainAuditLogsRenderContext, error) {
 	logs := make([]*userAuditLog, 0)
 	const maxAuditLogs = 8
 	for i := 0; i < maxAuditLogs; i++ {
 		logs = append(logs, newStubAuditLog())
 	}
 
-	return &mainAuditLogsRenderContext{
+	return &MainAuditLogsRenderContext{
 		CsrfRenderContext:  s.CreateCsrfContext(user),
 		AlertRenderContext: AlertRenderContext{},
 		AuditLogsRenderContext: AuditLogsRenderContext{

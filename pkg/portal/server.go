@@ -21,6 +21,7 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/config"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
+	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/monitoring"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/ratelimit"
@@ -61,6 +62,7 @@ type ViewModel struct {
 	AuditEvent *common.AuditLogEvent
 }
 type ViewModelHandler func(http.ResponseWriter, *http.Request) (*ViewModel, error)
+type AuditLogsConstructor func(context.Context, *dbgen.User, int, int) (*MainAuditLogsRenderContext, error)
 
 type RequestContext struct {
 	Path        string
@@ -132,6 +134,7 @@ type Server struct {
 	DataCtx           interface{}
 	CountryCodeHeader common.ConfigItem
 	UserLimiter       api.UserLimiter
+	AuditLogsFunc     AuditLogsConstructor
 }
 
 func (s *Server) createSettingsTabs() []*SettingsTab {
@@ -173,6 +176,7 @@ func (s *Server) Init(ctx context.Context, templateBuilder *TemplatesBuilder, gi
 	s.Jobs = s
 	s.SettingsTabs = s.createSettingsTabs()
 	s.RenderConstants = NewRenderConstants()
+	s.AuditLogsFunc = s.createAuditLogsContext
 
 	platformCtx := &PlatformRenderContext{
 		GitCommit:  gitCommit,
