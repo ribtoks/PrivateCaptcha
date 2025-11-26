@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
@@ -80,21 +79,8 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	userID, hasUserID := sess.Get(ctx, session.KeyUserID).(int32)
-	if hasUserID {
-		s.Store.AuditLog().RecordEvent(ctx, newUserAuthAuditLogEvent(userID, common.AuditLogActionLogin))
-
-		go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {
-			slog.DebugContext(bctx, "Fetching system notification for user", "userID", userID)
-			if n, err := s.Store.Impl().RetrieveSystemUserNotification(bctx, time.Now().UTC(), userID); err == nil {
-				_ = sess.Set(session.KeyNotificationID, n.ID)
-			}
-
-			return nil
-		})
-	} else {
-		slog.ErrorContext(ctx, "UserID not found in session")
-	}
+	job := s.Jobs.LoginUser(sess)
+	go common.RunOneOffJob(common.CopyTraceID(ctx, context.Background()), job, job.NewParams())
 
 	_ = sess.Set(session.KeyLoginStep, loginStepCompleted)
 	_ = sess.Delete(session.KeyTwoFactorCode)
