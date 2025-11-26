@@ -405,9 +405,11 @@ func (s *Server) deleteOrg(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) createOrgAuditLogsContext(ctx context.Context, org *dbgen.Organization, user *dbgen.User) (*orgAuditLogsRenderContext, *common.AuditLogEvent, error) {
 	renderCtx := &orgAuditLogsRenderContext{
-		AuditLogsRenderContext: AuditLogsRenderContext{},
-		CurrentOrg:             orgToUserOrg(org, user.ID, s.IDHasher),
-		CanView:                org.UserID.Int32 == user.ID,
+		AuditLogsRenderContext: AuditLogsRenderContext{
+			AuditLogs: []*userAuditLog{},
+		},
+		CurrentOrg: orgToUserOrg(org, user.ID, s.IDHasher),
+		CanView:    org.UserID.Int32 == user.ID,
 	}
 
 	const maxOrgAuditLogs = 10

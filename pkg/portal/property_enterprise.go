@@ -107,8 +107,10 @@ func (s *Server) getPropertyAuditLogs(w http.ResponseWriter, r *http.Request) (*
 
 	renderCtx := &propertyAuditLogsRenderContext{
 		propertyDashboardRenderContext: *dashboardCtx,
-		AuditLogsRenderContext:         AuditLogsRenderContext{},
-		CanView:                        (property.CreatorID.Int32 == user.ID) || (property.OrgOwnerID.Int32 == user.ID),
+		AuditLogsRenderContext: AuditLogsRenderContext{
+			AuditLogs: []*userAuditLog{},
+		},
+		CanView: (property.CreatorID.Int32 == user.ID) || (property.OrgOwnerID.Int32 == user.ID),
 	}
 
 	renderCtx.Tab = propertyAuditLogsTabIndex

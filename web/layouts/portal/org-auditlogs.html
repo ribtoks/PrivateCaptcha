@@ -50,11 +50,13 @@
 {{else if .Params.WarningMessage}}
 <div class="pt-5">{{template "warning-message.html" .Params.WarningMessage}}</div>
 {{else}}
+{{ if gt .Params.Count 0 }}
 <div class="mt-8 sm:flex sm:items-center">
     <div class="sm:flex-auto">
         <p class="mt-2 text-sm text-gray-700">A list of <strong>last {{.Params.Count}} events</strong> that happened with or related to this organization.</p>
     </div>
 </div>
+{{end}}
 {{end}}
 
 <div class="mt-8 flow-root{{ if not $.Platform.Enterprise }} relative{{ end }}">
@@ -70,6 +72,8 @@
     </div>
     {{ end }}
 </div>
+{{ if gt .Params.Count 0 }}
 <div class="mt-8 flex justify-center">
     <a href="{{ relURL .Const.AuditLogsEndpoint }}" class="pc-internal-form-button pc-internal-form-button-primary">See all Audit Logs</a>
 </div>
+{{end}}
