@@ -27,9 +27,9 @@ func (s *Server) OffboardUser(user *dbgen.User) common.OneOffJob {
 }
 
 func (s *Server) LoginUser(sess *session.Session) common.OneOffJob {
-	return &loginUserJob{
-		sess:  sess,
-		store: s.Store,
+	return &LoginUserJob{
+		Sess:  sess,
+		Store: s.Store,
 	}
 }
 
@@ -54,28 +54,28 @@ func (j *onboardUserJob) RunOnce(ctx context.Context, params any) error {
 	return j.mailer.SendWelcome(ctx, j.user.Email, common.GuessFirstName(j.user.Name))
 }
 
-type loginUserJob struct {
-	sess  *session.Session
-	store db.Implementor
+type LoginUserJob struct {
+	Sess  *session.Session
+	Store db.Implementor
 }
 
-func (j *loginUserJob) Name() string {
+func (j *LoginUserJob) Name() string {
 	return "LoginUser"
 }
-func (j *loginUserJob) InitialPause() time.Duration {
+func (j *LoginUserJob) InitialPause() time.Duration {
 	return 0
 }
-func (loginuserjob *loginUserJob) NewParams() any {
+func (j *LoginUserJob) NewParams() any {
 	return struct{}{}
 }
-func (j *loginUserJob) RunOnce(ctx context.Context, params any) error {
-	userID, hasUserID := j.sess.Get(ctx, session.KeyUserID).(int32)
+func (j *LoginUserJob) RunOnce(ctx context.Context, params any) error {
+	userID, hasUserID := j.Sess.Get(ctx, session.KeyUserID).(int32)
 	if hasUserID {
-		j.store.AuditLog().RecordEvent(ctx, newUserAuthAuditLogEvent(userID, common.AuditLogActionLogin))
+		j.Store.AuditLog().RecordEvent(ctx, newUserAuthAuditLogEvent(userID, common.AuditLogActionLogin))
 
 		slog.DebugContext(ctx, "Fetching system notification for user", "userID", userID)
-		if n, err := j.store.Impl().RetrieveSystemUserNotification(ctx, time.Now().UTC(), userID); err == nil {
-			_ = j.sess.Set(session.KeyNotificationID, n.ID)
+		if n, err := j.Store.Impl().RetrieveSystemUserNotification(ctx, time.Now().UTC(), userID); err == nil {
+			_ = j.Sess.Set(session.KeyNotificationID, n.ID)
 		}
 	} else {
 		slog.ErrorContext(ctx, "UserID not found in session")
