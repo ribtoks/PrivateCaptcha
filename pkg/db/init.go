@@ -42,7 +42,7 @@ func MigratePostgres(ctx context.Context, pool *pgxpool.Pool, cfg common.ConfigS
 	migrateCtx := NewPostgresMigrateContext(ctx, cfg, planService)
 	tplFS := NewTemplateFS(postgresMigrationsFS, migrateCtx)
 
-	return MigratePostgresEx(common.TraceContext(ctx, "postgres"), pool, tplFS, migrationTable, up)
+	return MigratePostgresEx(common.TraceContext(ctx, "postgres"), pool, tplFS, "migrations/postgres", migrationTable, up)
 }
 
 func clickHouseUser(cfg common.ConfigStore, admin bool) string {

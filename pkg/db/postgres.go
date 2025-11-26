@@ -156,12 +156,12 @@ func NewPostgresMigrateContext(ctx context.Context, cfg common.ConfigStore, plan
 	}
 }
 
-func MigratePostgresEx(ctx context.Context, pool *pgxpool.Pool, migrationsFS fs.FS, tableName string, up bool) error {
+func MigratePostgresEx(ctx context.Context, pool *pgxpool.Pool, migrationsFS fs.FS, path string, tableName string, up bool) error {
 	db := stdlib.OpenDBFromPool(pool)
 
 	mlog := slog.With("up", up)
 
-	d, err := iofs.New(migrationsFS, "migrations/postgres")
+	d, err := iofs.New(migrationsFS, path)
 	if err != nil {
 		mlog.ErrorContext(ctx, "Failed to read from Postgres migrations IOFS", common.ErrAttr(err))
 		return err
