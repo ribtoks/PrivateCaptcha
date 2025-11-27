@@ -37,7 +37,9 @@ func NewIPAddrRateLimiter(header string, buckets *IPAddrBuckets) *httpRateLimite
 	var strategy realclientip.Strategy
 
 	if len(header) > 0 {
-		strategy = realclientip.Must(realclientip.NewSingleIPHeaderStrategy(header))
+		strategy = realclientip.NewChainStrategy(
+			realclientip.Must(realclientip.NewSingleIPHeaderStrategy(header)),
+			realclientip.RemoteAddrStrategy{})
 	} else {
 		strategy = realclientip.NewChainStrategy(
 			realclientip.Must(realclientip.NewRightmostNonPrivateStrategy("X-Forwarded-For")),
