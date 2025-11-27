@@ -44,6 +44,7 @@ var (
 )
 
 type Server struct {
+	APIHeaders      map[string][]string
 	Stage           string
 	BusinessDB      db.Implementor
 	TimeSeries      common.TimeSeriesStore
@@ -118,6 +119,8 @@ type VerifyResponseRecaptchaV3 struct {
 }
 
 func (s *Server) Init(ctx context.Context, verifyFlushInterval, authBackfillDelay time.Duration) error {
+	s.APIHeaders = make(map[string][]string)
+
 	if err := s.Verifier.Update(ctx); err != nil {
 		slog.ErrorContext(ctx, "Failed to update puzzle verifier", common.ErrAttr(err))
 		return err
@@ -367,7 +370,7 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		Timestamp: common.JSONTime(result.CreatedAt),
 	}
 
-	common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders)
+	common.SendJSONResponse(r.Context(), w, response, common.NoCacheHeaders, s.APIHeaders)
 }
 
 func (s *Server) addVerifyRecord(ctx context.Context, result *puzzle.VerifyResult) {
