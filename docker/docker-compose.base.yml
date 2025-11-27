@@ -71,7 +71,7 @@ services:
       - clickhouse_network
 
   postgres:
-    image: postgres
+    image: postgres:18
     pull_policy: if_not_present
     command: >
         -c ssl=on 
@@ -90,7 +90,7 @@ services:
       - postgres_network
     volumes:
       - ../pkg/db/migrations/init/postgres.sql:/docker-entrypoint-initdb.d/init.sql:ro
-      - postgres_data_volume:/var/lib/postgresql/data
+      - postgres_data_volume:/var/lib/postgresql/18/main
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.12.6-alpine
