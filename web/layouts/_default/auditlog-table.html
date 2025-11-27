@@ -22,9 +22,11 @@
         </svg>
         <h3 class="mt-2 text-sm font-semibold text-gray-900">No audit logs</h3>
         <p class="mt-1 text-sm text-gray-500">Relevant audit log events will appear here.</p>
+        {{ if .Params.SeeMore }}
         <div class="mt-6">
             <a href="{{ relURL .Const.AuditLogsEndpoint }}" class="pc-internal-form-button pc-internal-form-button-primary">See all Audit Logs</a>
         </div>
+        {{ end }}
     </div>
 </div>
 {{ end }}

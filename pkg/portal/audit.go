@@ -29,6 +29,7 @@ type AuditLogsRenderContext struct {
 	Count     int
 	Page      int
 	PerPage   int
+	SeeMore   bool
 }
 
 type userAuditLog struct {

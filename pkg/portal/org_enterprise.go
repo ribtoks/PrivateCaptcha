@@ -407,6 +407,7 @@ func (s *Server) createOrgAuditLogsContext(ctx context.Context, org *dbgen.Organ
 	renderCtx := &orgAuditLogsRenderContext{
 		AuditLogsRenderContext: AuditLogsRenderContext{
 			AuditLogs: []*userAuditLog{},
+			SeeMore:   true,
 		},
 		CurrentOrg: orgToUserOrg(org, user.ID, s.IDHasher),
 		CanView:    org.UserID.Int32 == user.ID,
