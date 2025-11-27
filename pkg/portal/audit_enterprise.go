@@ -136,6 +136,7 @@ func (s *Server) CreateAuditLogsContext(ctx context.Context, user *dbgen.User, d
 	}
 
 	logs := allLogs
+	from := 0
 
 	if count := len(allLogs); count > 0 {
 		totalPages := (count + perPageEventLogs - 1) / perPageEventLogs
@@ -144,6 +145,7 @@ func (s *Server) CreateAuditLogsContext(ctx context.Context, user *dbgen.User, d
 		start := page * perPageEventLogs
 		end := min(count, start+perPageEventLogs)
 		logs = allLogs[start:end]
+		from = 1 + page*perPageEventLogs
 	}
 
 	return &MainAuditLogsRenderContext{
@@ -156,7 +158,7 @@ func (s *Server) CreateAuditLogsContext(ctx context.Context, user *dbgen.User, d
 			Page:      page,
 		},
 		Days: days,
-		From: 1 + page*perPageEventLogs,
+		From: from,
 		To:   min((page+1)*perPageEventLogs, len(allLogs)),
 	}, nil
 }
