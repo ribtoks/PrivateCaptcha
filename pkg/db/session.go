@@ -11,7 +11,7 @@ import (
 
 const (
 	sessionBatchSize = 20
-	sessionCacheTTL  = 1 * time.Hour
+	sessionCacheTTL  = 3 * time.Hour
 )
 
 type SessionStore struct {
