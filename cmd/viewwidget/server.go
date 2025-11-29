@@ -50,7 +50,7 @@ func (s *server) setupWithPrefix(prefix string, router *http.ServeMux) {
 func (s *server) chaos(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		nowCount := atomic.AddInt32(&s.count, 1)
-		if nowCount%2 == 1 {
+		if nowCount%3 != 1 {
 			slog.WarnContext(r.Context(), "Chaos")
 			http.Error(w, "chaos", http.StatusInternalServerError)
 		} else {

@@ -112,6 +112,9 @@ export class CaptchaElement extends SafeHTMLElement {
     setState(state, canShow) {
         if (state == this._state) {
             console.debug('[privatecaptcha][progress] already in this state: ' + state);
+            if (DISPLAY_POPUP === this._displayMode) {
+                this._syncHostClass(canShow);
+            }
             return;
         }
 
@@ -158,20 +161,7 @@ export class CaptchaElement extends SafeHTMLElement {
             activeArea += `<span id="${DEBUG_ID}" class="${this._error ? DEBUG_ERROR_CLASS : ''}">${debugText}</span>`;
         }
 
-        let hostClass = '';
-        switch (this._displayMode) {
-            case DISPLAY_HIDDEN:
-                hostClass = 'hidden';
-                break;
-            case DISPLAY_POPUP:
-                hostClass = showPopupIfNeeded ? 'floating' : 'hidden';
-                break;
-            case DISPLAY_WIDGET:
-                break;
-        };
-
-        this.classList.remove('hidden', 'floating');
-        if (hostClass) { this.classList.add(hostClass); }
+        this._syncHostClass(showPopupIfNeeded);
 
         this._state = state;
         this._root.innerHTML = `<div class="pc-captcha-widget">
@@ -193,6 +183,23 @@ export class CaptchaElement extends SafeHTMLElement {
                 console.warn('[privatecaptcha][progress] checkbox not found in the Shadow DOM');
             }
         }
+    }
+
+    _syncHostClass(showPopupIfNeeded) {
+        let hostClass = '';
+        switch (this._displayMode) {
+            case DISPLAY_HIDDEN:
+                hostClass = 'hidden';
+                break;
+            case DISPLAY_POPUP:
+                hostClass = showPopupIfNeeded ? 'floating' : 'hidden';
+                break;
+            case DISPLAY_WIDGET:
+                break;
+        };
+
+        this.classList.remove('hidden', 'floating');
+        if (hostClass) { this.classList.add(hostClass); }
     }
 
     /**
@@ -228,7 +235,7 @@ export class CaptchaElement extends SafeHTMLElement {
             }
         } else {
             if (this._debug) {
-                console.debug("[privatecaptcha][progress] skipping updating progress when not in progress");
+                console.debug(`[privatecaptcha][progress] skipping updating progress when not in progress. state=${this._state}`);
             }
         }
     }

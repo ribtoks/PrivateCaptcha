@@ -38,6 +38,7 @@ export class CaptchaWidget {
         this._lastProgress = null;
         this._solution = null;
         this._userStarted = false; // aka 'user started while we were initializing'
+        this._apiTriggered = false; // aka execute() for programmatic triggering
         this._options = {};
         this._errorCode = errors.ERROR_NO_ERROR;
 
@@ -146,7 +147,7 @@ export class CaptchaWidget {
             this._workersPool.reset();
         }
 
-        const startWorkers = (this._options.startMode == "auto") || autoStart;
+        const startWorkers = ('auto' === this._options.startMode) || autoStart;
 
         try {
             this.setState(STATE_LOADING);
@@ -166,8 +167,8 @@ export class CaptchaWidget {
             if (this._expiryTimeout) { clearTimeout(this._expiryTimeout); }
             this._errorCode = errors.ERROR_FETCH_PUZZLE;
             this.setState(STATE_ERROR);
-            this.setProgressState(this._userStarted ? STATE_VERIFIED : STATE_EMPTY);
-            if (this._userStarted) {
+            this.setProgressState((this._userStarted || this._apiTriggered) ? STATE_VERIFIED : STATE_EMPTY);
+            if (this._userStarted || this._apiTriggered) {
                 this.saveSolutions();
                 this.signalErrored();
             }
@@ -298,6 +299,7 @@ export class CaptchaWidget {
         this.setProgressState(STATE_EMPTY);
         this.ensureNoSolutionField();
         this._userStarted = false;
+        this._apiTriggered = false;
         this.setOptions(options);
     }
 
@@ -356,7 +358,13 @@ export class CaptchaWidget {
      * @returns {Promise<never>} promise intentionally does not resolve so that the form can be submitted via the callbacks
      */
     execute() {
-        this.onChecked();
+        this.trace(`execute event handler. state=${this._state}`);
+        this._apiTriggered = true;
+
+        // show spinner when in auto mode
+        let progressState = ('auto' === this._options.startMode) ? STATE_IN_PROGRESS : this._state;
+        this._triggerSolving(progressState);
+
         return new Promise(() => { });
     }
 
@@ -369,7 +377,10 @@ export class CaptchaWidget {
         this._userStarted = true;
 
         // always show spinner when user clicked
-        let progressState = STATE_IN_PROGRESS;
+        this._triggerSolving(STATE_IN_PROGRESS);
+    }
+
+    _triggerSolving(progressState) {
         let finished = false;
 
         switch (this._state) {
@@ -379,7 +390,8 @@ export class CaptchaWidget {
                 break;
             case STATE_EMPTY:
             case STATE_ERROR:
-                this.init(true /*start*/);
+                const autoStart = this._userStarted || this._apiTriggered;
+                this.init(autoStart);
                 break;
             case STATE_LOADING:
                 // this will be handled in onWorkersReady()
@@ -393,9 +405,9 @@ export class CaptchaWidget {
                 finished = true;
                 break;
             default:
-                console.warn('[privatecaptcha] onChecked: unexpected state. state=' + this._state);
+                console.warn(`[privatecaptcha] triggerSolving: unexpected state. state=${this._state}`);
                 return;
-        };
+        }
 
         this.setProgressState(progressState);
         if (finished) {
@@ -411,7 +423,8 @@ export class CaptchaWidget {
         this.trace(`workers are ready. autostart=${autoStart}`);
 
         this.setState(STATE_READY);
-        if (!this._userStarted) {
+        // if user started we always show "in progress"
+        if (!this._userStarted && !(this._apiTriggered && autoStart)) {
             this.setProgressState(STATE_READY);
         }
 
@@ -441,13 +454,15 @@ export class CaptchaWidget {
         }
 
         this.setState(STATE_VERIFIED);
-        if (this._userStarted) {
+        if (this._userStarted || this._apiTriggered) {
             this.setProgressState(STATE_VERIFIED);
         }
 
-        if (this._userStarted) {
+        if (this._userStarted || this._apiTriggered) {
             this.saveSolutions();
-            this.signalFinished();
+
+            // give time for checkbox animation to complete
+            setTimeout(() => this.signalFinished(), 500);
         }
     }
 
@@ -466,7 +481,7 @@ export class CaptchaWidget {
 
     saveSolutions() {
         const solutions = this._workersPool.serializeSolutions(this._errorCode);
-        const payload = `${solutions}.${this._puzzle.rawData}`;
+        const payload = `${solutions}.${this._puzzle ? this._puzzle.rawData : ''}`;
 
         this.ensureNoSolutionField();
         this._element.insertAdjacentHTML('beforeend', `<input name="${this._options.fieldName}" type="hidden" value="${payload}">`);
@@ -482,7 +497,9 @@ export class CaptchaWidget {
      */
     setProgressState(state) {
         // NOTE: hidden display mode is taken care of inside setState() even when (_userStarted == true)
-        const canShow = this._userStarted || (DISPLAY_WIDGET === this._options.displayMode);
+        const canShow = this._userStarted ||
+            (DISPLAY_WIDGET === this._options.displayMode) ||
+            (this._apiTriggered && (DISPLAY_POPUP === this._options.displayMode));
         const pcElement = this._element.querySelector('private-captcha');
         if (pcElement) {
             pcElement.setError(this._errorCode);

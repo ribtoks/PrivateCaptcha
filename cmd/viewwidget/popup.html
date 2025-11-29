@@ -54,7 +54,7 @@
                                     {{ if .Debug }}data-debug="{{.Debug}}"{{end}}
                                     {{ if .Mode }}data-start-mode="{{.Mode}}"{{end}}>
                                 </div>
-                                <button id="formSubmit" type="button" class="w-full pc-form-button" onclick="this.disabled=true; document.getElementById('pcWidget')._privateCaptcha.execute()">
+                                <button id="formSubmit" type="button" class="w-full pc-form-button" onclick="let form = document.getElementById('my-form'); if (form.checkValidity()) {this.disabled=true; document.getElementById('pcWidget')._privateCaptcha.execute(); } else {form.reportValidity();}">
                                     Submit
                                 </button>
                             </div>
