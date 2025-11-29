@@ -358,6 +358,11 @@ export class CaptchaWidget {
      * @returns {Promise<never>} promise intentionally does not resolve so that the form can be submitted via the callbacks
      */
     execute() {
+        if (this._apiTriggered && (STATE_ERROR !== this._state)) {
+            this.trace(`skipping duplicate execute event handler`);
+            return new Promise(() => { });
+        }
+
         this.trace(`execute event handler. state=${this._state}`);
         this._apiTriggered = true;
 
@@ -371,6 +376,11 @@ export class CaptchaWidget {
     onChecked(event) {
         if (event) {
             event.stopPropagation();
+        }
+
+        if (this._userStarted && (STATE_ERROR !== this._state)) {
+            this.trace('skipping duplicate onChecked handler')
+            return;
         }
 
         this.trace(`onChecked event handler. state=${this._state}`);
