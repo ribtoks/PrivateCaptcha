@@ -200,21 +200,29 @@ func newAuditLogUser(user *dbgen.User) *AuditLogUser {
 }
 
 type AuditLogSubscription struct {
-	Source                 string `json:"source,omitempty"`
-	Status                 string `json:"status,omitempty"`
-	ExternalProductID      string `json:"external_product_id,omitempty"`
-	ExternalSubscriptionID string `json:"external_subscription_id,omitempty"`
-	ExternalPriceID        string `json:"external_price_id,omitempty"`
+	Source                 string          `json:"source,omitempty"`
+	Status                 string          `json:"status,omitempty"`
+	ExternalProductID      string          `json:"external_product_id,omitempty"`
+	ExternalSubscriptionID string          `json:"external_subscription_id,omitempty"`
+	ExternalPriceID        string          `json:"external_price_id,omitempty"`
+	CancelAt               common.JSONTime `json:"cancel_at,omitempty"`
 }
 
 func newAuditLogSubscription(subscription *dbgen.Subscription) *AuditLogSubscription {
-	return &AuditLogSubscription{
+	log := &AuditLogSubscription{
 		Source:                 string(subscription.Source),
 		Status:                 subscription.Status,
 		ExternalProductID:      subscription.ExternalProductID,
 		ExternalSubscriptionID: subscription.ExternalSubscriptionID.String,
 		ExternalPriceID:        subscription.ExternalPriceID,
+		CancelAt:               common.JSONTime{},
 	}
+
+	if subscription.CancelFrom.Valid {
+		log.CancelAt = common.JSONTime(subscription.CancelFrom.Time)
+	}
+
+	return log
 }
 
 func newUserAuditLogEvent(user *dbgen.User, subscription *dbgen.Subscription, action common.AuditLogAction) *common.AuditLogEvent {

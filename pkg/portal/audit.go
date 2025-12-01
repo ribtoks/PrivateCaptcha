@@ -115,6 +115,11 @@ func (ul *userAuditLog) initFromSubscription(oldValue, newValue *db.AuditLogSubs
 		} else if oldValue.Status != newValue.Status {
 			ul.Property = "Status"
 			ul.Value = newValue.Status
+		} else if !oldValue.CancelAt.Time().Equal(newValue.CancelAt.Time()) {
+			ul.Property = "Cancel"
+			if t := newValue.CancelAt.Time(); !t.IsZero() {
+				ul.Value = t.Format("02 Jan 2006")
+			}
 		}
 	} else if (oldValue != nil) || (newValue != nil) {
 		sub := newValue
