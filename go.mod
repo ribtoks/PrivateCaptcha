@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.40.3
-	github.com/PuerkitoBio/goquery v1.10.3
+	github.com/PuerkitoBio/goquery v1.11.0
 	github.com/badoux/checkmail v1.2.4
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/go-gomail/gomail v0.0.0-20160411212932-81ebce5c23df
