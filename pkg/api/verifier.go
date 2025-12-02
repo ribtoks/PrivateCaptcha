@@ -259,7 +259,7 @@ func (v *Verifier) baseDifficultyOverride(r *http.Request) uint8 {
 		return uint8(common.DifficultyLevelMedium)
 	}
 
-	if ver, ok := r.Header[common.HeaderPrivateCaptchaVersion]; !ok || len(ver) == 0 || ver[0] != "1" {
+	if ver, ok := r.Header[common.HeaderCaptchaVersion]; !ok || len(ver) == 0 || ver[0] != "1" {
 		return uint8(common.DifficultyLevelHigh)
 	}
 

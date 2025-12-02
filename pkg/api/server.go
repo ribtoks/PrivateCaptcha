@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/hex"
 	"errors"
 	"io"
 	"log/slog"
@@ -276,6 +278,15 @@ func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if sitekey := r.FormValue(common.ParamSiteKey); db.CanBeValidSitekey(sitekey) {
+		propertyID := payload.Puzzle().PropertyID()
+		if propertyExternalID := db.UUIDFromSiteKey(sitekey); !bytes.Equal(propertyExternalID.Bytes[:], propertyID[:]) {
+			slog.WarnContext(ctx, "Expected property ID does not match", "expected", sitekey, "actual", hex.EncodeToString(propertyID[:]))
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+	}
+
 	ownerSource := &apiKeyOwnerSource{Store: s.BusinessDB}
 	result, err := s.Verifier.Verify(ctx, payload, ownerSource, time.Now().UTC())
 	if err != nil {
@@ -336,6 +347,15 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		slog.Log(ctx, common.LevelTrace, "Failed to parse solution payload", common.ErrAttr(err))
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
+	}
+
+	if sitekey := r.Header.Get(common.HeaderSitekey); db.CanBeValidSitekey(sitekey) {
+		propertyID := payload.Puzzle().PropertyID()
+		if propertyExternalID := db.UUIDFromSiteKey(sitekey); !bytes.Equal(propertyExternalID.Bytes[:], propertyID[:]) {
+			slog.WarnContext(ctx, "Expected property ID does not match", "expected", sitekey, "actual", hex.EncodeToString(propertyID[:]))
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
 	}
 
 	ownerSource := &apiKeyOwnerSource{Store: s.BusinessDB}

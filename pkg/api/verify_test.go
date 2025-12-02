@@ -22,6 +22,15 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 )
 
+func reverse(s string) string {
+	rune := []rune(s)
+	n := len(s)
+	for i := 0; i < n/2; i++ {
+		rune[i], rune[n-1-i] = rune[n-1-i], rune[i]
+	}
+	return string(rune)
+}
+
 func TestSerializeResponse(t *testing.T) {
 	v := VerifyResponseRecaptchaV3{
 		VerifyResponseRecaptchaV2: VerifyResponseRecaptchaV2{
@@ -40,7 +49,7 @@ func TestSerializeResponse(t *testing.T) {
 	}
 }
 
-func verifySuite(response, secret string) (*http.Response, error) {
+func verifySuite(response, secret, sitekey string) (*http.Response, error) {
 	srv := http.NewServeMux()
 	s.Setup(srv, "", true /*verbose*/, common.NoopMiddleware)
 
@@ -53,6 +62,9 @@ func verifySuite(response, secret string) (*http.Response, error) {
 
 	req.Header.Set(common.HeaderAPIKey, secret)
 	req.Header.Set(cfg.Get(common.RateLimitHeaderKey).Value(), common_test.GenerateRandomIPv4())
+	if len(sitekey) > 0 {
+		req.Header.Set(common.HeaderSitekey, sitekey)
+	}
 
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
@@ -61,7 +73,7 @@ func verifySuite(response, secret string) (*http.Response, error) {
 	return resp, nil
 }
 
-func siteVerifySuite(response, secret string) (*http.Response, error) {
+func siteVerifySuite(response, secret, sitekey string) (*http.Response, error) {
 	srv := http.NewServeMux()
 	s.Setup(srv, "", true /*verbose*/, common.NoopMiddleware)
 
@@ -70,6 +82,9 @@ func siteVerifySuite(response, secret string) (*http.Response, error) {
 	data := url.Values{}
 	data.Set(common.ParamSecret, secret)
 	data.Set(common.ParamResponse, response)
+	if len(sitekey) > 0 {
+		data.Set(common.ParamSiteKey, sitekey)
+	}
 
 	encoded := data.Encode()
 
@@ -150,12 +165,12 @@ func TestVerifyPuzzle(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, _, err := setupVerifySuite(t.Name())
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	resp, err := verifySuite(payload, apiKey)
+	resp, err := verifySuite(payload, apiKey, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,22 +180,62 @@ func TestVerifyPuzzle(t *testing.T) {
 	}
 }
 
+func TestVerifyPuzzleWrongExpectedSitekey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := verifySuite(payload, apiKey, reverse(sitekey))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
+	}
+}
+
 func TestSiteVerifyPuzzle(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, _, err := setupVerifySuite(t.Name())
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	resp, err := siteVerifySuite(payload, apiKey)
+	resp, err := siteVerifySuite(payload, apiKey, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
+	}
+}
+
+func TestSiteVerifyWrongExpectedSitekey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := siteVerifySuite(payload, apiKey, reverse(sitekey))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
 	}
 }
@@ -256,12 +311,12 @@ func TestVerifyPuzzleReplay(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, _, err := setupVerifySuite(t.Name())
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	resp, err := verifySuite(payload, apiKey)
+	resp, err := verifySuite(payload, apiKey, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +326,7 @@ func TestVerifyPuzzleReplay(t *testing.T) {
 	}
 
 	// now second time the same
-	resp, err = verifySuite(payload, apiKey)
+	resp, err = verifySuite(payload, apiKey, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -288,12 +343,12 @@ func TestSiteVerifyPuzzleReplay(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, _, err := setupVerifySuite(t.Name())
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	resp, err := siteVerifySuite(payload, apiKey)
+	resp, err := siteVerifySuite(payload, apiKey, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +358,7 @@ func TestSiteVerifyPuzzleReplay(t *testing.T) {
 	}
 
 	// now second time the same
-	resp, err = siteVerifySuite(payload, apiKey)
+	resp, err = siteVerifySuite(payload, apiKey, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -332,7 +387,7 @@ func TestVerifyPuzzleAllowReplay(t *testing.T) {
 	property.MaxReplayCount = maxReplayCount
 
 	for _ = range maxReplayCount {
-		resp, err := verifySuite(payload, apiKey)
+		resp, err := verifySuite(payload, apiKey, sitekey)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -347,7 +402,7 @@ func TestVerifyPuzzleAllowReplay(t *testing.T) {
 	}
 
 	// now it should trigger an error
-	resp, err := verifySuite(payload, apiKey)
+	resp, err := verifySuite(payload, apiKey, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,10 +447,11 @@ func TestVerifyCachePriority(t *testing.T) {
 
 	apiKeyID := randomUUID()
 	secret := db.UUIDToSecret(*apiKeyID)
+	sitekey := db.UUIDToSiteKey(property.ExternalID)
 
 	cache.SetMissing(ctx, db.APIKeyCacheKey(secret))
 
-	resp, err := verifySuite(fmt.Sprintf("%s.%s", solutionsStr, puzzleStr), secret)
+	resp, err := verifySuite(fmt.Sprintf("%s.%s", solutionsStr, puzzleStr), secret, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -412,12 +468,12 @@ func TestVerifyInvalidKey(t *testing.T) {
 
 	t.Parallel()
 
-	payload, _, _, err := setupVerifySuite(t.Name())
+	payload, _, sitekey, err := setupVerifySuite(t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	resp, err := verifySuite(payload, db.UUIDToSecret(*randomUUID()))
+	resp, err := verifySuite(payload, db.UUIDToSecret(*randomUUID()), sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -434,12 +490,12 @@ func TestSiteVerifyInvalidKey(t *testing.T) {
 
 	t.Parallel()
 
-	payload, _, _, err := setupVerifySuite(t.Name())
+	payload, _, sitekey, err := setupVerifySuite(t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	resp, err := siteVerifySuite(payload, db.UUIDToSecret(*randomUUID()))
+	resp, err := siteVerifySuite(payload, db.UUIDToSecret(*randomUUID()), sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -473,7 +529,7 @@ func TestVerifyExpiredKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp, err := verifySuite("a.b.c", db.UUIDToSecret(apikey.ExternalID))
+	resp, err := verifySuite("a.b.c", db.UUIDToSecret(apikey.ExternalID), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -502,7 +558,7 @@ func TestVerifyMaintenanceMode(t *testing.T) {
 	store.UpdateConfig(true /*maintenance mode*/)
 	defer store.UpdateConfig(false /*maintenance mode*/)
 
-	resp, err := verifySuite(payload, apiKey)
+	resp, err := verifySuite(payload, apiKey, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -541,7 +597,7 @@ func TestVerifyTestProperty(t *testing.T) {
 
 	secret := db.UUIDToSecret(apikey.ExternalID)
 
-	resp, err := verifySuite(payload, secret)
+	resp, err := verifySuite(payload, secret, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -624,8 +680,9 @@ func TestVerifyByOrgMember(t *testing.T) {
 	}
 
 	secret := db.UUIDToSecret(apikey.ExternalID)
+	sitekey := db.UUIDToSiteKey(property.ExternalID)
 
-	resp, err := verifySuite(payload, secret)
+	resp, err := verifySuite(payload, secret, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -648,7 +705,7 @@ func TestVerifyByOrgMember(t *testing.T) {
 	}
 
 	// now, after we join the org, should be OK
-	resp, err = verifySuite(payload, secret)
+	resp, err = verifySuite(payload, secret, sitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
