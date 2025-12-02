@@ -345,7 +345,7 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 	payload, err := s.Verifier.ParseSolutionPayload(ctx, data)
 	if err != nil {
 		slog.Log(ctx, common.LevelTrace, "Failed to parse solution payload", common.ErrAttr(err))
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(w, "Failed to parse payload", http.StatusBadRequest)
 		return
 	}
 
@@ -353,7 +353,7 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		propertyID := payload.Puzzle().PropertyID()
 		if propertyExternalID := db.UUIDFromSiteKey(sitekey); !bytes.Equal(propertyExternalID.Bytes[:], propertyID[:]) {
 			slog.WarnContext(ctx, "Expected property ID does not match", "expected", sitekey, "actual", hex.EncodeToString(propertyID[:]))
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(w, "Expected sitekey does not match solution puzzle", http.StatusBadRequest)
 			return
 		}
 	}
