@@ -61,7 +61,7 @@ func randomUUID() *pgtype.UUID {
 	return eid
 }
 
-func puzzleSuiteWithBackfillWait(t *testing.T, ctx context.Context, sitekey, domain string) {
+func puzzleSuiteWithBackfillWait(t *testing.T, ctx context.Context, sitekey, domain string, waiter func()) {
 	resp, err := puzzleSuite(ctx, sitekey, domain)
 	if err != nil {
 		t.Fatal(err)
@@ -72,15 +72,7 @@ func puzzleSuiteWithBackfillWait(t *testing.T, ctx context.Context, sitekey, dom
 		t.Errorf("Unexpected status code %d", resp.StatusCode)
 	}
 
-	for i := 0; i < 10; i++ {
-		time.Sleep(authBackfillDelay)
-
-		if _, err := store.Impl().GetCachedPropertyBySitekey(ctx, sitekey, nil); err != db.ErrCacheMiss {
-			break
-		} else {
-			slog.DebugContext(ctx, "Waiting for property to be cached", "attempt", i, common.ErrAttr(err))
-		}
-	}
+	waiter()
 
 	resp, err = puzzleSuite(ctx, sitekey, domain)
 	if err != nil {
@@ -100,8 +92,19 @@ func TestGetPuzzleWithoutAccount(t *testing.T) {
 	t.Parallel()
 
 	sitekey := db.UUIDToSiteKey(*randomUUID())
+	ctx := context.TODO()
 
-	puzzleSuiteWithBackfillWait(t, context.TODO(), sitekey, testPropertyDomain)
+	puzzleSuiteWithBackfillWait(t, ctx, sitekey, testPropertyDomain, func() {
+		for i := 0; i < 10; i++ {
+			time.Sleep(authBackfillDelay)
+
+			if _, err := store.Impl().GetCachedPropertyBySitekey(ctx, sitekey, nil); err != db.ErrCacheMiss {
+				break
+			} else {
+				slog.DebugContext(ctx, "Waiting for property to be cached", "attempt", i, common.ErrAttr(err))
+			}
+		}
+	})
 }
 
 func TestGetPuzzleWithoutSubscription(t *testing.T) {
@@ -134,7 +137,9 @@ func TestGetPuzzleWithoutSubscription(t *testing.T) {
 		t.Fatal("property was not found in cache")
 	}
 
-	puzzleSuiteWithBackfillWait(t, ctx, sitekey, property.Domain)
+	puzzleSuiteWithBackfillWait(t, ctx, sitekey, property.Domain, func() {
+		time.Sleep(5 * authBackfillDelay)
+	})
 }
 
 func parsePuzzle(resp *http.Response) (*puzzle.ComputePuzzle, string, error) {
