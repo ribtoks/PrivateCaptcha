@@ -42,6 +42,9 @@ var (
 	HtmlContentHeaders = map[string][]string{
 		http.CanonicalHeaderKey(HeaderContentType): []string{ContentTypeHTML},
 	}
+	JSONContentHeaders = map[string][]string{
+		http.CanonicalHeaderKey(HeaderContentType): []string{ContentTypeJSON},
+	}
 )
 
 func NoopMiddleware(next http.Handler) http.Handler {

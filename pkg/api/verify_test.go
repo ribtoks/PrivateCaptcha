@@ -186,8 +186,8 @@ func TestVerifyPuzzleWrongExpectedSitekey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
+	if err := checkSiteVerifyError(resp, puzzle.InvalidPropertyError); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -226,8 +226,8 @@ func TestSiteVerifyWrongExpectedSitekey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
+	if err := checkSiteVerifyError(resp, puzzle.InvalidPropertyError); err != nil {
+		t.Fatal(err)
 	}
 }
 

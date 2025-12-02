@@ -68,6 +68,22 @@ func MaskEmail(email string, mask rune) string {
 	return prefix + xxx + suffix + "@" + parts[1]
 }
 
+func SendReponse(ctx context.Context, w http.ResponseWriter, response []byte, headers ...map[string][]string) {
+	wHeader := w.Header()
+	for _, hh := range headers {
+		for key, value := range hh {
+			wHeader[key] = value
+		}
+	}
+
+	n, err := w.Write(response)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to send response", ErrAttr(err))
+	} else {
+		slog.Log(ctx, LevelTrace, "Sent response", "size", len(response), "sent", n)
+	}
+}
+
 func SendJSONResponse(ctx context.Context, w http.ResponseWriter, data interface{}, headers ...map[string][]string) {
 	response, err := json.Marshal(data)
 	if err != nil {

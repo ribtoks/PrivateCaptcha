@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -43,7 +44,20 @@ var (
 	headersContentPlain = map[string][]string{
 		http.CanonicalHeaderKey(common.HeaderContentType): []string{common.ContentTypePlain},
 	}
+	invalidPropertyResponse []byte
 )
+
+func init() {
+	var err error
+	vr := &VerificationResponse{
+		Success: false,
+		Code:    puzzle.InvalidPropertyError,
+	}
+	invalidPropertyResponse, err = json.Marshal(vr)
+	if err != nil {
+		panic(err)
+	}
+}
 
 type Server struct {
 	APIHeaders      map[string][]string
@@ -282,7 +296,7 @@ func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) 
 		propertyID := payload.Puzzle().PropertyID()
 		if propertyExternalID := db.UUIDFromSiteKey(sitekey); !bytes.Equal(propertyExternalID.Bytes[:], propertyID[:]) {
 			slog.WarnContext(ctx, "Expected property ID does not match", "expected", sitekey, "actual", hex.EncodeToString(propertyID[:]))
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			common.SendReponse(ctx, w, invalidPropertyResponse, common.JSONContentHeaders, common.NoCacheHeaders, s.APIHeaders)
 			return
 		}
 	}
@@ -353,7 +367,7 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		propertyID := payload.Puzzle().PropertyID()
 		if propertyExternalID := db.UUIDFromSiteKey(sitekey); !bytes.Equal(propertyExternalID.Bytes[:], propertyID[:]) {
 			slog.WarnContext(ctx, "Expected property ID does not match", "expected", sitekey, "actual", hex.EncodeToString(propertyID[:]))
-			http.Error(w, "Expected sitekey does not match solution puzzle", http.StatusBadRequest)
+			common.SendReponse(ctx, w, invalidPropertyResponse, common.JSONContentHeaders, common.NoCacheHeaders, s.APIHeaders)
 			return
 		}
 	}
