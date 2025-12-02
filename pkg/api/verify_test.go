@@ -22,15 +22,6 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 )
 
-func reverse(s string) string {
-	rune := []rune(s)
-	n := len(s)
-	for i := 0; i < n/2; i++ {
-		rune[i], rune[n-1-i] = rune[n-1-i], rune[i]
-	}
-	return string(rune)
-}
-
 func TestSerializeResponse(t *testing.T) {
 	v := VerifyResponseRecaptchaV3{
 		VerifyResponseRecaptchaV2: VerifyResponseRecaptchaV2{
@@ -185,12 +176,12 @@ func TestVerifyPuzzleWrongExpectedSitekey(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
+	payload, apiKey, _, err := setupVerifySuite(t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	resp, err := verifySuite(payload, apiKey, reverse(sitekey))
+	resp, err := verifySuite(payload, apiKey, db.UUIDToSiteKey(*randomUUID()))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,12 +216,12 @@ func TestSiteVerifyWrongExpectedSitekey(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
+	payload, apiKey, _, err := setupVerifySuite(t.Name())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	resp, err := siteVerifySuite(payload, apiKey, reverse(sitekey))
+	resp, err := siteVerifySuite(payload, apiKey, db.UUIDToSiteKey(*randomUUID()))
 	if err != nil {
 		t.Fatal(err)
 	}
