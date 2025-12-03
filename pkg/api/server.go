@@ -44,16 +44,24 @@ var (
 	headersContentPlain = map[string][]string{
 		http.CanonicalHeaderKey(common.HeaderContentType): []string{common.ContentTypePlain},
 	}
-	invalidPropertyResponse []byte
+	invalidPropertyResponse          []byte
+	invalidPropertyRecaptchaResponse []byte
 )
 
 func init() {
 	var err error
-	vr := &VerificationResponse{
+	invalidPropertyResponse, err = json.Marshal(&VerificationResponse{
 		Success: false,
 		Code:    puzzle.InvalidPropertyError,
+	})
+	if err != nil {
+		panic(err)
 	}
-	invalidPropertyResponse, err = json.Marshal(vr)
+
+	invalidPropertyRecaptchaResponse, err = json.Marshal(&VerifyResponseRecaptchaV2{
+		Success:    false,
+		ErrorCodes: []string{puzzle.InvalidPropertyError.String()},
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -296,7 +304,7 @@ func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) 
 		propertyID := payload.Puzzle().PropertyID()
 		if propertyExternalID := db.UUIDFromSiteKey(sitekey); !bytes.Equal(propertyExternalID.Bytes[:], propertyID[:]) {
 			slog.WarnContext(ctx, "Expected property ID does not match", "expected", sitekey, "actual", hex.EncodeToString(propertyID[:]))
-			common.SendReponse(ctx, w, invalidPropertyResponse, common.JSONContentHeaders, common.NoCacheHeaders, s.APIHeaders)
+			common.SendReponse(ctx, w, invalidPropertyRecaptchaResponse, common.JSONContentHeaders, common.NoCacheHeaders, s.APIHeaders)
 			return
 		}
 	}

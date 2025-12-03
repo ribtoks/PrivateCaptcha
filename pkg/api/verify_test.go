@@ -186,7 +186,7 @@ func TestVerifyPuzzleWrongExpectedSitekey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := checkSiteVerifyError(resp, puzzle.InvalidPropertyError); err != nil {
+	if err := checkVerifyError(resp, puzzle.InvalidPropertyError); err != nil {
 		t.Fatal(err)
 	}
 }
