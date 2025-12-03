@@ -98,7 +98,7 @@ paths:
       parameters:
         - name: X-PC-Sitekey
           in: header
-          description: '(optional) Sitekey of the property to ensure the solution is for'
+          description: "(optional) Sitekey of the property to ensure the solution is for"
           required: false
           schema:
             type: string
