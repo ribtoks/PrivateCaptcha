@@ -138,6 +138,8 @@ func TestGetPuzzleWithoutSubscription(t *testing.T) {
 	}
 
 	puzzleSuiteWithBackfillWait(t, ctx, sitekey, property.Domain, func() {
+		// the reason we have this flaky delay is that otherwise we need access to
+		// internal cache of user limiter in auth middleware (to check like WithoutAccount test does)
 		time.Sleep(5 * authBackfillDelay)
 	})
 }
