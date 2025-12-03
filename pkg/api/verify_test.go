@@ -563,11 +563,7 @@ func TestVerifyMaintenanceMode(t *testing.T) {
 	}
 }
 
-func TestVerifyTestProperty(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping integration test")
-	}
-
+func verifyTestPropertySuite(t *testing.T, verifySitekey string, expectedCode puzzle.VerifyError) {
 	ctx := context.TODO()
 
 	puzzleStr, solutionsStr, err := solutionsSuite(ctx, db.TestPropertySitekey, "localhost")
@@ -588,7 +584,7 @@ func TestVerifyTestProperty(t *testing.T) {
 
 	secret := db.UUIDToSecret(apikey.ExternalID)
 
-	resp, err := verifySuite(payload, secret, "")
+	resp, err := verifySuite(payload, secret, verifySitekey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -597,9 +593,25 @@ func TestVerifyTestProperty(t *testing.T) {
 		t.Errorf("Unexpected verify status code %d", resp.StatusCode)
 	}
 
-	if err := checkVerifyError(resp, puzzle.TestPropertyError); err != nil {
+	if err := checkVerifyError(resp, expectedCode); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestVerifyTestProperty(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	verifyTestPropertySuite(t, "" /*verify sitekey*/, puzzle.TestPropertyError)
+}
+
+func TestVerifyTestPropertyAgainstSitekey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	verifyTestPropertySuite(t, db.UUIDToSiteKey(*randomUUID()), puzzle.InvalidPropertyError)
 }
 
 func TestVerifyTestShortcut(t *testing.T) {
