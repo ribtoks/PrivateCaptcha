@@ -53,10 +53,8 @@ func (sl *SubscriptionLimitsImpl) CheckOrgsLimit(ctx context.Context, userID int
 	}
 
 	count := 0
-	total := 0
 	// NOTE: this should be freshly cached as we should have just rendered the dashboard
 	if orgs, err := sl.store.Impl().RetrieveUserOrganizations(ctx, userID); err == nil {
-		total = len(orgs)
 		for _, org := range orgs {
 			if org.Level == dbgen.AccessLevelOwner {
 				count++
@@ -68,10 +66,6 @@ func (sl *SubscriptionLimitsImpl) CheckOrgsLimit(ctx context.Context, userID int
 	}
 
 	ok := (plan.OrgsLimit() == 0) || (count < plan.OrgsLimit())
-	if !ok {
-		slog.WarnContext(ctx, "Organizations limit check failed", "total", total, "owned", count, "userID", userID, "subscriptionID", subscr.ID,
-			"plan", plan.Name(), "internal", isInternalSubscription)
-	}
 
 	return ok, count - plan.OrgsLimit(), nil
 }
@@ -95,10 +89,6 @@ func (sl *SubscriptionLimitsImpl) CheckOrgMembersLimit(ctx context.Context, orgI
 	}
 
 	ok := (plan.OrgMembersLimit() == 0) || (len(members) < plan.OrgMembersLimit())
-	if !ok {
-		slog.WarnContext(ctx, "Organization members limit check failed", "members", len(members), "orgID", orgID, "subscriptionID", subscr.ID,
-			"plan", plan.Name(), "internal", isInternalSubscription)
-	}
 
 	return ok, len(members) - plan.OrgMembersLimit(), nil
 }
@@ -122,10 +112,6 @@ func (sl *SubscriptionLimitsImpl) CheckPropertiesLimit(ctx context.Context, user
 	}
 
 	ok := (plan.PropertiesLimit() == 0) || (count < int64(plan.PropertiesLimit()))
-	if !ok {
-		slog.WarnContext(ctx, "Properties limit check failed", "properties", count, "userID", userID, "subscriptionID", subscr.ID,
-			"plan", plan.Name(), "internal", isInternalSubscription)
-	}
 
 	return ok, int(count) - plan.PropertiesLimit(), nil
 }

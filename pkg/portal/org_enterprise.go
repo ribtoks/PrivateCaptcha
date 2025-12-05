@@ -35,7 +35,7 @@ func (s *Server) validateOrgsLimit(ctx context.Context, user *dbgen.User) string
 		}
 	}
 
-	ok, _, err := s.SubscriptionLimits.CheckOrgsLimit(ctx, user.ID, subscr)
+	ok, extra, err := s.SubscriptionLimits.CheckOrgsLimit(ctx, user.ID, subscr)
 	if err != nil {
 		if err == ErrNoActiveSubscription {
 			return activeSubscriptionForOrgError
@@ -44,6 +44,9 @@ func (s *Server) validateOrgsLimit(ctx context.Context, user *dbgen.User) string
 	}
 
 	if !ok {
+		slog.WarnContext(ctx, "Organizations limit check failed", "extra", extra, "userID", user.ID, "subscriptionID", subscr.ID,
+			"internal", db.IsInternalSubscription(subscr.Source))
+
 		return "Organizations limit reached on your current plan, please upgrade to create more."
 	}
 
@@ -125,7 +128,7 @@ func (s *Server) validateAddOrgMemberEmail(ctx context.Context, user *dbgen.User
 		}
 	}
 
-	ok, _, err := s.SubscriptionLimits.CheckOrgMembersLimit(ctx, org.ID, subscr)
+	ok, extra, err := s.SubscriptionLimits.CheckOrgMembersLimit(ctx, org.ID, subscr)
 	if err != nil {
 		if err == ErrNoActiveSubscription {
 			return errorMessageOrgSubscription
@@ -134,6 +137,8 @@ func (s *Server) validateAddOrgMemberEmail(ctx context.Context, user *dbgen.User
 	}
 
 	if !ok {
+		slog.WarnContext(ctx, "Organization members limit check failed", "extra", extra, "orgID", org.ID, "subscriptionID", subscr.ID,
+			"internal", db.IsInternalSubscription(subscr.Source))
 		return errorMessageOrgMembersLimit
 	}
 
@@ -164,7 +169,7 @@ func (s *Server) validateAddOrgMemberID(ctx context.Context, user *dbgen.User, o
 		}
 	}
 
-	ok, _, err := s.SubscriptionLimits.CheckOrgMembersLimit(ctx, org.ID, subscr)
+	ok, extra, err := s.SubscriptionLimits.CheckOrgMembersLimit(ctx, org.ID, subscr)
 	if err != nil {
 		if err == ErrNoActiveSubscription {
 			return errorMessageOrgSubscription
@@ -173,6 +178,8 @@ func (s *Server) validateAddOrgMemberID(ctx context.Context, user *dbgen.User, o
 	}
 
 	if !ok {
+		slog.WarnContext(ctx, "Organization members limit check failed", "extra", extra, "orgID", org.ID, "subscriptionID", subscr.ID,
+			"internal", db.IsInternalSubscription(subscr.Source))
 		return errorMessageOrgMembersLimit
 	}
 
