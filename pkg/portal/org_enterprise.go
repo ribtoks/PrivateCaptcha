@@ -35,12 +35,11 @@ func (s *Server) validateOrgsLimit(ctx context.Context, user *dbgen.User) string
 		}
 	}
 
-	if (subscr == nil) || !s.PlanService.IsSubscriptionActive(subscr.Status) {
-		return activeSubscriptionForOrgError
-	}
-
 	ok, err := s.SubscriptionLimits.CheckOrgsLimit(ctx, user.ID, subscr)
 	if err != nil {
+		if err == ErrNoActiveSubscription {
+			return activeSubscriptionForOrgError
+		}
 		return ""
 	}
 
@@ -126,12 +125,11 @@ func (s *Server) validateAddOrgMemberEmail(ctx context.Context, user *dbgen.User
 		}
 	}
 
-	if (subscr == nil) || !s.PlanService.IsSubscriptionActive(subscr.Status) {
-		return errorMessageOrgSubscription
-	}
-
 	ok, err := s.SubscriptionLimits.CheckOrgMembersLimit(ctx, org.ID, subscr)
 	if err != nil {
+		if err == ErrNoActiveSubscription {
+			return errorMessageOrgSubscription
+		}
 		return ""
 	}
 
@@ -168,6 +166,9 @@ func (s *Server) validateAddOrgMemberID(ctx context.Context, user *dbgen.User, o
 
 	ok, err := s.SubscriptionLimits.CheckOrgMembersLimit(ctx, org.ID, subscr)
 	if err != nil {
+		if err == ErrNoActiveSubscription {
+			return errorMessageOrgSubscription
+		}
 		return ""
 	}
 

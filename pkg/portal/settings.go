@@ -70,7 +70,7 @@ type settingsUsageRenderContext struct {
 	OrgsCount               int
 	IncludedPropertiesCount int
 	IncludedOrgsCount       int
-	Limit                   int
+	Limit                   int64
 }
 
 type settingsGeneralRenderContext struct {
@@ -744,19 +744,21 @@ func (s *Server) createUsageSettingsModel(ctx context.Context, user *dbgen.User)
 			slog.ErrorContext(ctx, "Failed to retrieve user subscription for usage tab", common.ErrAttr(err))
 			renderCtx.ErrorMessage = "Could not load subscription details for usage limits."
 		} else {
-			if plan, err := s.PlanService.FindPlan(subscription.ExternalProductID, subscription.ExternalPriceID, s.Stage,
-				db.IsInternalSubscription(subscription.Source)); err == nil {
-				renderCtx.Limit = int(plan.RequestsLimit())
-				renderCtx.IncludedPropertiesCount = plan.PropertiesLimit()
-				renderCtx.IncludedOrgsCount = plan.OrgsLimit()
-			} else {
-				slog.ErrorContext(ctx, "Failed to find billing plan for usage tab", "productID", subscription.ExternalProductID, "priceID", subscription.ExternalPriceID, common.ErrAttr(err))
-				renderCtx.ErrorMessage = "Could not determine usage limits from your plan."
-			}
+			renderCtx.Limit, _ = s.SubscriptionLimits.RequestsLimit(ctx, subscription)
+			renderCtx.IncludedPropertiesCount, _ = s.SubscriptionLimits.PropertiesLimit(ctx, subscription)
+			renderCtx.IncludedOrgsCount, _ = s.SubscriptionLimits.OrgsLimit(ctx, subscription)
 		}
 	} else {
 		slog.DebugContext(ctx, "User does not have a subscription", "tab", "usage", "userID", user.ID)
 		renderCtx.WarningMessage = "You don't have an active subscription."
+	}
+
+	if (renderCtx.Limit == 0) ||
+		(renderCtx.IncludedOrgsCount == 0) ||
+		(renderCtx.IncludedPropertiesCount == 0) {
+		if len(renderCtx.WarningMessage) == 0 {
+			renderCtx.WarningMessage = "Could not determine usage limits from your plan."
+		}
 	}
 
 	return renderCtx
