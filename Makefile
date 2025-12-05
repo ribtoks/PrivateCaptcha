@@ -3,6 +3,7 @@
 STAGE ?= dev
 GIT_COMMIT ?= $(shell git rev-list -1 HEAD)
 DOCKER_IMAGE ?= private-captcha
+DOCKER ?= docker
 SQLC_MIGRATION_FIX = pkg/db/migrations/postgres/000000_sqlc_fix.sql
 EXTRA_BUILD_FLAGS ?=
 TEST_NAME ?=
@@ -20,10 +21,10 @@ bench-unit:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -bench=. -benchtime=20s -short ./...
 
 test-docker:
-	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.test.yml down -v --remove-orphans
-	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.test.yml run --build --remove-orphans --rm migration
-	@env GIT_COMMIT="$(GIT_COMMIT)" TEST_NAME="$(TEST_NAME)" docker compose -f docker/docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans --force-recreate testserver
-	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.test.yml down -v --remove-orphans
+	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose -f docker/docker-compose.test.yml down -v --remove-orphans
+	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose -f docker/docker-compose.test.yml run --build --remove-orphans --rm migration
+	@env GIT_COMMIT="$(GIT_COMMIT)" TEST_NAME="$(TEST_NAME)" $(DOCKER) compose -f docker/docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans --force-recreate testserver
+	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose -f docker/docker-compose.test.yml down -v --remove-orphans
 
 vendors:
 	go mod tidy
@@ -56,7 +57,7 @@ deploy:
 	echo "Nothing here"
 
 build-docker:
-	docker build -f ./docker/Dockerfile --build-arg GIT_COMMIT=$(GIT_COMMIT) -t $(DOCKER_IMAGE):latest .
+	$(DOCKER) build -f ./docker/Dockerfile --build-arg GIT_COMMIT=$(GIT_COMMIT) -t $(DOCKER_IMAGE):latest .
 
 build-js:
 	rm -v web/static/js/* || echo 'Nothing to remove'
@@ -93,19 +94,19 @@ run:
 	reflex -r '^(pkg|cmd|vendor|web)/' -R '^(web/static/js|web/node_modules)' -s -- sh -c 'make serve'
 
 run-docker:
-	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.base.yml -f docker/docker-compose.local.yml up --build
+	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose -f docker/docker-compose.base.yml -f docker/docker-compose.local.yml up --build
 
 run-docker-ee:
-	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.base.yml -f docker/docker-compose.local.yml -f docker/docker-compose.ee.yml up --build
+	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose -f docker/docker-compose.base.yml -f docker/docker-compose.local.yml -f docker/docker-compose.ee.yml up --build
 
 profile-docker:
-	@env GIT_COMMIT="$(GIT_COMMIT)" docker compose -f docker/docker-compose.base.yml -f docker/docker-compose.monitoring.yml up --build
+	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose -f docker/docker-compose.base.yml -f docker/docker-compose.monitoring.yml up --build
 
 watch-docker:
-	@docker compose -f docker/docker-compose.base.yml watch
+	@$(DOCKER) compose -f docker/docker-compose.base.yml watch
 
 clean-docker:
-	@docker compose -f docker/docker-compose.base.yml down -v --remove-orphans
+	@$(DOCKER) compose -f docker/docker-compose.base.yml down -v --remove-orphans
 
 sqlc:
 	# https://github.com/sqlc-dev/sqlc/issues/3571
@@ -120,7 +121,7 @@ vet-sqlc:
 	rm -v $(SQLC_MIGRATION_FIX)
 
 vet-docker:
-	@docker compose -f docker/docker-compose.test.yml run --build --remove-orphans --rm vetsqlc
+	@$(DOCKER) compose -f docker/docker-compose.test.yml run --build --remove-orphans --rm vetsqlc
 
 view-emails: build-view-emails
 	bin/viewemails
