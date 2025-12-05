@@ -73,7 +73,7 @@ func (sl *SubscriptionLimitsImpl) CheckOrgsLimit(ctx context.Context, userID int
 			"plan", plan.Name(), "internal", isInternalSubscription)
 	}
 
-	return ok, count, nil
+	return ok, count - plan.OrgsLimit(), nil
 }
 
 func (sl *SubscriptionLimitsImpl) CheckOrgMembersLimit(ctx context.Context, orgID int32, subscr *dbgen.Subscription) (bool, int, error) {
@@ -100,7 +100,7 @@ func (sl *SubscriptionLimitsImpl) CheckOrgMembersLimit(ctx context.Context, orgI
 			"plan", plan.Name(), "internal", isInternalSubscription)
 	}
 
-	return ok, len(members), nil
+	return ok, len(members) - plan.OrgMembersLimit(), nil
 }
 
 func (sl *SubscriptionLimitsImpl) CheckPropertiesLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (bool, int, error) {
@@ -127,7 +127,7 @@ func (sl *SubscriptionLimitsImpl) CheckPropertiesLimit(ctx context.Context, user
 			"plan", plan.Name(), "internal", isInternalSubscription)
 	}
 
-	return ok, int(count), nil
+	return ok, int(count) - plan.PropertiesLimit(), nil
 }
 
 func (sl *SubscriptionLimitsImpl) RequestsLimit(ctx context.Context, subscr *dbgen.Subscription) (int64, error) {
