@@ -25,14 +25,14 @@ type SubscriptionLimits interface {
 }
 
 type SubscriptionLimitsImpl struct {
-	stage       string
+	Stage       string
 	store       db.Implementor
 	planService billing.PlanService
 }
 
 func NewSubscriptionLimits(stage string, store db.Implementor, planService billing.PlanService) *SubscriptionLimitsImpl {
 	return &SubscriptionLimitsImpl{
-		stage:       stage,
+		Stage:       stage,
 		store:       store,
 		planService: planService,
 	}
@@ -46,7 +46,7 @@ func (sl *SubscriptionLimitsImpl) CheckOrgsLimit(ctx context.Context, userID int
 	}
 
 	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
-	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.stage, isInternalSubscription)
+	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage, isInternalSubscription)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
 		return false, err
@@ -84,7 +84,7 @@ func (sl *SubscriptionLimitsImpl) CheckOrgMembersLimit(ctx context.Context, orgI
 	}
 
 	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
-	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.stage, isInternalSubscription)
+	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage, isInternalSubscription)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
 		return false, err
@@ -111,7 +111,7 @@ func (sl *SubscriptionLimitsImpl) CheckPropertiesLimit(ctx context.Context, user
 	}
 
 	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
-	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.stage, isInternalSubscription)
+	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage, isInternalSubscription)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
 		return false, err
@@ -137,7 +137,7 @@ func (sl *SubscriptionLimitsImpl) RequestsLimit(ctx context.Context, subscr *dbg
 		return 0, ErrNoActiveSubscription
 	}
 
-	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.stage,
+	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage,
 		db.IsInternalSubscription(subscr.Source))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan", "productID", subscr.ExternalProductID, "priceID", subscr.ExternalPriceID, common.ErrAttr(err))
@@ -152,7 +152,7 @@ func (sl *SubscriptionLimitsImpl) PropertiesLimit(ctx context.Context, subscr *d
 		return 0, ErrNoActiveSubscription
 	}
 
-	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.stage,
+	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage,
 		db.IsInternalSubscription(subscr.Source))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan", "productID", subscr.ExternalProductID, "priceID", subscr.ExternalPriceID, common.ErrAttr(err))
@@ -167,7 +167,7 @@ func (sl *SubscriptionLimitsImpl) OrgsLimit(ctx context.Context, subscr *dbgen.S
 		return 0, ErrNoActiveSubscription
 	}
 
-	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.stage,
+	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage,
 		db.IsInternalSubscription(subscr.Source))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan", "productID", subscr.ExternalProductID, "priceID", subscr.ExternalPriceID, common.ErrAttr(err))
