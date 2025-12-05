@@ -35,7 +35,7 @@ func (s *Server) validateOrgsLimit(ctx context.Context, user *dbgen.User) string
 		}
 	}
 
-	ok, err := s.SubscriptionLimits.CheckOrgsLimit(ctx, user.ID, subscr)
+	ok, _, err := s.SubscriptionLimits.CheckOrgsLimit(ctx, user.ID, subscr)
 	if err != nil {
 		if err == ErrNoActiveSubscription {
 			return activeSubscriptionForOrgError
@@ -125,7 +125,7 @@ func (s *Server) validateAddOrgMemberEmail(ctx context.Context, user *dbgen.User
 		}
 	}
 
-	ok, err := s.SubscriptionLimits.CheckOrgMembersLimit(ctx, org.ID, subscr)
+	ok, _, err := s.SubscriptionLimits.CheckOrgMembersLimit(ctx, org.ID, subscr)
 	if err != nil {
 		if err == ErrNoActiveSubscription {
 			return errorMessageOrgSubscription
@@ -164,7 +164,7 @@ func (s *Server) validateAddOrgMemberID(ctx context.Context, user *dbgen.User, o
 		}
 	}
 
-	ok, err := s.SubscriptionLimits.CheckOrgMembersLimit(ctx, org.ID, subscr)
+	ok, _, err := s.SubscriptionLimits.CheckOrgMembersLimit(ctx, org.ID, subscr)
 	if err != nil {
 		if err == ErrNoActiveSubscription {
 			return errorMessageOrgSubscription

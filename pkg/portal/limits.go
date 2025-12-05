@@ -16,9 +16,9 @@ var (
 )
 
 type SubscriptionLimits interface {
-	CheckOrgsLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (bool, error)
-	CheckOrgMembersLimit(ctx context.Context, orgID int32, subscr *dbgen.Subscription) (bool, error)
-	CheckPropertiesLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (bool, error)
+	CheckOrgsLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (bool, int, error)
+	CheckOrgMembersLimit(ctx context.Context, orgID int32, subscr *dbgen.Subscription) (bool, int, error)
+	CheckPropertiesLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (bool, int, error)
 	RequestsLimit(ctx context.Context, subscr *dbgen.Subscription) (int64, error)
 	PropertiesLimit(ctx context.Context, subscr *dbgen.Subscription) (int, error)
 	OrgsLimit(ctx context.Context, subscr *dbgen.Subscription) (int, error)
@@ -40,16 +40,16 @@ func NewSubscriptionLimits(stage string, store db.Implementor, planService billi
 
 var _ SubscriptionLimits = (*SubscriptionLimitsImpl)(nil)
 
-func (sl *SubscriptionLimitsImpl) CheckOrgsLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (bool, error) {
+func (sl *SubscriptionLimitsImpl) CheckOrgsLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (bool, int, error) {
 	if (subscr == nil) || !sl.planService.IsSubscriptionActive(subscr.Status) {
-		return false, ErrNoActiveSubscription
+		return false, 0, ErrNoActiveSubscription
 	}
 
 	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
 	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage, isInternalSubscription)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
-		return false, err
+		return false, 0, err
 	}
 
 	count := 0
@@ -63,10 +63,8 @@ func (sl *SubscriptionLimitsImpl) CheckOrgsLimit(ctx context.Context, userID int
 			}
 		}
 	} else {
-		{
-			slog.ErrorContext(ctx, "Failed to retrieve user orgs", "userID", userID, common.ErrAttr(err))
-			return false, err
-		}
+		slog.ErrorContext(ctx, "Failed to retrieve user orgs", "userID", userID, common.ErrAttr(err))
+		return false, 0, err
 	}
 
 	ok := (plan.OrgsLimit() == 0) || (count < plan.OrgsLimit())
@@ -75,25 +73,25 @@ func (sl *SubscriptionLimitsImpl) CheckOrgsLimit(ctx context.Context, userID int
 			"plan", plan.Name(), "internal", isInternalSubscription)
 	}
 
-	return ok, nil
+	return ok, count, nil
 }
 
-func (sl *SubscriptionLimitsImpl) CheckOrgMembersLimit(ctx context.Context, orgID int32, subscr *dbgen.Subscription) (bool, error) {
+func (sl *SubscriptionLimitsImpl) CheckOrgMembersLimit(ctx context.Context, orgID int32, subscr *dbgen.Subscription) (bool, int, error) {
 	if (subscr == nil) || !sl.planService.IsSubscriptionActive(subscr.Status) {
-		return false, ErrNoActiveSubscription
+		return false, 0, ErrNoActiveSubscription
 	}
 
 	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
 	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage, isInternalSubscription)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
-		return false, err
+		return false, 0, err
 	}
 
 	members, err := sl.store.Impl().RetrieveOrganizationUsers(ctx, orgID)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve org users", common.ErrAttr(err))
-		return false, err
+		return false, 0, err
 	}
 
 	ok := (plan.OrgMembersLimit() == 0) || (len(members) < plan.OrgMembersLimit())
@@ -102,25 +100,25 @@ func (sl *SubscriptionLimitsImpl) CheckOrgMembersLimit(ctx context.Context, orgI
 			"plan", plan.Name(), "internal", isInternalSubscription)
 	}
 
-	return ok, nil
+	return ok, len(members), nil
 }
 
-func (sl *SubscriptionLimitsImpl) CheckPropertiesLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (bool, error) {
+func (sl *SubscriptionLimitsImpl) CheckPropertiesLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (bool, int, error) {
 	if (subscr == nil) || !sl.planService.IsSubscriptionActive(subscr.Status) {
-		return false, ErrNoActiveSubscription
+		return false, 0, ErrNoActiveSubscription
 	}
 
 	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
 	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage, isInternalSubscription)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
-		return false, err
+		return false, 0, err
 	}
 
 	count, err := sl.store.Impl().RetrieveUserPropertiesCount(ctx, userID)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve properties count", "userID", userID, common.ErrAttr(err))
-		return false, err
+		return false, 0, err
 	}
 
 	ok := (plan.PropertiesLimit() == 0) || (count < int64(plan.PropertiesLimit()))
@@ -129,7 +127,7 @@ func (sl *SubscriptionLimitsImpl) CheckPropertiesLimit(ctx context.Context, user
 			"plan", plan.Name(), "internal", isInternalSubscription)
 	}
 
-	return ok, nil
+	return ok, int(count), nil
 }
 
 func (sl *SubscriptionLimitsImpl) RequestsLimit(ctx context.Context, subscr *dbgen.Subscription) (int64, error) {
@@ -179,14 +177,14 @@ func (sl *SubscriptionLimitsImpl) OrgsLimit(ctx context.Context, subscr *dbgen.S
 
 type StubSubscriptionLimits struct{}
 
-func (StubSubscriptionLimits) CheckOrgsLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (_ bool, _ error) {
-	return true, nil
+func (StubSubscriptionLimits) CheckOrgsLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (_ bool, _ int, _ error) {
+	return true, 0, nil
 }
-func (StubSubscriptionLimits) CheckOrgMembersLimit(ctx context.Context, orgID int32, subscr *dbgen.Subscription) (_ bool, _ error) {
-	return true, nil
+func (StubSubscriptionLimits) CheckOrgMembersLimit(ctx context.Context, orgID int32, subscr *dbgen.Subscription) (_ bool, _ int, _ error) {
+	return true, 0, nil
 }
-func (StubSubscriptionLimits) CheckPropertiesLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (_ bool, _ error) {
-	return true, nil
+func (StubSubscriptionLimits) CheckPropertiesLimit(ctx context.Context, userID int32, subscr *dbgen.Subscription) (_ bool, _ int, _ error) {
+	return true, 0, nil
 }
 func (StubSubscriptionLimits) RequestsLimit(ctx context.Context, subscr *dbgen.Subscription) (int64, error) {
 	return 0, nil
