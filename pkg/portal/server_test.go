@@ -72,10 +72,11 @@ func TestMain(m *testing.M) {
 				CookieName:  "pcsid",
 				MaxLifetime: 1 * time.Minute,
 			},
-			PuzzleEngine: puzzleEngine,
-			PlanService:  planService,
-			DataCtx:      dataCtx,
-			PlatformCtx:  platformCtx,
+			PuzzleEngine:       puzzleEngine,
+			PlanService:        planService,
+			DataCtx:            dataCtx,
+			PlatformCtx:        platformCtx,
+			SubscriptionLimits: &StubSubscriptionLimits{},
 		}
 
 		ctx := context.TODO()
@@ -123,16 +124,17 @@ func TestMain(m *testing.M) {
 			Store:       sessionStore,
 			MaxLifetime: sessionStore.TTL(),
 		},
-		Mailer:            &email.StubMailer{},
-		RateLimiter:       &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
-		PuzzleEngine:      puzzleEngine,
-		Metrics:           monitoring.NewStub(),
-		PlanService:       planService,
-		DataCtx:           dataCtx,
-		PlatformCtx:       platformCtx,
-		IDHasher:          common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
-		CountryCodeHeader: cfg.Get(common.CountryCodeHeaderKey),
-		UserLimiter:       api.NewUserLimiter(store),
+		Mailer:             &email.StubMailer{},
+		RateLimiter:        &ratelimit.StubRateLimiter{Header: cfg.Get(common.RateLimitHeaderKey).Value()},
+		PuzzleEngine:       puzzleEngine,
+		Metrics:            monitoring.NewStub(),
+		PlanService:        planService,
+		DataCtx:            dataCtx,
+		PlatformCtx:        platformCtx,
+		IDHasher:           common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
+		CountryCodeHeader:  cfg.Get(common.CountryCodeHeaderKey),
+		UserLimiter:        api.NewUserLimiter(store),
+		SubscriptionLimits: NewSubscriptionLimits(common.StageTest, store, planService),
 	}
 
 	ctx := context.TODO()

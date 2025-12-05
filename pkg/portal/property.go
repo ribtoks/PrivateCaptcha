@@ -431,23 +431,12 @@ func (s *Server) doValidatePropertiesLimit(ctx context.Context, subscr *dbgen.Su
 		return "Organization owner needs an active subscription to create new properties."
 	}
 
-	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
-	plan, err := s.PlanService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, s.Stage, isInternalSubscription)
+	ok, err := s.SubscriptionLimits.CheckPropertiesLimit(ctx, userID, subscr)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
 		return ""
 	}
 
-	count, err := s.Store.Impl().RetrieveUserPropertiesCount(ctx, userID)
-	if err != nil {
-		slog.ErrorContext(ctx, "Failed to retrieve properties count", "userID", userID, common.ErrAttr(err))
-		return ""
-	}
-
-	if !plan.CheckPropertiesLimit(int(count)) {
-		slog.WarnContext(ctx, "Properties limit check failed", "properties", count, "userID", userID, "subscriptionID", subscr.ID,
-			"plan", plan.Name(), "internal", isInternalSubscription)
-
+	if !ok {
 		if isOrgOwner {
 			return "Properties limit reached on your current plan, please upgrade to create more."
 		}
@@ -685,7 +674,7 @@ func (s *Server) getOrgPropertySettings(w http.ResponseWriter, r *http.Request) 
 
 	// only property owner can move it around
 	if user.ID == property.CreatorID.Int32 {
-		if orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user); err == nil {
+		if orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user.ID); err == nil {
 			renderCtx.Orgs = orgsToUserOrgs(orgs, s.IDHasher)
 
 			for _, org := range orgs {

@@ -43,17 +43,15 @@ func (plan *basePlan) Equals(productID string, priceID string) bool {
 		((plan.priceIDMonthly == priceID) || (plan.priceIDYearly == priceID))
 }
 
-func (p *basePlan) Name() string                        { return p.name }
-func (p *basePlan) CheckOrgsLimit(count int) bool       { return (p.orgsLimit == 0) || (count < p.orgsLimit) }
-func (p *basePlan) CheckOrgMembersLimit(count int) bool { return true }
-func (p *basePlan) CheckPropertiesLimit(count int) bool { return true }
-func (p *basePlan) ProductID() string                   { return p.productID }
-func (p *basePlan) PriceIDs() (string, string)          { return p.priceIDMonthly, p.priceIDYearly }
-func (p *basePlan) TrialDays() int                      { return 14 }
-func (p *basePlan) RequestsLimit() int64                { return p.requestsLimit }
-func (p *basePlan) APIRequestsPerSecond() float64       { return p.apiRequestsPerSecond }
-func (p *basePlan) PropertiesLimit() int                { return 50 }
-func (p *basePlan) OrgsLimit() int                      { return 10 }
+func (p *basePlan) Name() string                  { return p.name }
+func (p *basePlan) ProductID() string             { return p.productID }
+func (p *basePlan) PriceIDs() (string, string)    { return p.priceIDMonthly, p.priceIDYearly }
+func (p *basePlan) TrialDays() int                { return 14 }
+func (p *basePlan) RequestsLimit() int64          { return p.requestsLimit }
+func (p *basePlan) APIRequestsPerSecond() float64 { return p.apiRequestsPerSecond }
+func (p *basePlan) PropertiesLimit() int          { return 50 }
+func (p *basePlan) OrgsLimit() int                { return p.orgsLimit }
+func (p *basePlan) OrgMembersLimit() int          { return 10 }
 
 const (
 	version1 = 1
@@ -71,13 +69,11 @@ type Plan interface {
 	PriceIDs() (string, string)
 	IsValid() bool
 	Equals(productID string, priceID string) bool
-	CheckOrgsLimit(count int) bool
-	CheckOrgMembersLimit(count int) bool
-	CheckPropertiesLimit(count int) bool
 	TrialDays() int
 	RequestsLimit() int64
 	PropertiesLimit() int
 	OrgsLimit() int
+	OrgMembersLimit() int
 	APIRequestsPerSecond() float64
 }
 

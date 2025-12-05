@@ -65,7 +65,7 @@ func (s *Server) moveProperty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user)
+	orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user.ID)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve user orgs", common.ErrAttr(err))
 		s.RedirectError(http.StatusInternalServerError, w, r)

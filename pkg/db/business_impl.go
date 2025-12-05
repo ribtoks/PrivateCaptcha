@@ -647,9 +647,9 @@ func (impl *BusinessStoreImpl) FindUserByEmail(ctx context.Context, email string
 	return user, nil
 }
 
-func (impl *BusinessStoreImpl) RetrieveUserOrganizations(ctx context.Context, user *dbgen.User) ([]*dbgen.GetUserOrganizationsRow, error) {
+func (impl *BusinessStoreImpl) RetrieveUserOrganizations(ctx context.Context, userID int32) ([]*dbgen.GetUserOrganizationsRow, error) {
 	reader := &StoreArrayReader[pgtype.Int4, dbgen.GetUserOrganizationsRow]{
-		CacheKey: userOrgsCacheKey(user.ID),
+		CacheKey: userOrgsCacheKey(userID),
 		Cache:    impl.cache,
 	}
 

@@ -4,7 +4,6 @@ package portal
 
 import (
 	"context"
-	"log/slog"
 	randv2 "math/rand/v2"
 	"net/http"
 	"time"
@@ -33,15 +32,11 @@ func (s *Server) checkUserOrgsLimit(ctx context.Context, user *dbgen.User, count
 	}
 
 	if user.SubscriptionID.Valid {
-		if subscription, err := s.Store.Impl().RetrieveSubscription(ctx, user.SubscriptionID.Int32); err == nil {
-			if plan, err := s.PlanService.FindPlan(subscription.ExternalProductID, subscription.ExternalPriceID, s.Stage,
-				db.IsInternalSubscription(subscription.Source)); err == nil {
-				return plan.CheckOrgsLimit(count)
+		if subscr, err := s.Store.Impl().RetrieveSubscription(ctx, user.SubscriptionID.Int32); err == nil {
+			if ok, err := s.SubscriptionLimits.CheckOrgsLimit(ctx, user.ID, subscr); err == nil {
+				return ok
 			}
 		}
-	} else {
-		slog.DebugContext(ctx, "User subscription is not valid", "userID", user.ID)
-		return false
 	}
 
 	return true

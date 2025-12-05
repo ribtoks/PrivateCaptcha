@@ -195,7 +195,7 @@ func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, ses
 		return nil, err
 	}
 
-	orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user)
+	orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user.ID)
 	if err != nil {
 		return nil, err
 	}

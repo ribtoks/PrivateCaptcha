@@ -26,7 +26,7 @@ func TestSoftDeleteOrganization(t *testing.T) {
 	}
 
 	// Verify that the organization is returned by FindUserOrganizations
-	orgs, err := store.Impl().RetrieveUserOrganizations(ctx, user)
+	orgs, err := store.Impl().RetrieveUserOrganizations(ctx, user.ID)
 	if err != nil {
 		t.Fatalf("Failed to find user organizations: %v", err)
 	}
@@ -39,7 +39,7 @@ func TestSoftDeleteOrganization(t *testing.T) {
 		t.Fatalf("Failed to soft delete organization: %v", err)
 	}
 
-	orgs, err = store.Impl().RetrieveUserOrganizations(ctx, user)
+	orgs, err = store.Impl().RetrieveUserOrganizations(ctx, user.ID)
 	if err != nil {
 		t.Fatalf("Failed to find user organizations: %v", err)
 	}

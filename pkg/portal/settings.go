@@ -724,7 +724,7 @@ func (s *Server) createUsageSettingsModel(ctx context.Context, user *dbgen.User)
 		SettingsCommonRenderContext: s.CreateSettingsCommonRenderContext(common.UsageEndpoint, user),
 	}
 
-	if orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user); err == nil {
+	if orgs, err := s.Store.Impl().RetrieveUserOrganizations(ctx, user.ID); err == nil {
 		count := 0
 		for _, org := range orgs {
 			if org.Level == dbgen.AccessLevelOwner {
