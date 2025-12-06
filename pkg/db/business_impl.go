@@ -1428,6 +1428,30 @@ func (impl *BusinessStoreImpl) RetrieveUsersWithoutSubscription(ctx context.Cont
 	return users, err
 }
 
+func (impl *BusinessStoreImpl) RetrieveLock(ctx context.Context, name string) (*dbgen.Lock, error) {
+	if len(name) == 0 {
+		return nil, ErrInvalidInput
+	}
+
+	if impl.querier == nil {
+		return nil, ErrMaintenance
+	}
+
+	result, err := impl.querier.GetLock(ctx, name)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			// slog.WarnContext(ctx, "Lock is still taken", "name", name)
+			return nil, ErrRecordNotFound
+		}
+		slog.ErrorContext(ctx, "Failed to get lock", "name", name, common.ErrAttr(err))
+		return nil, err
+	}
+
+	slog.DebugContext(ctx, "Retrieved a lock", "name", name)
+
+	return result, nil
+}
+
 func (impl *BusinessStoreImpl) AcquireLock(ctx context.Context, name string, data []byte, expiration time.Time) (*dbgen.Lock, error) {
 	if (len(name) == 0) || expiration.IsZero() {
 		return nil, ErrInvalidInput

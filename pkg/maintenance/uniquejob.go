@@ -36,7 +36,13 @@ func (j *UniquePeriodicJob) NewParams() any {
 }
 
 func (j *UniquePeriodicJob) acquireLock(ctx context.Context, lockName string) error {
-	expiration := time.Now().UTC().Add(j.LockDuration)
+	tnow := time.Now().UTC()
+	if lock, err := j.Store.Impl().RetrieveLock(ctx, lockName); (err == nil) && lock.ExpiresAt.Valid && lock.ExpiresAt.Time.After(tnow) {
+		slog.DebugContext(ctx, "Lock is still valid and not expired", "name", lockName, "expiration", lock.ExpiresAt.Time, "now", tnow)
+		return db.ErrLocked
+	}
+
+	expiration := tnow.Add(j.LockDuration)
 
 	_, err := j.Store.WithTx(ctx, func(impl *db.BusinessStoreImpl) ([]*common.AuditLogEvent, error) {
 		_, err := impl.AcquireLock(ctx, lockName, nil /*data*/, expiration)

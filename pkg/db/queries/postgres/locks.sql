@@ -8,3 +8,6 @@ RETURNING *;
 
 -- name: DeleteLock :exec
 DELETE FROM backend.locks WHERE name = $1;
+
+-- name: GetLock :one
+SELECT * FROM backend.locks WHERE name = $1;
