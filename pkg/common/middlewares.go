@@ -2,6 +2,8 @@ package common
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"log/slog"
 	"math"
@@ -9,6 +11,8 @@ import (
 	"runtime/debug"
 	"strconv"
 	"time"
+
+	"maps"
 
 	"golang.org/x/net/xsrftoken"
 )
@@ -30,7 +34,7 @@ var (
 		http.CanonicalHeaderKey("X-Accel-Expires"): []string{"0"},
 	}
 	CachedHeaders = map[string][]string{
-		http.CanonicalHeaderKey("Cache-Control"): []string{"public, max-age=86400"},
+		HeaderCacheControl: []string{"public, max-age=86400"},
 	}
 	SecurityHeaders = map[string][]string{
 		http.CanonicalHeaderKey("X-Frame-Options"):        []string{"DENY"},
@@ -40,11 +44,12 @@ var (
 		HeaderAccessControlOrigin: []string{"*"},
 	}
 	HtmlContentHeaders = map[string][]string{
-		http.CanonicalHeaderKey(HeaderContentType): []string{ContentTypeHTML},
+		HeaderContentType: []string{ContentTypeHTML},
 	}
 	JSONContentHeaders = map[string][]string{
-		http.CanonicalHeaderKey(HeaderContentType): []string{ContentTypeJSON},
+		HeaderContentType: []string{ContentTypeJSON},
 	}
+	PrivateCacheControl1h = []string{"private, max-age=60"}
 )
 
 func NoopMiddleware(next http.Handler) http.Handler {
@@ -99,10 +104,7 @@ func TimeoutHandler(timeout time.Duration) func(next http.Handler) http.Handler 
 }
 
 func WriteHeaders(w http.ResponseWriter, headers map[string][]string) {
-	wHeader := w.Header()
-	for k, v := range headers {
-		wHeader[k] = v
-	}
+	maps.Copy(w.Header(), headers)
 }
 
 func Cached(next http.Handler) http.Handler {
@@ -188,4 +190,13 @@ func (xm *XSRFMiddleware) Token(userID string) string {
 
 func (xm *XSRFMiddleware) VerifyToken(token, userID string) bool {
 	return xsrftoken.ValidFor(token, xm.Key, userID, "-", xm.Timeout)
+}
+
+func GenerateETag(parts ...string) string {
+	h := sha1.New()
+	for _, part := range parts {
+		h.Write([]byte(part))
+		h.Write([]byte{'/'})
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }

@@ -63,4 +63,5 @@ var (
 	HeaderETag                = http.CanonicalHeaderKey("ETag")
 	HeaderIfNoneMatch         = http.CanonicalHeaderKey("If-None-Match")
 	HeaderSitekey             = http.CanonicalHeaderKey("X-PC-Sitekey")
+	HeaderCacheControl        = http.CanonicalHeaderKey("Cache-Control")
 )

@@ -588,6 +588,12 @@ func (s *Server) getPropertyStats(w http.ResponseWriter, r *http.Request) {
 		period = common.TimePeriodToday
 	}
 
+	etag := common.GenerateETag(strconv.Itoa(int(user.ID)), strconv.Itoa(int(org.ID)), strconv.Itoa(int(property.ID)), period.String())
+	if etagHeader := r.Header.Get(common.HeaderIfNoneMatch); len(etagHeader) > 0 && (etagHeader == etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
 	type point struct {
 		Date  int64 `json:"x"`
 		Value int   `json:"y"`
@@ -623,7 +629,12 @@ func (s *Server) getPropertyStats(w http.ResponseWriter, r *http.Request) {
 		Verified:  verified,
 	}
 
-	common.SendJSONResponse(ctx, w, response, common.NoCacheHeaders)
+	cacheHeaders := map[string][]string{
+		common.HeaderETag:         []string{etag},
+		common.HeaderCacheControl: common.PrivateCacheControl1h,
+	}
+
+	common.SendJSONResponse(ctx, w, response, cacheHeaders)
 }
 
 func (s *Server) getOrgProperty(w http.ResponseWriter, r *http.Request) (*propertyDashboardRenderContext, *dbgen.Property, error) {

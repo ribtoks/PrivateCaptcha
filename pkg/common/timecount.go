@@ -11,6 +11,21 @@ const (
 	TimePeriodYear  TimePeriod = iota
 )
 
+func (tp TimePeriod) String() string {
+	switch tp {
+	case TimePeriodToday:
+		return "today"
+	case TimePeriodWeek:
+		return "week"
+	case TimePeriodMonth:
+		return "month"
+	case TimePeriodYear:
+		return "year"
+	default:
+		return "unknown"
+	}
+}
+
 type TimePeriodStat struct {
 	Timestamp     time.Time
 	RequestsCount int

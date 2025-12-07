@@ -685,6 +685,13 @@ func (s *Server) getAccountStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	timeFrom := time.Now().UTC().AddDate(-1 /*years*/, 0 /*months*/, 0 /*days*/)
+	etag := common.GenerateETag(strconv.Itoa(int(user.ID)), timeFrom.Format(time.RFC3339))
+	if etagHeader := r.Header.Get(common.HeaderIfNoneMatch); len(etagHeader) > 0 && (etagHeader == etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
 	type point struct {
 		Date  int64 `json:"x"`
 		Value int   `json:"y"`
@@ -692,7 +699,6 @@ func (s *Server) getAccountStats(w http.ResponseWriter, r *http.Request) {
 
 	data := []*point{}
 
-	timeFrom := time.Now().UTC().AddDate(-1 /*years*/, 0 /*months*/, 0 /*days*/)
 	if stats, err := s.TimeSeries.RetrieveAccountStats(ctx, user.ID, timeFrom); err == nil {
 		anyNonZero := false
 		for _, st := range stats {
@@ -716,7 +722,12 @@ func (s *Server) getAccountStats(w http.ResponseWriter, r *http.Request) {
 		Data: data,
 	}
 
-	common.SendJSONResponse(ctx, w, response, common.NoCacheHeaders)
+	cacheHeaders := map[string][]string{
+		common.HeaderETag:         []string{etag},
+		common.HeaderCacheControl: common.PrivateCacheControl1h,
+	}
+
+	common.SendJSONResponse(ctx, w, response, cacheHeaders)
 }
 
 func (s *Server) createUsageSettingsModel(ctx context.Context, user *dbgen.User) *settingsUsageRenderContext {
