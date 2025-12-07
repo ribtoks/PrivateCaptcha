@@ -49,7 +49,7 @@ var (
 	JSONContentHeaders = map[string][]string{
 		HeaderContentType: []string{ContentTypeJSON},
 	}
-	PrivateCacheControl1h = []string{"private, max-age=60"}
+	PrivateCacheControl1m = []string{"private, max-age=60"}
 )
 
 func NoopMiddleware(next http.Handler) http.Handler {

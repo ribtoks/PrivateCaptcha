@@ -102,7 +102,7 @@ func TestMain(m *testing.M) {
 		panic(dberr)
 	}
 
-	timeSeries = db.NewTimeSeries(clickhouse)
+	timeSeries = db.NewTimeSeries(clickhouse, cache)
 
 	levels := difficulty.NewLevels(timeSeries, 100, 5*time.Minute)
 	levels.Init(2*time.Second, 5*time.Minute)

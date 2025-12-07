@@ -147,7 +147,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	defer clickhouse.Close()
 
 	businessDB := db.NewBusiness(pool)
-	timeSeriesDB := db.NewTimeSeries(clickhouse)
+	timeSeriesDB := db.NewTimeSeries(clickhouse, businessDB.Cache)
 
 	puzzleVerifier := api.NewVerifier(cfg, businessDB)
 

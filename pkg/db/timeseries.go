@@ -29,6 +29,7 @@ const (
 
 type TimeSeriesDB struct {
 	Clickhouse         *sql.DB
+	Cache              common.Cache[CacheKey, any]
 	statsQueryTemplate *template.Template
 	maintenanceMode    atomic.Bool
 }
@@ -44,7 +45,7 @@ func idsToString(ids []int32) string {
 	return idsStr
 }
 
-func NewTimeSeries(clickhouse *sql.DB) *TimeSeriesDB {
+func NewTimeSeries(clickhouse *sql.DB, cache common.Cache[CacheKey, any]) *TimeSeriesDB {
 	// ClickHouse docs:
 	// The join (a search in the right table) is run before filtering in WHERE and before aggregation.
 	const statsQuery = `WITH requests AS
@@ -79,6 +80,7 @@ SETTINGS use_query_cache = true, query_cache_nondeterministic_function_handling 
 	return &TimeSeriesDB{
 		statsQueryTemplate: template.Must(template.New("stats").Parse(statsQuery)),
 		Clickhouse:         clickhouse,
+		Cache:              cache,
 	}
 }
 
@@ -235,6 +237,14 @@ func (ts *TimeSeriesDB) RetrieveAccountStats(ctx context.Context, userID int32, 
 		return nil, ErrMaintenance
 	}
 
+	fromStr := from.Format(time.DateTime)
+
+	cacheKey := userAccountStatsCacheKey(userID, fromStr)
+	if stats, err := FetchCachedArray[common.TimeCount](ctx, ts.Cache, cacheKey); (err == nil) && (len(stats) > 0) {
+		slog.DebugContext(ctx, "User account stats were cached", "userID", userID, "key", cacheKey, "count", len(stats))
+		return stats, nil
+	}
+
 	query := `SELECT timestamp, sum(count) as count
 FROM %s FINAL
 WHERE user_id = {user_id:UInt32} AND timestamp >= {timestamp:DateTime}
@@ -242,7 +252,7 @@ GROUP BY timestamp
 ORDER BY timestamp`
 	rows, err := ts.Clickhouse.Query(fmt.Sprintf(query, AccessLogTableName1mo),
 		clickhouse.Named("user_id", strconv.Itoa(int(userID))),
-		clickhouse.Named("timestamp", from.Format(time.DateTime)))
+		clickhouse.Named("timestamp", fromStr))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to execute account stats query", common.ErrAttr(err))
 		return nil, err
@@ -261,6 +271,8 @@ ORDER BY timestamp`
 		results = append(results, bc)
 	}
 
+	_ = ts.Cache.Set(ctx, cacheKey, results)
+
 	return results, nil
 }
 
@@ -275,32 +287,43 @@ func (ts *TimeSeriesDB) RetrievePropertyStatsByPeriod(ctx context.Context, orgID
 	var verificationsTable string
 	var timeFunction string
 	var interval string
+	var cacheKey *CacheKey
 
 	switch period {
 	case common.TimePeriodToday:
-		timeFrom = tnow.AddDate(0, 0, -1)
+		timeFrom = tnow.AddDate(0, 0, -1).Truncate(1 * time.Hour)
 		requestsTable = "request_logs_1h"
 		verificationsTable = "verify_logs_1h"
 		timeFunction = "toStartOfHour(%s)"
 		interval = "INTERVAL 1 HOUR"
+		// in server we only cache the "today" as this is the default chart in the UI
+		cacheKey = new(CacheKey)
+		*cacheKey = propertyStatsCacheKey(propertyID, timeFrom.Format(time.DateTime))
 	case common.TimePeriodWeek:
-		timeFrom = tnow.AddDate(0, 0, -7)
+		timeFrom = tnow.AddDate(0, 0, -7).Truncate(6 * time.Hour)
 		requestsTable = "request_logs_1d"
 		verificationsTable = "verify_logs_1d"
 		timeFunction = "toStartOfInterval(%s, INTERVAL 6 HOUR)"
 		interval = "INTERVAL 6 HOUR"
 	case common.TimePeriodMonth:
-		timeFrom = tnow.AddDate(0, -1, 0)
+		timeFrom = tnow.AddDate(0, -1, 0).Truncate(24 * time.Hour)
 		requestsTable = "request_logs_1d"
 		verificationsTable = "verify_logs_1d"
 		timeFunction = "toStartOfDay(%s)"
 		interval = "INTERVAL 1 DAY"
 	case common.TimePeriodYear:
-		timeFrom = tnow.AddDate(-1, 0, 0)
+		timeFrom = tnow.AddDate(-1, 0, 0).Truncate(24 * time.Hour)
 		requestsTable = "request_logs_1d"
 		verificationsTable = "verify_logs_1d"
 		timeFunction = "toStartOfMonth(%s)"
 		interval = "INTERVAL 1 MONTH"
+	}
+
+	if cacheKey != nil {
+		if stats, err := FetchCachedArray[common.TimePeriodStat](ctx, ts.Cache, *cacheKey); (err == nil) && (len(stats) > 0) {
+			slog.DebugContext(ctx, "Property stats were cached", "orgID", orgID, "propertyID", propertyID, "key", *cacheKey, "count", len(stats))
+			return stats, nil
+		}
 	}
 
 	data := struct {
@@ -352,6 +375,12 @@ func (ts *TimeSeriesDB) RetrievePropertyStatsByPeriod(ctx context.Context, orgID
 
 	slog.InfoContext(ctx, "Fetched time period stats", "count", len(results), "orgID", orgID, "propID", propertyID,
 		"from", timeFrom, "period", period)
+
+	if cacheKey != nil {
+		const propertyStatsCacheTTL = 5 * time.Minute
+		// we have 5 min buffers for updates and we do NOT delete this cache item
+		ts.Cache.SetWithTTL(ctx, *cacheKey, results, propertyStatsCacheTTL)
+	}
 
 	return results, nil
 }

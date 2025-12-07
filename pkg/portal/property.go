@@ -631,7 +631,7 @@ func (s *Server) getPropertyStats(w http.ResponseWriter, r *http.Request) {
 
 	cacheHeaders := map[string][]string{
 		common.HeaderETag:         []string{etag},
-		common.HeaderCacheControl: common.PrivateCacheControl1h,
+		common.HeaderCacheControl: common.PrivateCacheControl1m,
 	}
 
 	common.SendJSONResponse(ctx, w, response, cacheHeaders)

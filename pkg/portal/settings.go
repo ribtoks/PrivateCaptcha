@@ -685,7 +685,7 @@ func (s *Server) getAccountStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	timeFrom := time.Now().UTC().AddDate(-1 /*years*/, 0 /*months*/, 0 /*days*/)
+	timeFrom := time.Now().UTC().AddDate(-1 /*years*/, 0 /*months*/, 0 /*days*/).Truncate(24 * time.Hour)
 	etag := common.GenerateETag(strconv.Itoa(int(user.ID)), timeFrom.Format(time.RFC3339))
 	if etagHeader := r.Header.Get(common.HeaderIfNoneMatch); len(etagHeader) > 0 && (etagHeader == etag) {
 		w.WriteHeader(http.StatusNotModified)
@@ -724,7 +724,7 @@ func (s *Server) getAccountStats(w http.ResponseWriter, r *http.Request) {
 
 	cacheHeaders := map[string][]string{
 		common.HeaderETag:         []string{etag},
-		common.HeaderCacheControl: common.PrivateCacheControl1h,
+		common.HeaderCacheControl: common.PrivateCacheControl1m,
 	}
 
 	common.SendJSONResponse(ctx, w, response, cacheHeaders)

@@ -214,6 +214,8 @@ const (
 	propertyAuditLogsCacheKeyPrefix
 	orgAuditLogsCacheKeyPrefix
 	userPropertiesCountCachePrefix
+	userAccountStatsCachePrefix
+	propertyStatsCachePrefix
 	// Add new fields _above_
 	CACHE_KEY_PREFIXES_COUNT
 )
@@ -248,6 +250,8 @@ func init() {
 	cachePrefixToStrings[propertyAuditLogsCacheKeyPrefix] = "propAuditLogs/"
 	cachePrefixToStrings[orgAuditLogsCacheKeyPrefix] = "orgAuditLogs/"
 	cachePrefixToStrings[userPropertiesCountCachePrefix] = "userPropertiesCount/"
+	cachePrefixToStrings[userAccountStatsCachePrefix] = "userAccountStats/"
+	cachePrefixToStrings[propertyStatsCachePrefix] = "propertyStats/"
 
 	for i, v := range cachePrefixToStrings {
 		if len(v) == 0 {
@@ -350,4 +354,10 @@ func orgAuditLogsCacheKey(orgID int32) CacheKey {
 }
 func userPropertiesCountCacheKey(userID int32) CacheKey {
 	return Int32CacheKey(userPropertiesCountCachePrefix, userID)
+}
+func userAccountStatsCacheKey(userID int32, key string) CacheKey {
+	return CacheKey{Prefix: userAccountStatsCachePrefix, IntValue: userID, StrValue: key}
+}
+func propertyStatsCacheKey(propertyID int32, key string) CacheKey {
+	return CacheKey{Prefix: propertyStatsCachePrefix, IntValue: propertyID, StrValue: key}
 }
