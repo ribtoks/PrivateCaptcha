@@ -425,7 +425,7 @@ func (s *Server) validatePropertiesLimit(ctx context.Context, org *dbgen.Organiz
 func (s *Server) doValidatePropertiesLimit(ctx context.Context, subscr *dbgen.Subscription, userID int32, isOrgOwner bool) string {
 	ok, extra, err := s.SubscriptionLimits.CheckPropertiesLimit(ctx, userID, subscr)
 	if err != nil {
-		if err == ErrNoActiveSubscription {
+		if err == db.ErrNoActiveSubscription {
 			if isOrgOwner {
 				return activeSubscriptionForPropertyError
 			}
