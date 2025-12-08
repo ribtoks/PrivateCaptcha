@@ -8,7 +8,6 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
@@ -18,7 +17,6 @@ import (
 
 var (
 	errInvalidSession = errors.New("session contains invalid data")
-	maxOrgNameLength  = 255
 	errNoOrgs         = errors.New("user has no organizations")
 	stubUserOrg       = &userOrg{ID: "-1"}
 )
@@ -148,43 +146,6 @@ func (s *Server) getNewOrg(w http.ResponseWriter, r *http.Request) (*ViewModel, 
 	}
 
 	return &ViewModel{Model: renderCtx, View: orgWizardTemplate}, nil
-}
-
-func (s *Server) validateOrgName(ctx context.Context, name string, user *dbgen.User) string {
-	if (len(name) == 0) || (len(name) > maxOrgNameLength) {
-		slog.WarnContext(ctx, "Name length is invalid", "length", len(name))
-
-		if len(name) == 0 {
-			return "Name cannot be empty."
-		} else {
-			return "Name is too long."
-		}
-	}
-
-	const allowedPunctuation = "'-_&.:()[]"
-
-	for i, r := range name {
-		switch {
-		case unicode.IsLetter(r):
-			continue
-		case unicode.IsDigit(r):
-			continue
-		case unicode.IsSpace(r):
-			continue
-		case strings.ContainsRune(allowedPunctuation, r):
-			continue
-		default:
-			slog.WarnContext(ctx, "Name contains invalid characters", "position", i, "rune", r)
-			return "Organization name contains invalid characters."
-		}
-	}
-
-	if _, err := s.Store.Impl().FindOrg(ctx, name, user); err != db.ErrRecordNotFound {
-		slog.WarnContext(ctx, "Org already exists", "name", name, common.ErrAttr(err))
-		return "Organization with this name already exists."
-	}
-
-	return ""
 }
 
 func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, sess *session.Session) (*orgDashboardRenderContext, error) {
@@ -454,7 +415,7 @@ func (s *Server) putOrg(w http.ResponseWriter, r *http.Request) (*ViewModel, err
 	var auditEvent *common.AuditLogEvent
 	name := strings.TrimSpace(r.FormValue(common.ParamName))
 	if name != org.Name {
-		if nameError := s.validateOrgName(ctx, name, user); len(nameError) > 0 {
+		if nameError := s.Store.Impl().ValidateOrgName(ctx, name, user); len(nameError) > 0 {
 			renderCtx.NameError = nameError
 			return &ViewModel{Model: renderCtx, View: orgSettingsTemplate}, nil
 		}

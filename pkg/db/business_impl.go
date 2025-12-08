@@ -8,7 +8,9 @@ import (
 	"log/slog"
 	"slices"
 	"sort"
+	"strings"
 	"time"
+	"unicode"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
@@ -2311,4 +2313,43 @@ func (impl *BusinessStoreImpl) RetrieveOrganizationAuditLogs(ctx context.Context
 	// extra slice is due to possible caching in portal where for /auditlogs we can fetch and cache multiple entries
 	// but later for /org/auditlogs we will show only up to {limit}
 	return logs[0:min(len(logs), limit)], nil
+}
+
+func (impl *BusinessStoreImpl) ValidateOrgName(ctx context.Context, name string, user *dbgen.User) string {
+	const maxOrgNameLength = 255
+
+	if (len(name) == 0) || (len(name) > maxOrgNameLength) {
+		slog.WarnContext(ctx, "Name length is invalid", "length", len(name))
+
+		if len(name) == 0 {
+			return "Name cannot be empty."
+		} else {
+			return "Name is too long."
+		}
+	}
+
+	const allowedPunctuation = "'-_&.:()[]"
+
+	for i, r := range name {
+		switch {
+		case unicode.IsLetter(r):
+			continue
+		case unicode.IsDigit(r):
+			continue
+		case unicode.IsSpace(r):
+			continue
+		case strings.ContainsRune(allowedPunctuation, r):
+			continue
+		default:
+			slog.WarnContext(ctx, "Name contains invalid characters", "position", i, "rune", r)
+			return "Organization name contains invalid characters."
+		}
+	}
+
+	if _, err := impl.FindOrg(ctx, name, user); err != ErrRecordNotFound {
+		slog.WarnContext(ctx, "Org already exists", "name", name, common.ErrAttr(err))
+		return "Organization with this name already exists."
+	}
+
+	return ""
 }

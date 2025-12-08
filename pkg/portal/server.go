@@ -135,7 +135,7 @@ type Server struct {
 	CountryCodeHeader  common.ConfigItem
 	UserLimiter        api.UserLimiter
 	AuditLogsFunc      AuditLogsConstructor
-	SubscriptionLimits SubscriptionLimits
+	SubscriptionLimits db.SubscriptionLimits
 }
 
 func (s *Server) createSettingsTabs() []*SettingsTab {

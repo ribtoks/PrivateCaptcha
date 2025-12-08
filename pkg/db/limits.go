@@ -1,4 +1,4 @@
-package portal
+package db
 
 import (
 	"context"
@@ -7,12 +7,7 @@ import (
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/billing"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
-	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
-)
-
-var (
-	ErrNoActiveSubscription = errors.New("subscription is not active or nil")
 )
 
 type SubscriptionLimits interface {
@@ -24,13 +19,17 @@ type SubscriptionLimits interface {
 	OrgsLimit(ctx context.Context, subscr *dbgen.Subscription) (int, error)
 }
 
+var (
+	ErrNoActiveSubscription = errors.New("subscription is not active or nil")
+)
+
 type SubscriptionLimitsImpl struct {
 	Stage       string
-	store       db.Implementor
+	store       Implementor
 	planService billing.PlanService
 }
 
-func NewSubscriptionLimits(stage string, store db.Implementor, planService billing.PlanService) *SubscriptionLimitsImpl {
+func NewSubscriptionLimits(stage string, store Implementor, planService billing.PlanService) *SubscriptionLimitsImpl {
 	return &SubscriptionLimitsImpl{
 		Stage:       stage,
 		store:       store,
@@ -45,7 +44,7 @@ func (sl *SubscriptionLimitsImpl) CheckOrgsLimit(ctx context.Context, userID int
 		return false, 0, ErrNoActiveSubscription
 	}
 
-	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
+	isInternalSubscription := IsInternalSubscription(subscr.Source)
 	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage, isInternalSubscription)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
@@ -75,7 +74,7 @@ func (sl *SubscriptionLimitsImpl) CheckOrgMembersLimit(ctx context.Context, orgI
 		return false, 0, ErrNoActiveSubscription
 	}
 
-	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
+	isInternalSubscription := IsInternalSubscription(subscr.Source)
 	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage, isInternalSubscription)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
@@ -98,7 +97,7 @@ func (sl *SubscriptionLimitsImpl) CheckPropertiesLimit(ctx context.Context, user
 		return false, 0, ErrNoActiveSubscription
 	}
 
-	isInternalSubscription := db.IsInternalSubscription(subscr.Source)
+	isInternalSubscription := IsInternalSubscription(subscr.Source)
 	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage, isInternalSubscription)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
@@ -122,7 +121,7 @@ func (sl *SubscriptionLimitsImpl) RequestsLimit(ctx context.Context, subscr *dbg
 	}
 
 	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage,
-		db.IsInternalSubscription(subscr.Source))
+		IsInternalSubscription(subscr.Source))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan", "productID", subscr.ExternalProductID, "priceID", subscr.ExternalPriceID, common.ErrAttr(err))
 		return 0, err
@@ -137,7 +136,7 @@ func (sl *SubscriptionLimitsImpl) PropertiesLimit(ctx context.Context, subscr *d
 	}
 
 	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage,
-		db.IsInternalSubscription(subscr.Source))
+		IsInternalSubscription(subscr.Source))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan", "productID", subscr.ExternalProductID, "priceID", subscr.ExternalPriceID, common.ErrAttr(err))
 		return 0, err
@@ -152,7 +151,7 @@ func (sl *SubscriptionLimitsImpl) OrgsLimit(ctx context.Context, subscr *dbgen.S
 	}
 
 	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage,
-		db.IsInternalSubscription(subscr.Source))
+		IsInternalSubscription(subscr.Source))
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to find billing plan", "productID", subscr.ExternalProductID, "priceID", subscr.ExternalPriceID, common.ErrAttr(err))
 		return 0, err

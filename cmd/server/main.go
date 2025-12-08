@@ -210,7 +210,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		IDHasher:           common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
 		CountryCodeHeader:  cfg.Get(common.CountryCodeHeaderKey),
 		UserLimiter:        userLimiter,
-		SubscriptionLimits: portal.NewSubscriptionLimits(stage, businessDB, planService),
+		SubscriptionLimits: db.NewSubscriptionLimits(stage, businessDB, planService),
 	}
 
 	templatesBuilder := portal.NewTemplatesBuilder()
