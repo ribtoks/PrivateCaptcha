@@ -96,7 +96,7 @@ func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
 
 	common.Redirect(s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID))), http.StatusOK, w, r)
 
-	s.Store.AuditLog().RecordEvent(ctx, auditEvent)
+	s.Store.AuditLog().RecordEvent(ctx, auditEvent, common.AuditLogSourcePortal)
 }
 
 // here we know that user is already organization owner
@@ -299,7 +299,7 @@ func (s *Server) deleteOrgMembers(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	} else {
-		s.Store.AuditLog().RecordEvent(ctx, auditEvent)
+		s.Store.AuditLog().RecordEvent(ctx, auditEvent, common.AuditLogSourcePortal)
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -322,7 +322,7 @@ func (s *Server) joinOrg(w http.ResponseWriter, r *http.Request) {
 	if auditEvent, err := s.Store.Impl().JoinOrg(ctx, orgID, user); err == nil {
 		// NOTE: we don't want to htmx-swap anything as we need to update the org dropdown
 		common.Redirect(s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(orgID))), http.StatusOK, w, r)
-		s.Store.AuditLog().RecordEvent(ctx, auditEvent)
+		s.Store.AuditLog().RecordEvent(ctx, auditEvent, common.AuditLogSourcePortal)
 	} else {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 	}
@@ -353,7 +353,7 @@ func (s *Server) leaveOrg(w http.ResponseWriter, r *http.Request) {
 	if auditEvent, err := s.Store.Impl().LeaveOrg(ctx, orgID, user); err == nil {
 		// NOTE: we don't want to htmx-swap anything as we need to update the org dropdown
 		common.Redirect(s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(orgID))), http.StatusOK, w, r)
-		s.Store.AuditLog().RecordEvent(ctx, auditEvent)
+		s.Store.AuditLog().RecordEvent(ctx, auditEvent, common.AuditLogSourcePortal)
 	} else {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 	}
@@ -385,7 +385,7 @@ func (s *Server) deleteOrg(w http.ResponseWriter, r *http.Request) {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 		return
 	} else {
-		s.Store.AuditLog().RecordEvent(ctx, auditEvent)
+		s.Store.AuditLog().RecordEvent(ctx, auditEvent, common.AuditLogSourcePortal)
 	}
 
 	common.Redirect(s.RelURL("/"), http.StatusOK, w, r)

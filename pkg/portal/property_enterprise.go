@@ -86,7 +86,7 @@ func (s *Server) moveProperty(w http.ResponseWriter, r *http.Request) {
 	if updatedProperty, auditEvent, err := s.Store.Impl().MoveProperty(ctx, user, property, orgs[idx]); err == nil {
 		propertyDashboardURL := s.PartsURL(common.OrgEndpoint, s.IDHasher.Encrypt(int(updatedProperty.OrgID.Int32)), common.PropertyEndpoint, s.IDHasher.Encrypt(int(updatedProperty.ID)))
 		common.Redirect(propertyDashboardURL, http.StatusOK, w, r)
-		s.Store.AuditLog().RecordEvent(ctx, auditEvent)
+		s.Store.AuditLog().RecordEvent(ctx, auditEvent, common.AuditLogSourcePortal)
 	} else {
 		s.RedirectError(http.StatusInternalServerError, w, r)
 	}
