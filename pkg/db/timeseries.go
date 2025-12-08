@@ -379,7 +379,7 @@ func (ts *TimeSeriesDB) RetrievePropertyStatsByPeriod(ctx context.Context, orgID
 	if cacheKey != nil {
 		const propertyStatsCacheTTL = 5 * time.Minute
 		// we have 5 min buffers for updates and we do NOT delete this cache item
-		ts.Cache.SetWithTTL(ctx, *cacheKey, results, propertyStatsCacheTTL)
+		_ = ts.Cache.SetWithTTL(ctx, *cacheKey, results, propertyStatsCacheTTL)
 	}
 
 	return results, nil
