@@ -224,7 +224,7 @@ func (s *Server) doRegister(ctx context.Context, sess *session.Session) (*dbgen.
 		slog.ErrorContext(ctx, "Failed to create user account in Store", common.ErrAttr(err))
 		return nil, nil, err
 	} else {
-		s.Store.AuditLog().RecordEvents(ctx, auditEvents)
+		s.Store.AuditLog().RecordEvents(ctx, auditEvents, common.AuditLogSourcePortal)
 	}
 
 	job := s.Jobs.OnboardUser(user, plan)

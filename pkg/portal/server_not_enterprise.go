@@ -6,6 +6,7 @@ import (
 	"context"
 	randv2 "math/rand/v2"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -62,11 +63,13 @@ func newStubAuditLog() *userAuditLog {
 	actions := []dbgen.AuditLogAction{dbgen.AuditLogActionAccess, dbgen.AuditLogActionCreate, dbgen.AuditLogActionUpdate,
 		dbgen.AuditLogActionDelete, dbgen.AuditLogActionUnknown}
 	tables := []string{db.TableNameProperties, db.TableNameOrgs, db.TableNameAPIKeys, db.TableNameUsers, db.TableNameOrgUsers}
+	sources := []string{string(dbgen.AuditLogSourcePortal), strings.ToUpper(string(dbgen.AuditLogSourceApi))}
 
 	return &userAuditLog{
 		UserName:  "User",
 		UserEmail: "***@***.com",
 		Action:    string(actions[randv2.IntN(len(actions))]),
+		Source:    sources[randv2.IntN(len(sources))],
 		Property:  "",
 		Resource:  "***",
 		Value:     "",

@@ -1,6 +1,9 @@
 package common
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 type AuditLogAction int
 
@@ -37,7 +40,30 @@ func (ala AuditLogAction) String() string {
 	case AuditLogActionAccess:
 		return "access"
 	default:
+		return strconv.Itoa(int(ala))
+	}
+}
+
+type AuditLogSource int
+
+const (
+	AuditLogSourceUnknown AuditLogSource = iota
+	AuditLogSourcePortal
+	AuditLogSourceAPI
+	// Add new fields _above_
+	AUDIT_LOG_SOURCES_COUNT
+)
+
+func (als AuditLogSource) String() string {
+	switch als {
+	case AuditLogSourceUnknown:
 		return "unknown"
+	case AuditLogSourcePortal:
+		return "portal"
+	case AuditLogSourceAPI:
+		return "api"
+	default:
+		return strconv.Itoa(int(als))
 	}
 }
 
@@ -47,6 +73,7 @@ func (ala AuditLogAction) String() string {
 type AuditLogEvent struct {
 	UserID    int32
 	Action    AuditLogAction
+	Source    AuditLogSource
 	EntityID  int64
 	TableName string
 	SessionID string

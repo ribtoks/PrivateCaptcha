@@ -41,6 +41,7 @@ type userAuditLog struct {
 	Value     string
 	TableName string
 	Time      string
+	Source    string
 }
 
 var (
@@ -278,6 +279,12 @@ func (s *Server) newUserAuditLog(ctx context.Context, log *dbgen.AuditLog) (*use
 		TableName: log.EntityTable,
 	}
 	var err error
+
+	if log.Source == dbgen.AuditLogSourceApi {
+		ul.Source = strings.ToUpper(string(log.Source))
+	} else {
+		ul.Source = string(log.Source)
+	}
 
 	if log.Action == dbgen.AuditLogActionAccess {
 		var newAccess *db.AuditLogAccess

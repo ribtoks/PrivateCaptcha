@@ -394,7 +394,7 @@ func (s *Server) deleteAccount(w http.ResponseWriter, r *http.Request) {
 	}); err == nil {
 		job := s.Jobs.OffboardUser(user)
 		go common.RunOneOffJob(common.CopyTraceID(ctx, context.Background()), job, job.NewParams())
-		s.Store.AuditLog().RecordEvents(ctx, auditEvents)
+		s.Store.AuditLog().RecordEvents(ctx, auditEvents, common.AuditLogSourcePortal)
 
 		s.logout(w, r)
 	} else {
@@ -695,7 +695,7 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "", http.StatusInternalServerError)
 		return
 	} else {
-		s.Store.AuditLog().RecordEvent(ctx, auditEvent)
+		s.Store.AuditLog().RecordEvent(ctx, auditEvent, common.AuditLogSourcePortal)
 	}
 
 	go common.RunAdHocFunc(common.CopyTraceID(ctx, context.Background()), func(bctx context.Context) error {

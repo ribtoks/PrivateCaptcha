@@ -378,7 +378,7 @@ func (s *Server) Handler(modelFunc ViewModelHandler) http.Handler {
 		}
 		// If tpl is empty, it means modelFunc handled the response (e.g., redirect, error, or manual write).
 		if mv.AuditEvent != nil {
-			s.Store.AuditLog().RecordEvent(ctx, mv.AuditEvent)
+			s.Store.AuditLog().RecordEvent(ctx, mv.AuditEvent, common.AuditLogSourcePortal)
 		}
 	})
 }

@@ -14,6 +14,7 @@ import (
 type CreateAuditLogsParams struct {
 	UserID      pgtype.Int4        `db:"user_id" json:"user_id"`
 	Action      AuditLogAction     `db:"action" json:"action"`
+	Source      AuditLogSource     `db:"source" json:"source"`
 	EntityID    pgtype.Int8        `db:"entity_id" json:"entity_id"`
 	EntityTable string             `db:"entity_table" json:"entity_table"`
 	SessionID   string             `db:"session_id" json:"session_id"`
@@ -32,7 +33,7 @@ func (q *Queries) DeleteOldAuditLogs(ctx context.Context, createdAt pgtype.Times
 }
 
 const getOrgAuditLogs = `-- name: GetOrgAuditLogs :many
-SELECT a.id, a.user_id, a.action, a.entity_id, a.entity_table, a.session_id, a.old_value, a.new_value, a.created_at, u.name, u.email
+SELECT a.id, a.user_id, a.action, a.entity_id, a.entity_table, a.session_id, a.old_value, a.new_value, a.created_at, a.source, u.name, u.email
 FROM backend.audit_logs a
 LEFT JOIN backend.users u ON u.id = a.user_id
 WHERE (
@@ -85,6 +86,7 @@ func (q *Queries) GetOrgAuditLogs(ctx context.Context, arg *GetOrgAuditLogsParam
 			&i.AuditLog.OldValue,
 			&i.AuditLog.NewValue,
 			&i.AuditLog.CreatedAt,
+			&i.AuditLog.Source,
 			&i.Name,
 			&i.Email,
 		); err != nil {
@@ -99,7 +101,7 @@ func (q *Queries) GetOrgAuditLogs(ctx context.Context, arg *GetOrgAuditLogsParam
 }
 
 const getPropertyAuditLogs = `-- name: GetPropertyAuditLogs :many
-SELECT a.id, a.user_id, a.action, a.entity_id, a.entity_table, a.session_id, a.old_value, a.new_value, a.created_at, u.name, u.email
+SELECT a.id, a.user_id, a.action, a.entity_id, a.entity_table, a.session_id, a.old_value, a.new_value, a.created_at, a.source, u.name, u.email
 FROM backend.audit_logs a
 LEFT JOIN backend.users u ON u.id = a.user_id
 WHERE a.entity_table = 'properties' AND a.entity_id = $1 AND a.created_at >= $2
@@ -145,6 +147,7 @@ func (q *Queries) GetPropertyAuditLogs(ctx context.Context, arg *GetPropertyAudi
 			&i.AuditLog.OldValue,
 			&i.AuditLog.NewValue,
 			&i.AuditLog.CreatedAt,
+			&i.AuditLog.Source,
 			&i.Name,
 			&i.Email,
 		); err != nil {
@@ -159,7 +162,7 @@ func (q *Queries) GetPropertyAuditLogs(ctx context.Context, arg *GetPropertyAudi
 }
 
 const getUserAuditLogs = `-- name: GetUserAuditLogs :many
-SELECT a.id, a.user_id, a.action, a.entity_id, a.entity_table, a.session_id, a.old_value, a.new_value, a.created_at, u.name, u.email
+SELECT a.id, a.user_id, a.action, a.entity_id, a.entity_table, a.session_id, a.old_value, a.new_value, a.created_at, a.source, u.name, u.email
 FROM backend.audit_logs a
 LEFT JOIN backend.users u ON u.id = a.user_id
 WHERE (a.user_id = $1 OR
@@ -218,6 +221,7 @@ func (q *Queries) GetUserAuditLogs(ctx context.Context, arg *GetUserAuditLogsPar
 			&i.AuditLog.OldValue,
 			&i.AuditLog.NewValue,
 			&i.AuditLog.CreatedAt,
+			&i.AuditLog.Source,
 			&i.Name,
 			&i.Email,
 		); err != nil {

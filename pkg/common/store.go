@@ -73,6 +73,6 @@ type PortalMetrics interface {
 }
 
 type AuditLog interface {
-	RecordEvent(ctx context.Context, event *AuditLogEvent)
-	RecordEvents(ctx context.Context, events []*AuditLogEvent)
+	RecordEvent(ctx context.Context, event *AuditLogEvent, source AuditLogSource)
+	RecordEvents(ctx context.Context, events []*AuditLogEvent, source AuditLogSource)
 }

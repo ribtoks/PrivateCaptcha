@@ -65,9 +65,18 @@ func (al *AuditLog) persistAuditLog(ctx context.Context, batch []*common.AuditLo
 			action = dbgen.AuditLogActionAccess
 		}
 
+		source := dbgen.AuditLogSourceUnknown
+		switch e.Source {
+		case common.AuditLogSourcePortal:
+			source = dbgen.AuditLogSourcePortal
+		case common.AuditLogSourceAPI:
+			source = dbgen.AuditLogSourceApi
+		}
+
 		event := &dbgen.CreateAuditLogsParams{
 			UserID:      Int(e.UserID),
 			Action:      action,
+			Source:      source,
 			EntityID:    Int8(e.EntityID),
 			EntityTable: e.TableName,
 			SessionID:   e.SessionID,
@@ -114,13 +123,13 @@ func (al *AuditLog) storeAuditLogEvents(ctx context.Context, batch []*dbgen.Crea
 	return nil
 }
 
-func (al *AuditLog) RecordEvents(ctx context.Context, events []*common.AuditLogEvent) {
+func (al *AuditLog) RecordEvents(ctx context.Context, events []*common.AuditLogEvent, source common.AuditLogSource) {
 	for _, event := range events {
-		al.RecordEvent(ctx, event)
+		al.RecordEvent(ctx, event, source)
 	}
 }
 
-func (al *AuditLog) RecordEvent(ctx context.Context, event *common.AuditLogEvent) {
+func (al *AuditLog) RecordEvent(ctx context.Context, event *common.AuditLogEvent, source common.AuditLogSource) {
 	if event == nil {
 		slog.ErrorContext(ctx, "Discarding nil audit log event")
 		return
@@ -142,8 +151,9 @@ func (al *AuditLog) RecordEvent(ctx context.Context, event *common.AuditLogEvent
 	}
 
 	event.Timestamp = time.Now().UTC()
+	event.Source = source
 
-	slog.DebugContext(ctx, "Queueing audit log event", "action", event.Action.String(), "table", event.TableName, "userID", event.UserID)
+	slog.DebugContext(ctx, "Queueing audit log event", "action", event.Action.String(), "table", event.TableName, "userID", event.UserID, "source", source.String())
 	al.persistChan <- event
 }
 
@@ -151,13 +161,13 @@ type DiscardAuditLog struct{}
 
 var _ common.AuditLog = (*DiscardAuditLog)(nil)
 
-func (dal *DiscardAuditLog) RecordEvents(ctx context.Context, events []*common.AuditLogEvent) {
+func (dal *DiscardAuditLog) RecordEvents(ctx context.Context, events []*common.AuditLogEvent, source common.AuditLogSource) {
 	for _, event := range events {
-		dal.RecordEvent(ctx, event)
+		dal.RecordEvent(ctx, event, source)
 	}
 }
 
-func (dal *DiscardAuditLog) RecordEvent(ctx context.Context, event *common.AuditLogEvent) {
+func (dal *DiscardAuditLog) RecordEvent(ctx context.Context, event *common.AuditLogEvent, source common.AuditLogSource) {
 	slog.WarnContext(ctx, "Discarded audit log event", "table", event.TableName, "entityID", event.EntityID, "action", event.Action)
 }
 

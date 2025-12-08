@@ -146,6 +146,49 @@ func (ns NullAuditLogAction) Value() (driver.Value, error) {
 	return string(ns.AuditLogAction), nil
 }
 
+type AuditLogSource string
+
+const (
+	AuditLogSourceUnknown AuditLogSource = "unknown"
+	AuditLogSourcePortal  AuditLogSource = "portal"
+	AuditLogSourceApi     AuditLogSource = "api"
+)
+
+func (e *AuditLogSource) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AuditLogSource(s)
+	case string:
+		*e = AuditLogSource(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AuditLogSource: %T", src)
+	}
+	return nil
+}
+
+type NullAuditLogSource struct {
+	AuditLogSource AuditLogSource `json:"backend_audit_log_source"`
+	Valid          bool           `json:"valid"` // Valid is true if AuditLogSource is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAuditLogSource) Scan(value interface{}) error {
+	if value == nil {
+		ns.AuditLogSource, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AuditLogSource.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAuditLogSource) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AuditLogSource), nil
+}
+
 type DifficultyGrowth string
 
 const (
@@ -258,6 +301,7 @@ type AuditLog struct {
 	OldValue    []byte             `db:"old_value" json:"old_value"`
 	NewValue    []byte             `db:"new_value" json:"new_value"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	Source      AuditLogSource     `db:"source" json:"source"`
 }
 
 type Cache struct {

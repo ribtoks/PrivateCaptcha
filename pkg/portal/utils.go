@@ -194,7 +194,7 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	sess := s.Session(w, r)
 	if userID, ok := sess.Get(ctx, session.KeyUserID).(int32); ok {
-		s.Store.AuditLog().RecordEvent(ctx, newUserAuthAuditLogEvent(userID, common.AuditLogActionLogout))
+		s.Store.AuditLog().RecordEvent(ctx, newUserAuthAuditLogEvent(userID, common.AuditLogActionLogout), common.AuditLogSourcePortal)
 	}
 
 	s.Sessions.SessionDestroy(w, r)

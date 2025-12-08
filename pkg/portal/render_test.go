@@ -3,6 +3,7 @@ package portal
 import (
 	"context"
 	"fmt"
+	randv2 "math/rand/v2"
 	"net/http"
 	"strings"
 	"testing"
@@ -82,6 +83,11 @@ func stubAuditLogs() []*userAuditLog {
 		dbgen.AuditLogActionAccess,
 	}
 
+	sources := []dbgen.AuditLogSource{
+		dbgen.AuditLogSourcePortal,
+		dbgen.AuditLogSourceApi,
+	}
+
 	result := make([]*userAuditLog, 0)
 
 	for _, table := range tables {
@@ -90,6 +96,7 @@ func stubAuditLogs() []*userAuditLog {
 				UserName:  "User Name",
 				UserEmail: "foo@bar.com",
 				Action:    string(action),
+				Source:    string(sources[randv2.IntN(len(sources))]),
 				Property:  "Property",
 				Resource:  "Resource",
 				Value:     "Value",

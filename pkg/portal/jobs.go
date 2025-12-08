@@ -71,7 +71,7 @@ func (j *LoginUserJob) NewParams() any {
 func (j *LoginUserJob) RunOnce(ctx context.Context, params any) error {
 	userID, hasUserID := j.Sess.Get(ctx, session.KeyUserID).(int32)
 	if hasUserID {
-		j.Store.AuditLog().RecordEvent(ctx, newUserAuthAuditLogEvent(userID, common.AuditLogActionLogin))
+		j.Store.AuditLog().RecordEvent(ctx, newUserAuthAuditLogEvent(userID, common.AuditLogActionLogin), common.AuditLogSourcePortal)
 
 		slog.DebugContext(ctx, "Fetching system notification for user", "userID", userID)
 		if n, err := j.Store.Impl().RetrieveSystemUserNotification(ctx, time.Now().UTC(), userID); err == nil {

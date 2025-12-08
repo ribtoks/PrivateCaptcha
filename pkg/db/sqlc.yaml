@@ -60,6 +60,10 @@ sql:
           backend_apikey_scope: ApiKeyScope
           backend_apikey_scope_puzzle: ApiKeyScopePuzzle
           backend_apikey_scope_portal: ApiKeyScopePortal
+          backend_audit_log_source: AuditLogSource
+          backend_audit_log_source_unknown: AuditLogSourceUnknown
+          backend_audit_log_source_portal: AuditLogSourcePortal
+          backend_audit_log_source_api: AuditLogSourceApi
         overrides:
           - db_type: "pg_catalog.interval"
             go_type: "time.Duration"
