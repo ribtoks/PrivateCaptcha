@@ -204,9 +204,9 @@ func (s *Server) UpdateConfig(ctx context.Context, cfg common.ConfigStore) {
 	}
 }
 
-func (s *Server) Setup(domain string, security alice.Constructor) *RouteGenerator {
+func (s *Server) Setup(domain string, security alice.Constructor) *common.RouteGenerator {
 	prefix := domain + s.RelURL("/")
-	rg := &RouteGenerator{Prefix: prefix}
+	rg := &common.RouteGenerator{Prefix: prefix}
 	slog.Debug("Setting up the portal routes", "prefix", prefix, "enterprise", s.isEnterprise())
 	s.setupWithPrefix(rg, security)
 	return rg
@@ -230,7 +230,7 @@ func defaultMaxBytesHandler(next http.Handler) http.Handler {
 	return http.MaxBytesHandler(next, 256*1024)
 }
 
-func (s *Server) MiddlewarePublicChain(rg *RouteGenerator, security alice.Constructor) alice.Chain {
+func (s *Server) MiddlewarePublicChain(rg *common.RouteGenerator, security alice.Constructor) alice.Chain {
 	const (
 		// by default we are allowing 1 request per 2 seconds from a single client IP address with a {leakyBucketCap} burst
 		// for portal we raise these limits for authenticated users and for CDN we have full-on caching
@@ -255,7 +255,7 @@ func (s *Server) MiddlewarePrivateWrite(public alice.Chain) alice.Chain {
 	return public.Append(s.maintenance, defaultMaxBytesHandler, internalTimeout, s.csrf(s.csrfUserIDKeyFunc), s.private)
 }
 
-func (s *Server) setupWithPrefix(rg *RouteGenerator, security alice.Constructor) {
+func (s *Server) setupWithPrefix(rg *common.RouteGenerator, security alice.Constructor) {
 	arg := func(s string) string {
 		return fmt.Sprintf("{%s}", s)
 	}

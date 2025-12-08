@@ -37,7 +37,7 @@ func MaxAuditLogsRetention(cfg common.ConfigStore) time.Duration {
 	return time.Duration(days) * 24 * time.Hour
 }
 
-func (s *Server) setupEnterprise(rg *RouteGenerator, privateRead, privateWrite alice.Chain) {
+func (s *Server) setupEnterprise(rg *common.RouteGenerator, privateRead, privateWrite alice.Chain) {
 	arg := func(s string) string {
 		return fmt.Sprintf("{%s}", s)
 	}
