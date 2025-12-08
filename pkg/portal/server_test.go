@@ -76,7 +76,7 @@ func TestMain(m *testing.M) {
 			PlanService:        planService,
 			DataCtx:            dataCtx,
 			PlatformCtx:        platformCtx,
-			SubscriptionLimits: &StubSubscriptionLimits{},
+			SubscriptionLimits: &db.StubSubscriptionLimits{},
 		}
 
 		ctx := context.TODO()
@@ -134,7 +134,7 @@ func TestMain(m *testing.M) {
 		IDHasher:           common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
 		CountryCodeHeader:  cfg.Get(common.CountryCodeHeaderKey),
 		UserLimiter:        api.NewUserLimiter(store),
-		SubscriptionLimits: NewSubscriptionLimits(common.StageTest, store, planService),
+		SubscriptionLimits: db.NewSubscriptionLimits(common.StageTest, store, planService),
 	}
 
 	ctx := context.TODO()
