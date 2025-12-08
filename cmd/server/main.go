@@ -260,7 +260,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	go common.RunPeriodicJobOnce(common.TraceContext(context.Background(), "check_license"), checkLicenseJob, checkLicenseJob.NewParams())
 
 	router := http.NewServeMux()
-	apiServer.Setup(router, apiURLConfig.Domain(), verbose, common.NoopMiddleware)
+	apiServer.Setup(apiURLConfig.Domain(), verbose, common.NoopMiddleware).Register(router)
 	portalDomain := portalURLConfig.Domain()
 	portalServer.Setup(portalDomain, common.NoopMiddleware).Register(router)
 	rateLimiter := ipRateLimiter.RateLimitExFunc(publicLeakyBucketCap, publicLeakInterval)

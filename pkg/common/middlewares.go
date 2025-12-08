@@ -224,6 +224,10 @@ func (rg *RouteGenerator) Route(method string, parts ...string) string {
 	return result
 }
 
+func (rg *RouteGenerator) Options(parts ...string) string {
+	return rg.Route(http.MethodOptions, parts...)
+}
+
 func (rg *RouteGenerator) Get(parts ...string) string {
 	return rg.Route(http.MethodGet, parts...)
 }

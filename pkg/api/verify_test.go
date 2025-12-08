@@ -43,7 +43,7 @@ func TestSerializeResponse(t *testing.T) {
 
 func verifySuite(response, secret, sitekey string) (*http.Response, error) {
 	srv := http.NewServeMux()
-	s.Setup(srv, "", true /*verbose*/, common.NoopMiddleware)
+	s.Setup("", true /*verbose*/, common.NoopMiddleware).Register(srv)
 
 	//srv.HandleFunc("/", catchAll)
 
@@ -67,7 +67,7 @@ func verifySuite(response, secret, sitekey string) (*http.Response, error) {
 
 func siteVerifySuite(response, secret, sitekey string) (*http.Response, error) {
 	srv := http.NewServeMux()
-	s.Setup(srv, "", true /*verbose*/, common.NoopMiddleware)
+	s.Setup("", true /*verbose*/, common.NoopMiddleware).Register(srv)
 
 	//srv.HandleFunc("/", catchAll)
 

@@ -168,7 +168,7 @@ func (s *Server) Init(ctx context.Context, verifyFlushInterval, authBackfillDela
 	return nil
 }
 
-func (s *Server) Setup(router *http.ServeMux, domain string, verbose bool, security alice.Constructor) {
+func (s *Server) Setup(domain string, verbose bool, security alice.Constructor) *common.RouteGenerator {
 	corsOpts := cors.Options{
 		// NOTE: due to the implementation of rs/cors, we need not to set "*" as AllowOrigin as this will ruin the response
 		// (in case of "*" allowed origin, response contains the same, while we want to restrict the response to domain)
@@ -189,7 +189,12 @@ func (s *Server) Setup(router *http.ServeMux, domain string, verbose bool, secur
 
 	s.Cors = cors.New(corsOpts)
 
-	s.setupWithPrefix(domain, router, s.Cors.Handler, security)
+	prefix := domain + "/"
+	slog.Debug("Setting up the API routes", "prefix", prefix)
+	rg := &common.RouteGenerator{Prefix: prefix}
+	s.setupWithPrefix(rg, s.Cors.Handler, security)
+
+	return rg
 }
 
 func (s *Server) Shutdown() {
@@ -201,15 +206,13 @@ func (s *Server) Shutdown() {
 	close(s.VerifyLogChan)
 }
 
-func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandler, security alice.Constructor) {
-	prefix := domain + "/"
-	slog.Debug("Setting up the API routes", "prefix", prefix)
+func (s *Server) setupWithPrefix(rg *common.RouteGenerator, corsHandler, security alice.Constructor) {
 	svc := common.ServiceMiddleware(ApiService)
 	publicChain := alice.New(svc, common.Recovered, security, s.Metrics.Handler)
 	// NOTE: auth middleware provides rate limiting internally
 	puzzleChain := publicChain.Append(s.RateLimiter.RateLimit, monitoring.Traced, common.TimeoutHandler(1*time.Second))
-	router.Handle(http.MethodGet+" "+prefix+common.PuzzleEndpoint, puzzleChain.Append(corsHandler, s.Auth.Sitekey).ThenFunc(s.puzzleHandler))
-	router.Handle(http.MethodOptions+" "+prefix+common.PuzzleEndpoint, puzzleChain.Append(common.Cached, corsHandler, s.Auth.SitekeyOptions).ThenFunc(s.puzzlePreFlight))
+	rg.Handle(rg.Get(common.PuzzleEndpoint), puzzleChain.Append(corsHandler, s.Auth.Sitekey), http.HandlerFunc(s.puzzleHandler))
+	rg.Handle(rg.Options(common.PuzzleEndpoint), puzzleChain.Append(common.Cached, corsHandler, s.Auth.SitekeyOptions), http.HandlerFunc(s.puzzlePreFlight))
 
 	const (
 		// NOTE: these defaults will be adjusted per API key quota almost immediately after verifying API key
@@ -225,12 +228,12 @@ func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandl
 	// the difference from our side is _when_ we fetch API key: for reCAPTCHA it comes in form field "secret" and
 	// we want to put it _behind_ the MaxBytesHandler, while for Private Captcha format (header) it can be before
 	formAPIAuth := s.Auth.APIKey(formSecretAPIKey, dbgen.ApiKeyScopePuzzle)
-	router.Handle(http.MethodPost+" "+prefix+common.SiteVerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(formAPIAuth(http.HandlerFunc(s.recaptchaVerifyHandler)), maxSolutionsBodySize)))
+	rg.Handle(rg.Post(common.SiteVerifyEndpoint), verifyChain, http.MaxBytesHandler(formAPIAuth(http.HandlerFunc(s.recaptchaVerifyHandler)), maxSolutionsBodySize))
 	// Private Captcha format
-	router.Handle(http.MethodPost+" "+prefix+common.VerifyEndpoint, verifyChain.Append(s.Auth.APIKey(headerAPIKey, dbgen.ApiKeyScopePuzzle)).Then(http.MaxBytesHandler(http.HandlerFunc(s.pcVerifyHandler), maxSolutionsBodySize)))
+	rg.Handle(rg.Post(common.VerifyEndpoint), verifyChain.Append(s.Auth.APIKey(headerAPIKey, dbgen.ApiKeyScopePuzzle)), http.MaxBytesHandler(http.HandlerFunc(s.pcVerifyHandler), maxSolutionsBodySize))
 
 	// "root" access
-	router.Handle(prefix+"{$}", publicChain.Then(common.HttpStatus(http.StatusForbidden)))
+	rg.Handle(rg.Prefix+"{$}", publicChain, common.HttpStatus(http.StatusForbidden))
 }
 
 func (s *Server) puzzlePreFlight(w http.ResponseWriter, r *http.Request) {
