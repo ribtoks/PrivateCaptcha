@@ -222,7 +222,7 @@ func (v *Verifier) Verify(ctx context.Context, verifyPayload puzzle.SolutionPayl
 				return result, nil
 			}
 		} else {
-			slog.ErrorContext(ctx, "Failed to fetch owner ID", "puzzleID", puzzleObject.PuzzleID(), common.ErrAttr(err))
+			slog.ErrorContext(ctx, "Failed to fetch valid owner ID", "puzzleID", puzzleObject.PuzzleID(), common.ErrAttr(err))
 			return nil, errPuzzleOwner
 		}
 	}

@@ -63,6 +63,9 @@ type RenderConstants struct {
 	EventsEndpoint       string
 	Page                 string
 	ExportEndpoint       string
+	Scope                string
+	APIKeyScopePuzzle    string
+	APIKeyScopePortal    string
 }
 
 func NewRenderConstants() *RenderConstants {
@@ -117,6 +120,9 @@ func NewRenderConstants() *RenderConstants {
 		EventsEndpoint:       common.EventsEndpoint,
 		Page:                 common.ParamPage,
 		ExportEndpoint:       common.ExportEndpoint,
+		Scope:                common.ParamScope,
+		APIKeyScopePuzzle:    string(dbgen.ApiKeyScopePuzzle),
+		APIKeyScopePortal:    string(dbgen.ApiKeyScopePortal),
 	}
 }
 

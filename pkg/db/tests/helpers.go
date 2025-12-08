@@ -32,6 +32,17 @@ func createUserAndOrgName(testName string) (string, string) {
 	return name, orgName
 }
 
+func CreateNewPuzzleAPIKeyParams(name string, tnow time.Time, period time.Duration, requestsPerSecond float64) *dbgen.CreateAPIKeyParams {
+	return &dbgen.CreateAPIKeyParams{
+		Name:              name,
+		ExpiresAt:         db.Timestampz(tnow.Add(period)),
+		RequestsPerSecond: requestsPerSecond,
+		RequestsBurst:     int32(requestsPerSecond) * 5,
+		Period:            period,
+		Scope:             dbgen.ApiKeyScopePuzzle,
+	}
+}
+
 func CreateNewSubscriptionParams(plan billing.Plan) *dbgen.CreateSubscriptionParams {
 	tnow := time.Now()
 	priceIDMonthly, _ := plan.PriceIDs()

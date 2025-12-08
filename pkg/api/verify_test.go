@@ -18,6 +18,7 @@ import (
 	common_test "github.com/PrivateCaptcha/PrivateCaptcha/pkg/common/tests"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	db_test "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 )
@@ -118,7 +119,7 @@ func solutionsSuite(ctx context.Context, sitekey, domain string) (string, string
 	return puzzleStr, solutions.String(), nil
 }
 
-func setupVerifySuite(username string) (string, string, string, error) {
+func setupVerifySuite(username string, scope dbgen.ApiKeyScope) (string, string, string, error) {
 	ctx := context.TODO()
 
 	user, org, err := db_test.CreateNewAccountForTest(ctx, store, username, testPlan)
@@ -143,7 +144,9 @@ func setupVerifySuite(username string) (string, string, string, error) {
 		return "", "", "", err
 	}
 
-	apikey, _, err := store.Impl().CreateAPIKey(ctx, user, username+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/)
+	keyParams := tests.CreateNewPuzzleAPIKeyParams(username+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/)
+	keyParams.Scope = scope
+	apikey, _, err := store.Impl().CreateAPIKey(ctx, user, keyParams)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -156,7 +159,7 @@ func TestVerifyPuzzle(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePuzzle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,12 +174,32 @@ func TestVerifyPuzzle(t *testing.T) {
 	}
 }
 
+func TestVerifyInvalidAPIKeyScope(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePortal)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := verifySuite(payload, apiKey, sitekey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
+	}
+}
+
 func TestVerifyPuzzleWrongExpectedSitekey(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, _, err := setupVerifySuite(t.Name())
+	payload, apiKey, _, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePuzzle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +219,7 @@ func TestSiteVerifyPuzzle(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePuzzle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -216,7 +239,7 @@ func TestSiteVerifyWrongExpectedSitekey(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, _, err := setupVerifySuite(t.Name())
+	payload, apiKey, _, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePuzzle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,7 +325,7 @@ func TestVerifyPuzzleReplay(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePuzzle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,7 +357,7 @@ func TestSiteVerifyPuzzleReplay(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePuzzle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +387,7 @@ func TestVerifyPuzzleAllowReplay(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePuzzle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -459,7 +482,7 @@ func TestVerifyInvalidKey(t *testing.T) {
 
 	t.Parallel()
 
-	payload, _, sitekey, err := setupVerifySuite(t.Name())
+	payload, _, sitekey, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePuzzle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -481,7 +504,7 @@ func TestSiteVerifyInvalidKey(t *testing.T) {
 
 	t.Parallel()
 
-	payload, _, sitekey, err := setupVerifySuite(t.Name())
+	payload, _, sitekey, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePuzzle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -510,7 +533,7 @@ func TestVerifyExpiredKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	apikey, _, err := store.Impl().CreateAPIKey(ctx, user, t.Name()+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/)
+	apikey, _, err := store.Impl().CreateAPIKey(ctx, user, tests.CreateNewPuzzleAPIKeyParams(t.Name()+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -538,7 +561,7 @@ func TestVerifyMaintenanceMode(t *testing.T) {
 	// NOTE: this test cannot be run in parallel as it modifies the global DB state (maintenance mode)
 	// t.Parallel()
 
-	payload, apiKey, sitekey, err := setupVerifySuite(t.Name())
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Name(), dbgen.ApiKeyScopePuzzle)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -577,7 +600,7 @@ func verifyTestPropertySuite(t *testing.T, verifySitekey string, expectedCode pu
 		t.Fatal(err)
 	}
 
-	apikey, _, err := store.Impl().CreateAPIKey(ctx, user, t.Name()+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/)
+	apikey, _, err := store.Impl().CreateAPIKey(ctx, user, tests.CreateNewPuzzleAPIKeyParams(t.Name()+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -677,7 +700,7 @@ func TestVerifyByOrgMember(t *testing.T) {
 
 	member, _, err := db_test.CreateNewAccountForTest(ctx, store, t.Name()+"_member", testPlan)
 
-	apikey, _, err := store.Impl().CreateAPIKey(ctx, member, t.Name()+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/)
+	apikey, _, err := store.Impl().CreateAPIKey(ctx, member, tests.CreateNewPuzzleAPIKeyParams(t.Name()+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/))
 	if err != nil {
 		t.Fatal(err)
 	}

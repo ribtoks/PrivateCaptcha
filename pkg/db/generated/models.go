@@ -55,6 +55,48 @@ func (ns NullAccessLevel) Value() (driver.Value, error) {
 	return string(ns.AccessLevel), nil
 }
 
+type ApiKeyScope string
+
+const (
+	ApiKeyScopePuzzle ApiKeyScope = "puzzle"
+	ApiKeyScopePortal ApiKeyScope = "portal"
+)
+
+func (e *ApiKeyScope) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ApiKeyScope(s)
+	case string:
+		*e = ApiKeyScope(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ApiKeyScope: %T", src)
+	}
+	return nil
+}
+
+type NullApiKeyScope struct {
+	ApiKeyScope ApiKeyScope `json:"backend_apikey_scope"`
+	Valid       bool        `json:"valid"` // Valid is true if ApiKeyScope is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullApiKeyScope) Scan(value interface{}) error {
+	if value == nil {
+		ns.ApiKeyScope, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ApiKeyScope.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullApiKeyScope) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ApiKeyScope), nil
+}
+
 type AuditLogAction string
 
 const (
@@ -203,6 +245,7 @@ type APIKey struct {
 	Notes             pgtype.Text        `db:"notes" json:"notes"`
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	Period            time.Duration      `db:"period" json:"period"`
+	Scope             ApiKeyScope        `db:"scope" json:"scope"`
 }
 
 type AuditLog struct {

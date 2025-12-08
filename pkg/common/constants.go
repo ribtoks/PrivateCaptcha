@@ -46,6 +46,7 @@ const (
 	ParamTerms            = "terms"
 	ParamMaxReplayCount   = "max_replay_count"
 	ParamPage             = "page"
+	ParamScope            = "scope"
 )
 
 var (

@@ -21,6 +21,7 @@
                 <p class="rounded-md whitespace-nowrap mt-0.5 px-1.5 py-0.5 text-xs font-medium ring-1 ring-inset text-pclime-700 bg-pclime-50 ring-pclime-600/20">Active</p>
                 {{ end }}
             {{ end }}
+            <p class="inline-flex items-center rounded-md bg-gray-50 px-2 py-1 text-xs font-medium text-gray-600 ring-1 ring-inset ring-gray-500/10 dark:bg-gray-400/10 dark:text-gray-400 dark:ring-gray-400/20">scope: {{ .Params.Scope }}</p>
         </div>
         <div class="mt-1 flex items-center gap-x-2 text-xs leading-5 text-gray-500">
             {{ if .Params.Secret }}

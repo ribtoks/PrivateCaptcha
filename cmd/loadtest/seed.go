@@ -115,8 +115,16 @@ func seedUser(ctx context.Context, u int, orgsCount, propertiesCount int, plan b
 			}
 		}
 	}
-
-	_, _, err = store.Impl().CreateAPIKey(ctx, user, "Test API Key", tnow, 30*24*time.Hour, 1000 /*rps*/)
+	period := 30 * 24 * time.Hour
+	_, _, err = store.Impl().CreateAPIKey(ctx, user, &dbgen.CreateAPIKeyParams{
+		Name:              name,
+		UserID:            db.Int(user.ID),
+		ExpiresAt:         db.Timestampz(tnow.Add(period)),
+		RequestsPerSecond: 1000,
+		RequestsBurst:     5 * 1000,
+		Period:            period,
+		Scope:             dbgen.ApiKeyScopePuzzle,
+	})
 	if err != nil {
 		return err
 	}

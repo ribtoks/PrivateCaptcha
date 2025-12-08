@@ -368,7 +368,7 @@ func formSecretAPIKey(r *http.Request) string {
 	return r.PostFormValue(common.ParamSecret)
 }
 
-func (am *AuthMiddleware) APIKey(keyFunc func(r *http.Request) string) func(http.Handler) http.Handler {
+func (am *AuthMiddleware) APIKey(keyFunc func(r *http.Request) string, scope dbgen.ApiKeyScope) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -405,6 +405,12 @@ func (am *AuthMiddleware) APIKey(keyFunc func(r *http.Request) string) func(http
 			if apiKey != nil {
 				now := time.Now().UTC()
 				if !isAPIKeyValid(ctx, apiKey, now) {
+					http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+					return
+				}
+
+				if apiKey.Scope != scope {
+					slog.WarnContext(ctx, "API key has invalid scope", "expected", scope, "actual", apiKey.Scope)
 					http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
 					return
 				}

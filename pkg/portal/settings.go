@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -35,7 +36,8 @@ const (
 )
 
 var (
-	errNoTabs = errors.New("no settings tabs configured")
+	errNoTabs             = errors.New("no settings tabs configured")
+	errInvalidAPIKeyScope = errors.New("invalid API key scope")
 )
 
 type SettingsTab struct {
@@ -88,6 +90,7 @@ type userAPIKey struct {
 	Name              string
 	ExpiresAt         string
 	Secret            string
+	Scope             string
 	RequestsPerMinute int
 	ExpiresSoon       bool
 }
@@ -115,6 +118,7 @@ func apiKeyToUserAPIKey(key *dbgen.APIKey, tnow time.Time, hasher common.Identif
 		ExpiresAt:         key.ExpiresAt.Time.Format("02 Jan 2006"),
 		ExpiresSoon:       key.ExpiresAt.Time.Sub(tnow) <= apiKeyExpirationNotificationDays*24*time.Hour,
 		RequestsPerMinute: int(requestsPerMinute),
+		Scope:             string(key.Scope),
 	}
 }
 
@@ -518,6 +522,17 @@ func checkAPIKeyNameValid(ctx context.Context, name string) bool {
 	return true
 }
 
+func parseAPIKeyScope(scope string) (dbgen.ApiKeyScope, error) {
+	switch scope {
+	case string(dbgen.ApiKeyScopePortal):
+		return dbgen.ApiKeyScopePortal, nil
+	case string(dbgen.ApiKeyScopePuzzle):
+		return dbgen.ApiKeyScopePuzzle, nil
+	default:
+		return dbgen.ApiKeyScopePuzzle, errInvalidAPIKeyScope
+	}
+}
+
 func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (*ViewModel, error) {
 	ctx := r.Context()
 	user, err := s.SessionUser(ctx, s.Session(w, r))
@@ -552,19 +567,44 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (*Vi
 		return &ViewModel{Model: renderCtx, View: settingsAPIKeysContentTemplate}, nil
 	}
 
+	scopeStr := strings.TrimSpace(r.FormValue(common.ParamScope))
+	scope, err := parseAPIKeyScope(scopeStr)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to parse API Key scope", "scope", scopeStr, common.ErrAttr(err))
+		renderCtx.WarningMessage = "Failed to create API key with invalid scope."
+		return &ViewModel{Model: renderCtx, View: settingsAPIKeysContentTemplate}, nil
+	}
+
 	apiKeyRequestsPerSecond := 1.0
+	var minAPIKeyRequestsBurst int32 = 5
 	if user.SubscriptionID.Valid {
+		minAPIKeyRequestsBurst = 20
 		if subscription, err := s.Store.Impl().RetrieveSubscription(ctx, user.SubscriptionID.Int32); err == nil {
 			if plan, err := s.PlanService.FindPlan(subscription.ExternalProductID, subscription.ExternalPriceID, s.Stage,
 				db.IsInternalSubscription(subscription.Source)); err == nil {
-				apiKeyRequestsPerSecond = plan.APIRequestsPerSecond()
+				if scope == dbgen.ApiKeyScopePuzzle {
+					apiKeyRequestsPerSecond = plan.APIRequestsPerSecond()
+				} else {
+					apiKeyRequestsPerSecond = math.Floor(max(1.0, math.Log2(plan.APIRequestsPerSecond())))
+				}
 			}
 		}
 	}
 
+	// current logic is that initial values will be set per plan and adjusted manually in DB if requested by customer
+	burst := max(minAPIKeyRequestsBurst, int32(apiKeyRequestsPerSecond*5))
 	days := apiKeyDaysFromParam(ctx, r.FormValue(common.ParamDays))
 	tnow := time.Now().UTC()
-	newKey, auditEvent, err := s.Store.Impl().CreateAPIKey(ctx, user, formName, tnow, time.Duration(days)*24*time.Hour, apiKeyRequestsPerSecond)
+	period := time.Duration(days) * 24 * time.Hour
+	params := &dbgen.CreateAPIKeyParams{
+		Name:              formName,
+		ExpiresAt:         db.Timestampz(tnow.Add(period)),
+		RequestsPerSecond: apiKeyRequestsPerSecond,
+		RequestsBurst:     burst,
+		Period:            period,
+		Scope:             scope,
+	}
+	newKey, auditEvent, err := s.Store.Impl().CreateAPIKey(ctx, user, params)
 	if err == nil {
 		userKey := apiKeyToUserAPIKey(newKey, tnow, s.IDHasher)
 		userKey.Secret = db.UUIDToSecret(newKey.ExternalID)

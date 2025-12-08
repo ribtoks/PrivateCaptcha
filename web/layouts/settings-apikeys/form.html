@@ -18,6 +18,16 @@
                     </div>
 
                     <div>
+                        <label for="{{ .Const.Scope }}" class="pc-internal-form-label"> Scope </label>
+                        <div class="mt-2">
+                            <select name="{{ .Const.Scope }}" class="w-full pc-internal-form-select">
+                                <option value="{{ .Const.APIKeyScopePuzzle }}" selected="selected">Puzzle verification</option>
+                                <option value="{{ .Const.APIKeyScopePortal }}">Portal operations</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
                         <label for="{{ .Const.Days }}" class="pc-internal-form-label"> Expiration </label>
                         <div class="mt-2">
                             <select name="{{ .Const.Days }}" class="w-full pc-internal-form-select">

@@ -13,6 +13,8 @@ import (
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
+	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	db_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 	portal_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/portal/tests"
@@ -24,6 +26,7 @@ func createAPIKeySuite(srv *http.ServeMux, csrfToken string, cookie *http.Cookie
 	form.Set(common.ParamCSRFToken, csrfToken)
 	form.Set(common.ParamName, name)
 	form.Set(common.ParamDays, strconv.Itoa(days))
+	form.Set(common.ParamScope, string(dbgen.ApiKeyScopePuzzle))
 
 	req := httptest.NewRequest("POST", "/settings/tab/apikeys/new", strings.NewReader(form.Encode()))
 	req.AddCookie(cookie)
@@ -99,7 +102,7 @@ func TestDeleteAPIKey(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	key, _, err := store.Impl().CreateAPIKey(ctx, user, "My API Key", time.Now(), 24*time.Hour, 10.0)
+	key, _, err := store.Impl().CreateAPIKey(ctx, user, tests.CreateNewPuzzleAPIKeyParams("My API Key", time.Now(), 24*time.Hour, 10.0))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +149,7 @@ func TestRotateAPIKey(t *testing.T) {
 	}
 
 	tnow := time.Now().UTC()
-	key, _, err := store.Impl().CreateAPIKey(ctx, user, "My API Key", tnow.Add(-24*time.Hour), 23*time.Hour, 10.0)
+	key, _, err := store.Impl().CreateAPIKey(ctx, user, tests.CreateNewPuzzleAPIKeyParams("My API Key", tnow.Add(-24*time.Hour), 23*time.Hour, 10.0))
 	if err != nil {
 		t.Fatal(err)
 	}

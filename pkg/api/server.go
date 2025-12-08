@@ -34,6 +34,7 @@ const (
 var (
 	errAPIKeyNotSet  = errors.New("API key is not set in context")
 	errInvalidAPIKey = errors.New("API key is not valid")
+	errAPIKeyScope   = errors.New("API key scope is not valid")
 	errPuzzleOwner   = errors.New("error fetching puzzle owner")
 	errInvalidArg    = errors.New("invalid arguments")
 	errTestSolutions = errors.New("invalid test solutions")
@@ -86,6 +87,7 @@ type Server struct {
 type apiKeyOwnerSource struct {
 	Store     db.Implementor
 	cachedKey *dbgen.APIKey
+	scope     dbgen.ApiKeyScope
 }
 
 var _ puzzle.OwnerIDSource = (*apiKeyOwnerSource)(nil)
@@ -117,6 +119,10 @@ func (a *apiKeyOwnerSource) OwnerID(ctx context.Context, tnow time.Time) (int32,
 
 	if !isAPIKeyValid(ctx, apiKey, tnow) {
 		return -1, errInvalidAPIKey
+	}
+
+	if apiKey.Scope != a.scope {
+		return -1, errAPIKeyScope
 	}
 
 	return apiKey.UserID.Int32, nil
@@ -218,10 +224,10 @@ func (s *Server) setupWithPrefix(domain string, router *http.ServeMux, corsHandl
 	// reCAPTCHA compatibility
 	// the difference from our side is _when_ we fetch API key: for reCAPTCHA it comes in form field "secret" and
 	// we want to put it _behind_ the MaxBytesHandler, while for Private Captcha format (header) it can be before
-	formAPIAuth := s.Auth.APIKey(formSecretAPIKey)
+	formAPIAuth := s.Auth.APIKey(formSecretAPIKey, dbgen.ApiKeyScopePuzzle)
 	router.Handle(http.MethodPost+" "+prefix+common.SiteVerifyEndpoint, verifyChain.Then(http.MaxBytesHandler(formAPIAuth(http.HandlerFunc(s.recaptchaVerifyHandler)), maxSolutionsBodySize)))
 	// Private Captcha format
-	router.Handle(http.MethodPost+" "+prefix+common.VerifyEndpoint, verifyChain.Append(s.Auth.APIKey(headerAPIKey)).Then(http.MaxBytesHandler(http.HandlerFunc(s.pcVerifyHandler), maxSolutionsBodySize)))
+	router.Handle(http.MethodPost+" "+prefix+common.VerifyEndpoint, verifyChain.Append(s.Auth.APIKey(headerAPIKey, dbgen.ApiKeyScopePuzzle)).Then(http.MaxBytesHandler(http.HandlerFunc(s.pcVerifyHandler), maxSolutionsBodySize)))
 
 	// "root" access
 	router.Handle(prefix+"{$}", publicChain.Then(common.HttpStatus(http.StatusForbidden)))
@@ -309,7 +315,7 @@ func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	ownerSource := &apiKeyOwnerSource{Store: s.BusinessDB}
+	ownerSource := &apiKeyOwnerSource{Store: s.BusinessDB, scope: dbgen.ApiKeyScopePuzzle}
 	result, err := s.Verifier.Verify(ctx, payload, ownerSource, time.Now().UTC())
 	if err != nil {
 		switch err {
@@ -380,7 +386,7 @@ func (s *Server) pcVerifyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ownerSource := &apiKeyOwnerSource{Store: s.BusinessDB}
+	ownerSource := &apiKeyOwnerSource{Store: s.BusinessDB, scope: dbgen.ApiKeyScopePuzzle}
 	result, err := s.Verifier.Verify(ctx, payload, ownerSource, time.Now().UTC())
 	if err != nil {
 		switch err {

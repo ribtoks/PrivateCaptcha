@@ -1267,8 +1267,8 @@ func (impl *BusinessStoreImpl) UpdateAPIKey(ctx context.Context, user *dbgen.Use
 	return auditEvent, nil
 }
 
-func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, user *dbgen.User, name string, tnow time.Time, period time.Duration, requestsPerSecond float64) (*dbgen.APIKey, *common.AuditLogEvent, error) {
-	if len(name) == 0 {
+func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, user *dbgen.User, params *dbgen.CreateAPIKeyParams) (*dbgen.APIKey, *common.AuditLogEvent, error) {
+	if len(params.Name) == 0 {
 		return nil, nil, ErrInvalidInput
 	}
 
@@ -1276,22 +1276,9 @@ func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, user *dbgen.Use
 		return nil, nil, ErrMaintenance
 	}
 
-	// current logic is that initial values will be set per plan and adjusted manually in DB if requested by customer
-	const minAPIKeyRequestsBurst = 20
-	burst := int32(requestsPerSecond * 5)
-	if burst < minAPIKeyRequestsBurst {
-		burst = minAPIKeyRequestsBurst
-	}
+	params.UserID = Int(user.ID)
 
-	key, err := impl.querier.CreateAPIKey(ctx, &dbgen.CreateAPIKeyParams{
-		Name:              name,
-		UserID:            Int(user.ID),
-		ExpiresAt:         Timestampz(tnow.Add(period)),
-		RequestsPerSecond: requestsPerSecond,
-		RequestsBurst:     burst,
-		Period:            period,
-	})
-
+	key, err := impl.querier.CreateAPIKey(ctx, params)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to create API key", "userID", user.ID, common.ErrAttr(err))
 		return nil, nil, err
