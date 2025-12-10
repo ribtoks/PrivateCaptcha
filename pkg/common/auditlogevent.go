@@ -30,7 +30,7 @@ func (ala AuditLogAction) String() string {
 	case AuditLogActionDelete:
 		return "delete"
 	case AuditLogActionSoftDelete:
-		return "softdelte"
+		return "softdelete"
 	case AuditLogActionRecover:
 		return "recover"
 	case AuditLogActionLogin:
