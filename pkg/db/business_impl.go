@@ -2315,16 +2315,16 @@ func (impl *BusinessStoreImpl) RetrieveOrganizationAuditLogs(ctx context.Context
 	return logs[0:min(len(logs), limit)], nil
 }
 
-func (impl *BusinessStoreImpl) ValidateOrgName(ctx context.Context, name string, user *dbgen.User) string {
+func (impl *BusinessStoreImpl) ValidateOrgName(ctx context.Context, name string, user *dbgen.User) common.StatusCode {
 	const maxOrgNameLength = 255
 
 	if (len(name) == 0) || (len(name) > maxOrgNameLength) {
 		slog.WarnContext(ctx, "Name length is invalid", "length", len(name))
 
 		if len(name) == 0 {
-			return "Name cannot be empty."
+			return common.StatusOrgNameEmptyError
 		} else {
-			return "Name is too long."
+			return common.StatusOrgNameTooLongError
 		}
 	}
 
@@ -2342,14 +2342,14 @@ func (impl *BusinessStoreImpl) ValidateOrgName(ctx context.Context, name string,
 			continue
 		default:
 			slog.WarnContext(ctx, "Name contains invalid characters", "position", i, "rune", r)
-			return "Organization name contains invalid characters."
+			return common.StatusOrgNameInvalidSymbolsError
 		}
 	}
 
 	if _, err := impl.FindOrg(ctx, name, user); err != ErrRecordNotFound {
 		slog.WarnContext(ctx, "Org already exists", "name", name, common.ErrAttr(err))
-		return "Organization with this name already exists."
+		return common.StatusOrgExistsError
 	}
 
-	return ""
+	return common.StatusOK
 }

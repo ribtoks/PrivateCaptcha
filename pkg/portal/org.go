@@ -415,8 +415,8 @@ func (s *Server) putOrg(w http.ResponseWriter, r *http.Request) (*ViewModel, err
 	var auditEvent *common.AuditLogEvent
 	name := strings.TrimSpace(r.FormValue(common.ParamName))
 	if name != org.Name {
-		if nameError := s.Store.Impl().ValidateOrgName(ctx, name, user); len(nameError) > 0 {
-			renderCtx.NameError = nameError
+		if nameStatus := s.Store.Impl().ValidateOrgName(ctx, name, user); !nameStatus.Success() {
+			renderCtx.NameError = nameStatus.String()
 			return &ViewModel{Model: renderCtx, View: orgSettingsTemplate}, nil
 		}
 

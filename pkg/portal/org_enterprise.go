@@ -74,8 +74,8 @@ func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
 	}
 
 	name := strings.TrimSpace(r.FormValue(common.ParamName))
-	if nameError := s.Store.Impl().ValidateOrgName(ctx, name, user); len(nameError) > 0 {
-		renderCtx.NameError = nameError
+	if nameStatus := s.Store.Impl().ValidateOrgName(ctx, name, user); !nameStatus.Success() {
+		renderCtx.NameError = nameStatus.String()
 		s.render(w, r, createOrgFormTemplate, renderCtx)
 		return
 	}

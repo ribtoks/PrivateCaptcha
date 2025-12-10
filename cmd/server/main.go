@@ -162,19 +162,23 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 	rateLimitHeader := cfg.Get(common.RateLimitHeaderKey).Value()
 	ipRateLimiter := ratelimit.NewIPAddrRateLimiter(rateLimitHeader, newIPAddrBuckets(cfg))
 	userLimiter := api.NewUserLimiter(businessDB)
+	subscriptionLimits := db.NewSubscriptionLimits(stage, businessDB, planService)
+	idHasher := common.NewIDHasher(cfg.Get(common.IDHasherSaltKey))
 
 	apiServer := &api.Server{
-		Stage:           stage,
-		BusinessDB:      businessDB,
-		TimeSeries:      timeSeriesDB,
-		RateLimiter:     ipRateLimiter,
-		Auth:            api.NewAuthMiddleware(businessDB, userLimiter, planService),
-		VerifyLogChan:   make(chan *common.VerifyRecord, 10*api.VerifyBatchSize),
-		Verifier:        puzzleVerifier,
-		Metrics:         metrics,
-		Mailer:          mailer,
-		Levels:          difficulty.NewLevels(timeSeriesDB, 100 /*levelsBatchSize*/, api.PropertyBucketSize),
-		VerifyLogCancel: func() {},
+		Stage:              stage,
+		BusinessDB:         businessDB,
+		TimeSeries:         timeSeriesDB,
+		RateLimiter:        ipRateLimiter,
+		Auth:               api.NewAuthMiddleware(businessDB, userLimiter, planService),
+		VerifyLogChan:      make(chan *common.VerifyRecord, 10*api.VerifyBatchSize),
+		Verifier:           puzzleVerifier,
+		Metrics:            metrics,
+		Mailer:             mailer,
+		Levels:             difficulty.NewLevels(timeSeriesDB, 100 /*levelsBatchSize*/, api.PropertyBucketSize),
+		VerifyLogCancel:    func() {},
+		SubscriptionLimits: subscriptionLimits,
+		IDHasher:           idHasher,
 	}
 	if err := apiServer.Init(ctx, 10*time.Second /*flush interval*/, 1*time.Second /*backfill duration*/); err != nil {
 		return err
@@ -207,10 +211,10 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		Mailer:             mailer,
 		RateLimiter:        ipRateLimiter,
 		DataCtx:            dataCtx,
-		IDHasher:           common.NewIDHasher(cfg.Get(common.IDHasherSaltKey)),
+		IDHasher:           idHasher,
 		CountryCodeHeader:  cfg.Get(common.CountryCodeHeaderKey),
 		UserLimiter:        userLimiter,
-		SubscriptionLimits: db.NewSubscriptionLimits(stage, businessDB, planService),
+		SubscriptionLimits: subscriptionLimits,
 	}
 
 	templatesBuilder := portal.NewTemplatesBuilder()

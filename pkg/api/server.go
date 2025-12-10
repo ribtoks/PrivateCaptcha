@@ -24,6 +24,7 @@ import (
 
 const (
 	maxSolutionsBodySize  = 256 * 1024
+	maxAPIPostBodySize    = 128 * 1024
 	VerifyBatchSize       = 100
 	PropertyBucketSize    = 5 * time.Minute
 	updateLimitsBatchSize = 100
@@ -69,19 +70,21 @@ func init() {
 }
 
 type Server struct {
-	APIHeaders      map[string][]string
-	Stage           string
-	BusinessDB      db.Implementor
-	TimeSeries      common.TimeSeriesStore
-	Levels          *difficulty.Levels
-	Auth            *AuthMiddleware
-	VerifyLogChan   chan *common.VerifyRecord
-	VerifyLogCancel context.CancelFunc
-	Cors            *cors.Cors
-	Metrics         common.APIMetrics
-	Mailer          common.Mailer
-	RateLimiter     ratelimit.HTTPRateLimiter
-	Verifier        *Verifier
+	APIHeaders         map[string][]string
+	Stage              string
+	BusinessDB         db.Implementor
+	TimeSeries         common.TimeSeriesStore
+	Levels             *difficulty.Levels
+	Auth               *AuthMiddleware
+	VerifyLogChan      chan *common.VerifyRecord
+	VerifyLogCancel    context.CancelFunc
+	Cors               *cors.Cors
+	Metrics            common.APIMetrics
+	Mailer             common.Mailer
+	RateLimiter        ratelimit.HTTPRateLimiter
+	Verifier           *Verifier
+	SubscriptionLimits db.SubscriptionLimits
+	IDHasher           common.IdentifierHasher
 }
 
 type apiKeyOwnerSource struct {
@@ -231,6 +234,8 @@ func (s *Server) setupWithPrefix(rg *common.RouteGenerator, corsHandler, securit
 	rg.Handle(rg.Post(common.SiteVerifyEndpoint), verifyChain, http.MaxBytesHandler(formAPIAuth(http.HandlerFunc(s.recaptchaVerifyHandler)), maxSolutionsBodySize))
 	// Private Captcha format
 	rg.Handle(rg.Post(common.VerifyEndpoint), verifyChain.Append(s.Auth.APIKey(headerAPIKey, dbgen.ApiKeyScopePuzzle)), http.MaxBytesHandler(http.HandlerFunc(s.pcVerifyHandler), maxSolutionsBodySize))
+
+	s.setupEnterprise(rg, publicChain, apiRateLimiter)
 
 	// "root" access
 	rg.Handle(rg.Prefix+"{$}", publicChain, common.HttpStatus(http.StatusForbidden))

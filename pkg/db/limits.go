@@ -47,7 +47,8 @@ func (sl *SubscriptionLimitsImpl) CheckOrgsLimit(ctx context.Context, userID int
 	isInternalSubscription := IsInternalSubscription(subscr.Source)
 	plan, err := sl.planService.FindPlan(subscr.ExternalProductID, subscr.ExternalPriceID, sl.Stage, isInternalSubscription)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID, common.ErrAttr(err))
+		slog.ErrorContext(ctx, "Failed to find billing plan for subscription", "subscriptionID", subscr.ID,
+			"priceID", subscr.ExternalPriceID, "productID", subscr.ExternalProductID, common.ErrAttr(err))
 		return false, 0, err
 	}
 
