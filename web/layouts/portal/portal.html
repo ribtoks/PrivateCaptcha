@@ -74,7 +74,7 @@
                             x-transition:leave="transition ease-in duration-100"
                             x-transition:leave-start="opacity-100"
                             x-transition:leave-end="opacity-0"
-                            class="absolute right-0 z-10 mt-2 w-72 origin-top-right divide-y divide-gray-200 overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none" tabindex="-1" role="listbox" aria-labelledby="listbox-label">
+                            class="absolute right-0 z-10 mt-2 w-72 origin-top-right divide-y divide-gray-200 max-h-96 overflow-y-auto rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none" tabindex="-1" role="listbox" aria-labelledby="listbox-label">
                             {{ range $org := .Params.Orgs }}
                             {{ if eq $org.Level $.Const.OrgLevelInvited }}
                             <li class="group text-gray-900 cursor-default select-none p-4 text-sm hover:bg-gray-100" role="option" aria-hidden="true" aria-selected="false">
