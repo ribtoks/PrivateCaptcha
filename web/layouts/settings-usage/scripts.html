@@ -251,7 +251,10 @@
                     }
                 } else {
                     this.drawNoData(chartElement, this.monthlyTicks.bind(this), 365);
-                    totalElement.innerHTML = "N/A";
+                    const totalElement = document.getElementById("totalRequests");
+                    if (totalElement) {
+                        totalElement.innerHTML = "N/A";
+                    }
                 }
             }
 
