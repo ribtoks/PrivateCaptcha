@@ -103,11 +103,15 @@ func seedUser(ctx context.Context, u int, orgsCount, propertiesCount int, plan b
 	for o, org := range orgs {
 		for p := 0; p < propertiesCount; p++ {
 			_, _, err = store.Impl().CreateNewProperty(ctx, &dbgen.CreatePropertyParams{
-				Name:      fmt.Sprintf("my great property %v", p), // constraint is unique_property_name_per_organization
-				CreatorID: db.Int(user.ID),
-				Domain:    fmt.Sprintf("test%v.privatecaptcha.com", (u+1)*(o+1)*(p+1)),
-				Level:     db.Int2(int16(difficultyLevels[randv2.IntN(len(difficultyLevels))])),
-				Growth:    growthLevels[randv2.IntN(len(growthLevels))],
+				Name:             fmt.Sprintf("my great property %v", p), // constraint is unique_property_name_per_organization
+				CreatorID:        db.Int(user.ID),
+				Domain:           fmt.Sprintf("test%v.privatecaptcha.com", (u+1)*(o+1)*(p+1)),
+				Level:            db.Int2(int16(difficultyLevels[randv2.IntN(len(difficultyLevels))])),
+				Growth:           growthLevels[randv2.IntN(len(growthLevels))],
+				ValidityInterval: 6 * time.Hour,
+				MaxReplayCount:   1,
+				AllowSubdomains:  false,
+				AllowLocalhost:   true,
 			}, org)
 
 			if err != nil {
