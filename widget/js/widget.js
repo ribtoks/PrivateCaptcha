@@ -69,7 +69,7 @@ export class CaptchaWidget {
                 if (anchor) {
                     anchor.style.position = "relative";
                 } else {
-                    console.warn('[privatecaptcha] cannot find anchor for popup')
+                    console.warn('[privatecaptcha] cannot find anchor for popup');
                 }
             }
 
@@ -138,7 +138,7 @@ export class CaptchaWidget {
         if (!sitekey) { return; }
 
         if ((STATE_EMPTY !== this._state) && (STATE_ERROR !== this._state)) {
-            console.warn(`[privatecaptcha] captcha has already been initialized. state=${this._state}`)
+            console.warn(`[privatecaptcha] captcha has already been initialized. state=${this._state}`);
             return;
         }
 
@@ -284,7 +284,7 @@ export class CaptchaWidget {
      * @param {Object} options
      */
     reset(options = {}) {
-        this.trace('reset captcha')
+        this.trace('reset captcha');
 
         if (this._expiryTimeout) { clearTimeout(this._expiryTimeout); }
         if (this._workersPool) {

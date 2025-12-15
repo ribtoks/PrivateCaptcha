@@ -27,7 +27,6 @@
 
         const weekdayFormat = d3.timeFormat("%a");
         const monthlyFormat = d3.timeFormat("%b");
-        const monthDayFormat = d3.timeFormat("%e %b");
 
         const monthlyTicks = (date, i) => {
             var day = date.getDate();
@@ -115,10 +114,6 @@
             x.domain([d3.timeDay.offset(new Date(), -periodLengthDays), new Date()]);
 
             let xTickValues = x.domain().filter(function(d, i) { return !(i % 2); });
-
-            let xAxis = d3.axisBottom(x)
-                .tickValues(xTickValues)
-                .tickFormat(xTickFunction);
 
             // Create y scale
             let y = d3.scaleLinear().range([height, 0]);

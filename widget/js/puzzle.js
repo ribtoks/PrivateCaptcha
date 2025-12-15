@@ -99,7 +99,7 @@ export class Puzzle {
     parse(rawData) {
         const parts = rawData.split('.');
         if (parts.length !== 2) {
-            throw Error(`Invalid amount of parts: ${parts.length}`)
+            throw Error(`Invalid amount of parts: ${parts.length}`);
         }
 
         const buffer = parts[0];

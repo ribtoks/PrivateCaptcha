@@ -25,7 +25,7 @@ let CSSMinifyPlugin = {
             return { loader: "text", contents: css.code }
         })
     }
-}
+};
 
 let entryPointsConfig;
 let outfileConfig;
