@@ -113,8 +113,6 @@
 
             x.domain([d3.timeDay.offset(new Date(), -periodLengthDays), new Date()]);
 
-            let xTickValues = x.domain().filter(function(d, i) { return !(i % 2); });
-
             // Create y scale
             let y = d3.scaleLinear().range([height, 0]);
 
