@@ -123,7 +123,7 @@ func TestPostNewOrgProperty(t *testing.T) {
 		t.Errorf("Unexpected redirect path: %s, expected prefix: %s", path, expectedPrefix)
 	}
 
-	pp, _, err := store.Impl().RetrieveOrgProperties(ctx, org, 0, db.OrgPropertiesPageSize)
+	pp, _, err := store.Impl().RetrieveOrgProperties(ctx, org, 0, db.MaxOrgPropertiesPageSize)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +183,7 @@ func TestMoveProperty(t *testing.T) {
 		t.Errorf("Unexpected status code %v", resp.StatusCode)
 	}
 
-	properties, _, err := store.Impl().RetrieveOrgProperties(ctx, org2, 0, db.OrgPropertiesPageSize)
+	properties, _, err := store.Impl().RetrieveOrgProperties(ctx, org2, 0, db.MaxOrgPropertiesPageSize)
 	if len(properties) != 1 || properties[0].ID != property.ID {
 		t.Errorf("Property was not moved")
 	}
@@ -200,7 +200,7 @@ func TestRetrieveProperties(t *testing.T) {
 		t.Fatalf("Failed to create account: %v", err)
 	}
 
-	for i := 0; i < 3*db.OrgPropertiesPageSize/2; i++ {
+	for i := 0; i < 3*db.MaxOrgPropertiesPageSize/2; i++ {
 		if _, _, err := server.Store.Impl().CreateNewProperty(ctx, db_tests.CreateNewPropertyParams(user.ID, fmt.Sprintf("example%v.com", i)), org); err != nil {
 			t.Fatalf("Failed to create new property: %v", err)
 		}
@@ -212,11 +212,11 @@ func TestRetrieveProperties(t *testing.T) {
 		expected int
 		hasMore  bool
 	}{
-		{0, db.OrgPropertiesPageSize, db.OrgPropertiesPageSize, true},
+		{0, db.MaxOrgPropertiesPageSize, db.MaxOrgPropertiesPageSize, true},
 		{0, 1, 1, true},
-		{0, db.OrgPropertiesPageSize * 100, db.OrgPropertiesPageSize, true},
-		{db.OrgPropertiesPageSize, db.OrgPropertiesPageSize, db.OrgPropertiesPageSize / 2, false},
-		{db.OrgPropertiesPageSize, db.OrgPropertiesPageSize/2 - 1, db.OrgPropertiesPageSize/2 - 1, true},
+		{0, db.MaxOrgPropertiesPageSize * 100, db.MaxOrgPropertiesPageSize, true},
+		{db.MaxOrgPropertiesPageSize, db.MaxOrgPropertiesPageSize, db.MaxOrgPropertiesPageSize / 2, false},
+		{db.MaxOrgPropertiesPageSize, db.MaxOrgPropertiesPageSize/2 - 1, db.MaxOrgPropertiesPageSize/2 - 1, true},
 	}
 
 	for _, tc := range testCases {

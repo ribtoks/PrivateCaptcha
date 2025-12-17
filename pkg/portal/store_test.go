@@ -67,7 +67,7 @@ func TestSoftDeleteProperty(t *testing.T) {
 	}
 
 	// Retrieve the organization's properties
-	orgProperties, _, err := store.Impl().RetrieveOrgProperties(ctx, org, 0, db.OrgPropertiesPageSize)
+	orgProperties, _, err := store.Impl().RetrieveOrgProperties(ctx, org, 0, db.MaxOrgPropertiesPageSize)
 	if err != nil {
 		t.Fatalf("Failed to retrieve organization properties: %v", err)
 	}
@@ -85,7 +85,7 @@ func TestSoftDeleteProperty(t *testing.T) {
 	}
 
 	// Retrieve the organization's properties again
-	orgProperties, _, err = store.Impl().RetrieveOrgProperties(ctx, org, 0, db.OrgPropertiesPageSize)
+	orgProperties, _, err = store.Impl().RetrieveOrgProperties(ctx, org, 0, db.MaxOrgPropertiesPageSize)
 	if err != nil {
 		t.Fatalf("Failed to retrieve organization properties: %v", err)
 	}

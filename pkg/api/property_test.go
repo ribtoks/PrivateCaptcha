@@ -180,7 +180,7 @@ func TestApiPostProperties(t *testing.T) {
 		t.Fatal("Async task did not complete within timeout")
 	}
 
-	properties, _, err := s.BusinessDB.Impl().RetrieveOrgProperties(ctx, org, 0, db.OrgPropertiesPageSize)
+	properties, _, err := s.BusinessDB.Impl().RetrieveOrgProperties(ctx, org, 0, db.MaxOrgPropertiesPageSize)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +360,7 @@ func TestApiDeleteProperties(t *testing.T) {
 	}
 
 	// Verify P1 deleted
-	props1, _, err := s.BusinessDB.Impl().RetrieveOrgProperties(ctx, org1, 0, db.OrgPropertiesPageSize)
+	props1, _, err := s.BusinessDB.Impl().RetrieveOrgProperties(ctx, org1, 0, db.MaxOrgPropertiesPageSize)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,7 +383,7 @@ func TestApiDeleteProperties(t *testing.T) {
 	}
 
 	// Verify P2 deleted
-	props2, _, err := s.BusinessDB.Impl().RetrieveOrgProperties(ctx, org2, 0, db.OrgPropertiesPageSize)
+	props2, _, err := s.BusinessDB.Impl().RetrieveOrgProperties(ctx, org2, 0, db.MaxOrgPropertiesPageSize)
 	if err != nil {
 		t.Fatal(err)
 	}

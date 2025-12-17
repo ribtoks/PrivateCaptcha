@@ -20,6 +20,7 @@ var (
 	errInvalidSession = errors.New("session contains invalid data")
 	errNoOrgs         = errors.New("user has no organizations")
 	stubUserOrg       = &userOrg{ID: "-1"}
+	propertiesPerPage = 30
 )
 
 const (
@@ -212,7 +213,7 @@ func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, ses
 
 	if (0 <= idx) && (idx < len(orgs)) {
 		if orgs[idx].Level != dbgen.AccessLevelInvited {
-			if properties, hasMore, err := s.Store.Impl().RetrieveOrgProperties(ctx, &orgs[idx].Organization, 0 /*offset*/, db.OrgPropertiesPageSize); err == nil {
+			if properties, hasMore, err := s.Store.Impl().RetrieveOrgProperties(ctx, &orgs[idx].Organization, 0 /*offset*/, propertiesPerPage); err == nil {
 				renderCtx.Properties = propertiesToUserProperties(ctx, properties, s.IDHasher)
 
 				renderCtx.PaginationRenderContext = PaginationRenderContext{
@@ -220,7 +221,7 @@ func (s *Server) createOrgDashboardContext(ctx context.Context, orgID int32, ses
 					To:      len(properties),
 					Count:   len(properties),
 					Page:    0,
-					PerPage: db.OrgPropertiesPageSize,
+					PerPage: propertiesPerPage,
 				}
 
 				if hasMore {
@@ -272,14 +273,13 @@ func (s *Server) createOrgPropertiesContext(ctx context.Context, org *dbgen.Orga
 	if page < 0 {
 		page = 0
 	}
-	perPage := db.OrgPropertiesPageSize
 
-	properties, hasMore, err := s.Store.Impl().RetrieveOrgProperties(ctx, org, page*perPage, perPage)
+	properties, hasMore, err := s.Store.Impl().RetrieveOrgProperties(ctx, org, page*propertiesPerPage, propertiesPerPage)
 	if err != nil {
 		return nil, err
 	}
 
-	from := 1 + page*perPage
+	from := 1 + page*propertiesPerPage
 
 	renderCtx := &orgPropertiesRenderContext{
 		CsrfRenderContext: s.CreateCsrfContext(user),
@@ -288,7 +288,7 @@ func (s *Server) createOrgPropertiesContext(ctx context.Context, org *dbgen.Orga
 			To:      from + len(properties) - 1,
 			Count:   len(properties),
 			Page:    page,
-			PerPage: db.OrgPropertiesPageSize,
+			PerPage: propertiesPerPage,
 		},
 		CurrentOrg: orgToUserOrg(org, user.ID, s.IDHasher),
 		Properties: propertiesToUserProperties(ctx, properties, s.IDHasher),

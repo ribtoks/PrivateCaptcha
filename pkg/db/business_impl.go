@@ -25,7 +25,7 @@ const (
 	propertyTTL              = 1 * time.Hour
 	apiKeyTTL                = 12 * time.Hour
 	asyncTaskTTL             = 1 * time.Minute
-	OrgPropertiesPageSize    = 30
+	MaxOrgPropertiesPageSize = 50
 	orgPropertiesCacheKeyStr = "0" // "0" as in "first page"
 )
 
@@ -999,7 +999,7 @@ func (impl *BusinessStoreImpl) RetrieveOrgProperties(ctx context.Context, org *d
 	params := &dbgen.GetOrgPropertiesParams{
 		OrgID:  Int(org.ID),
 		Offset: int32(offset),
-		Limit:  OrgPropertiesPageSize + 1,
+		Limit:  MaxOrgPropertiesPageSize + 1,
 	}
 
 	if offset == 0 {
@@ -1018,7 +1018,7 @@ func (impl *BusinessStoreImpl) RetrieveOrgProperties(ctx context.Context, org *d
 			return nil, false, err
 		}
 
-		finalProperties := properties[:min(len(properties), limit, OrgPropertiesPageSize)]
+		finalProperties := properties[:min(len(properties), limit, MaxOrgPropertiesPageSize)]
 
 		return finalProperties, len(properties) > len(finalProperties), nil
 	}
@@ -1027,7 +1027,7 @@ func (impl *BusinessStoreImpl) RetrieveOrgProperties(ctx context.Context, org *d
 		return nil, false, ErrMaintenance
 	}
 
-	actualLimit := min(OrgPropertiesPageSize, limit)
+	actualLimit := min(MaxOrgPropertiesPageSize, limit)
 	params.Limit = int32(actualLimit) + 1
 
 	properties, err := impl.querier.GetOrgProperties(ctx, params)
