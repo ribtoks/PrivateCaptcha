@@ -90,7 +90,6 @@ func (j *AsyncTasksJob) NewParams() any {
 	}
 }
 
-// TODO: Add test for this
 func (j *AsyncTasksJob) RunOnce(ctx context.Context, params any) error {
 	p, ok := params.(*AsyncTasksParams)
 	if !ok || (p == nil) {

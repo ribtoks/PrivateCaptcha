@@ -78,7 +78,7 @@ WHERE ar.processed_at IS NULL
   AND ar.scheduled_at <= NOW()
   AND u.deleted_at IS NULL
   AND ar.processing_attempts < $2
-ORDER BY 
+ORDER BY
     (ar.processing_attempts > 0),  -- false (0 attempts) first
     random()
 LIMIT $3
