@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -454,4 +455,108 @@ func (s *Server) doDeleteProperties(ctx context.Context, tlog *slog.Logger, user
 	}
 
 	return results, nil
+}
+
+func propertyToApiOrgProperty(property *dbgen.Property, hasher common.IdentifierHasher) *apiOrgPropertyOutput {
+	return &apiOrgPropertyOutput{
+		ID:      hasher.Encrypt(int(property.ID)),
+		Name:    property.Name,
+		Sitekey: db.UUIDToSiteKey(property.ExternalID),
+	}
+}
+
+func propertiesToApiOrgProperties(properties []*dbgen.Property, hasher common.IdentifierHasher) []*apiOrgPropertyOutput {
+	result := make([]*apiOrgPropertyOutput, 0, len(properties))
+	for _, property := range properties {
+		result = append(result, propertyToApiOrgProperty(property, hasher))
+	}
+	return result
+}
+
+func (s *Server) getOrgProperties(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user, _, err := s.requestUser(ctx)
+	if err != nil {
+		s.sendHTTPErrorResponse(err, w)
+		return
+	}
+
+	org, err := s.requestOrg(user, r, true /*only owner*/)
+	if err != nil {
+		if err == db.ErrInvalidInput {
+			s.sendAPIErrorResponse(ctx, common.StatusOrgIDInvalidError, r, w)
+		} else {
+			s.sendHTTPErrorResponse(err, w)
+		}
+		return
+	}
+
+	pageParam := r.URL.Query().Get(common.ParamPage)
+	page := 0
+	if len(pageParam) > 0 {
+		if page, err = strconv.Atoi(pageParam); err != nil {
+			slog.ErrorContext(ctx, "Failed to convert page parameter", "page", pageParam, common.ErrAttr(err))
+			page = 0
+		}
+		if page < 0 {
+			s.sendHTTPErrorResponse(db.ErrInvalidInput, w)
+			return
+		}
+	}
+
+	perPageParam := r.URL.Query().Get(common.ParamPerPage)
+	perPage := db.MaxOrgPropertiesPageSize
+	if len(perPageParam) > 0 {
+		if perPage, err = strconv.Atoi(perPageParam); err != nil {
+			slog.ErrorContext(ctx, "Failed to convert per_page parameter", "perPage", perPageParam, common.ErrAttr(err))
+			perPage = 0
+		}
+		if perPage <= 0 {
+			s.sendHTTPErrorResponse(db.ErrInvalidInput, w)
+			return
+		}
+	}
+
+	validatedPerPage := min(db.MaxOrgPropertiesPageSize, max(perPage, 0))
+	offset := max(page, 0) * validatedPerPage
+
+	// NOTE: we might need to add more things to etag like org.updated_at later
+	etag := common.GenerateETag(strconv.Itoa(int(user.ID)), strconv.Itoa(int(org.ID)),
+		strconv.Itoa(offset), strconv.Itoa(validatedPerPage))
+	if etagHeader := r.Header.Get(common.HeaderIfNoneMatch); len(etagHeader) > 0 && (etagHeader == etag) {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+
+	properties, hasMore, err := s.BusinessDB.Impl().RetrieveOrgProperties(ctx, org, offset, validatedPerPage)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to retrieve org properties", common.ErrAttr(err))
+		s.sendHTTPErrorResponse(err, w)
+		return
+	}
+
+	slog.DebugContext(ctx, "Retrieved org properties", len(properties), "more", hasMore, "page", page, "perPage", validatedPerPage)
+
+	response := &APIResponse{
+		Meta: ResponseMetadata{
+			Code:        common.StatusOK,
+			Description: common.StatusOK.String(),
+		},
+		Data: propertiesToApiOrgProperties(properties, s.IDHasher),
+		Pagination: &Pagination{
+			Page:    page,
+			PerPage: validatedPerPage,
+			HasMore: hasMore,
+		},
+	}
+
+	if tid, ok := ctx.Value(common.TraceIDContextKey).(string); ok {
+		response.Meta.RequestID = tid
+	}
+
+	cacheHeaders := map[string][]string{
+		common.HeaderETag:         []string{etag},
+		common.HeaderCacheControl: common.PrivateCacheControl15s,
+	}
+	common.SendJSONResponse(ctx, w, response, cacheHeaders)
 }

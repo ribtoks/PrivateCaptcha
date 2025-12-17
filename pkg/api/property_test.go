@@ -12,6 +12,7 @@ import (
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	db_test "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
+	db_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 )
 
 func TestNormalizeApiPropertyInput(t *testing.T) {
@@ -395,5 +396,38 @@ func TestApiDeleteProperties(t *testing.T) {
 	}
 	if foundP2 {
 		t.Error("Property P2 should be deleted")
+	}
+}
+
+func TestApiGetProperties(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := t.Context()
+	user, org, apiKey, err := setupAPISuite(ctx, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < 3*db.MaxOrgPropertiesPageSize/2; i++ {
+		if _, _, err := s.BusinessDB.Impl().CreateNewProperty(ctx, db_tests.CreateNewPropertyParams(user.ID, fmt.Sprintf("example%v.com", i)), org); err != nil {
+			t.Fatalf("Failed to create new property: %v", err)
+		}
+	}
+
+	// with api key 1 it should work
+	endpoint := fmt.Sprintf("/%s/%v/%s?page=1&per_page=%d", common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID)), common.PropertiesEndpoint, db.MaxOrgPropertiesPageSize/2-1)
+	properties, meta, err := requestResponseAPISuite[[]*apiOrgPropertyOutput](ctx, nil, http.MethodGet, endpoint, apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !meta.Code.Success() {
+		t.Fatalf("Unexpected status code: %v", meta.Description)
+	}
+
+	if actual := len(properties); actual != db.MaxOrgPropertiesPageSize/2-1 {
+		t.Fatalf("Unexpected number of properties: %v", actual)
 	}
 }

@@ -9,8 +9,15 @@ type ResponseMetadata struct {
 }
 
 type APIResponse struct {
-	Meta ResponseMetadata `json:"meta"`
-	Data interface{}      `json:"data,omitempty"`
+	Meta       ResponseMetadata `json:"meta"`
+	Data       interface{}      `json:"data,omitempty"`
+	Pagination *Pagination      `json:"pagination,omitempty"`
+}
+
+type Pagination struct {
+	Page    int  `json:"page"`
+	PerPage int  `json:"per_page"`
+	HasMore bool `json:"has_more"`
 }
 
 type apiOrgInput struct {
@@ -21,6 +28,12 @@ type apiOrgInput struct {
 type apiOrgOutput struct {
 	Name string `json:"name"`
 	ID   string `json:"id"`
+}
+
+type apiOrgPropertyOutput struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Sitekey string `json:"sitekey"`
 }
 
 type apiPropertyInput struct {
