@@ -535,7 +535,7 @@ func (s *Server) getOrgProperties(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	slog.DebugContext(ctx, "Retrieved org properties", len(properties), "more", hasMore, "page", page, "perPage", validatedPerPage)
+	slog.DebugContext(ctx, "Retrieved org properties", "count", len(properties), "more", hasMore, "page", page, "perPage", validatedPerPage)
 
 	response := &APIResponse{
 		Meta: ResponseMetadata{
