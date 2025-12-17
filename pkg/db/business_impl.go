@@ -2308,6 +2308,12 @@ func (impl *BusinessStoreImpl) MoveProperty(ctx context.Context, user *dbgen.Use
 
 	slog.InfoContext(ctx, "Moved property to another org", "propID", property.ID, "oldOrgID", property.OrgID.Int32, "newOrgID", org.Organization.ID)
 
+	// Invalidate cache for both old and new organizations
+	_ = impl.cache.Delete(ctx, orgPropertiesCacheKey(oldOrgID, orgPropertiesCacheKeyStr))
+	_ = impl.cache.Delete(ctx, orgPropertiesCacheKey(updatedProperty.OrgID.Int32, orgPropertiesCacheKeyStr))
+	_ = impl.cache.Delete(ctx, orgPropertiesCountCacheKey(oldOrgID))
+	_ = impl.cache.Delete(ctx, orgPropertiesCountCacheKey(updatedProperty.OrgID.Int32))
+	// and cache property
 	impl.cacheProperty(ctx, updatedProperty)
 
 	auditEvent := newMovePropertyAuditLogEvent(user, updatedProperty, oldOrgID, updatedProperty.OrgID.Int32)

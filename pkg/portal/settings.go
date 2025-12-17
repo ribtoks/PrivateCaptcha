@@ -585,7 +585,7 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (*Vi
 				if scope == dbgen.ApiKeyScopePuzzle {
 					apiKeyRequestsPerSecond = plan.APIRequestsPerSecond()
 				} else {
-					apiKeyRequestsPerSecond = math.Floor(max(1.0, math.Log2(plan.APIRequestsPerSecond())))
+					apiKeyRequestsPerSecond = max(1.0, math.Ceil(math.Log(plan.APIRequestsPerSecond())))
 				}
 			}
 		}

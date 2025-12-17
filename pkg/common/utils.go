@@ -12,6 +12,8 @@ import (
 	"time"
 	"unicode"
 
+	"maps"
+
 	"github.com/jpillora/backoff"
 )
 
@@ -95,9 +97,7 @@ func SendJSONResponse(ctx context.Context, w http.ResponseWriter, data interface
 	wHeader := w.Header()
 	wHeader[HeaderContentType] = HeaderValueContentTypeJSON
 	for _, hh := range headers {
-		for key, value := range hh {
-			wHeader[key] = value
-		}
+		maps.Copy(wHeader, hh)
 	}
 
 	n, err := w.Write(response)

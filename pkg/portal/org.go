@@ -269,6 +269,9 @@ func (s *Server) getPortal(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createOrgPropertiesContext(ctx context.Context, org *dbgen.Organization, user *dbgen.User, page int) (*orgPropertiesRenderContext, error) {
+	if page < 0 {
+		page = 0
+	}
 	perPage := db.OrgPropertiesPageSize
 
 	properties, hasMore, err := s.Store.Impl().RetrieveOrgProperties(ctx, org, page*perPage, perPage)

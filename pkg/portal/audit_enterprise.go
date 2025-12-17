@@ -129,6 +129,9 @@ func (s *Server) exportAuditLogsCSV(w http.ResponseWriter, r *http.Request) {
 func (s *Server) CreateAuditLogsContext(ctx context.Context, user *dbgen.User, days int, page int) (*MainAuditLogsRenderContext, error) {
 	slog.DebugContext(ctx, "Creating audit logs context", "userID", user.ID, "days", days, "page", page)
 	maxLogs := maxAuditLogsForDays(days)
+	if page < 0 {
+		page = 0
+	}
 
 	allLogs, err := s.retrieveAuditLogs(ctx, user, days, maxLogs)
 	if err != nil {
