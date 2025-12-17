@@ -24,6 +24,7 @@ const (
 	MetricsNamespacePortal   = "portal"
 	puzzleMetricsSubsystem   = "puzzle"
 	platformMetricsSubsystem = "platform"
+	apiMetricsSubsystem      = "api"
 	userIDLabel              = "user_id"
 	stubLabel                = "stub"
 	resultLabel              = "result"
@@ -125,7 +126,7 @@ func NewService() *Service {
 	apiErrorCounter := prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "fine", // this is the same as fine http metrics below to match go-http-metrics logic
-			Subsystem: "http",
+			Subsystem: apiMetricsSubsystem,
 			Name:      "error_total",
 			Help:      "Total number of API specific errors",
 		},
