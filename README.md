@@ -1,7 +1,7 @@
 <a name="top"></a>
 <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="/web/static/img/pc-logo-light.png">
-    <img alt="Private Captcha Logo" src="/web/static/img/pc-logo-dark.svg" height="50">
+    <source media="(prefers-color-scheme: dark)" srcset="./web/static/img/pc-logo-light.png">
+    <img alt="Private Captcha Logo" src="./web/static/img/pc-logo-dark.svg" height="50">
 </picture>
 ---
 
@@ -40,7 +40,7 @@ Please refer to the [official documentation](https://docs.privatecaptcha.com).
 
 ### Getting started
 
-To spin up a local version of Private Captcha _for development_, clone this repository and run in the root `make run-docker` (it requires to have Docker installed). You can check [Makefile](./Makefile) for details of what it does exactly.
+To spin up a local version of Private Captcha _for development_, clone this repository and run `make run-docker` in the root (it requires to have Docker installed). You can check [Makefile](./Makefile) for details of what it does exactly.
 
 ### OpenAPI / Swagger
 
@@ -61,7 +61,7 @@ OpenAPI spec is [available](./docs/openapi.yaml).
 ### Built with
 
 - _Go_ for backend (API and Portal)
-- _Javascript_ (inevitably) for client widget, including WASM workers (where possible)
+- _JavaScript_ (inevitably) for client widget, including WASM workers (where possible)
 - _Postgres_ for "business" data (accounts, properties etc.)
 - _ClickHouse_ for "operational" data (difficulty scaling, statistics etc.)
 - TailwindCSS for Portal (backend)

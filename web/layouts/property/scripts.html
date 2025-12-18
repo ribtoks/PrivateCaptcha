@@ -4,6 +4,9 @@
 {{template "default-scripts.html" .}}
 
 <script>
+    // Minimum bar height threshold for rendering (avoids extremely thin bars)
+    const BAR_MIN_HEIGHT_THRESHOLD = 1e-6;
+
     function onDifficultyChange(rangeElement) {
         const endpoint = '{{.Params.CaptchaEndpoint}}/' + rangeElement.value
         demoWidget.onDifficultyChange(endpoint);
@@ -29,8 +32,8 @@
         const monthlyFormat = d3.timeFormat("%b");
 
         const monthlyTicks = (date, i) => {
-            var day = date.getDate();
-            var month = date.getMonth();
+            const day = date.getDate();
+            const month = date.getMonth();
             if ((day == 1) && (month == 0)) {
                 return date.getFullYear();
             } else {
@@ -39,7 +42,7 @@
         };
 
         const hourlyTicks = function(date, i) {
-            var hour = date.getHours();
+            const hour = date.getHours();
             if (hour == 0) {
                 return weekdayFormat(date);
             } else {
@@ -79,7 +82,7 @@
             '24h': hourlyTicks,
             '7d': hourlyTicks,
             '30d': function(date, i) {
-                var day = date.getDate();
+                const day = date.getDate();
                 if (day == 1) {
                     return monthlyFormat(date);
                 } else {
@@ -154,7 +157,7 @@
                 })
                 .attr("width", function() { return Math.min(x.bandwidth(), maxBarWidth) - barSpacing/2; })
                 .attr("y", function(d) { return y(d.y); })
-                .attr("height", function(d) { return d.y > 1e-6 ? height - y(d.y) : 0; })
+                .attr("height", function(d) { return d.y > BAR_MIN_HEIGHT_THRESHOLD ? height - y(d.y) : 0; })
                 .attr("rx", 3)
                 .attr("ry", 3)
                 .attr("fill", color)

@@ -145,7 +145,7 @@ func propertiesToUserProperties(ctx context.Context, properties []*dbgen.Propert
 
 	for _, p := range properties {
 		if p.DeletedAt.Valid {
-			slog.WarnContext(ctx, "Skipping soft-deleted property", "propID", p.ID, "orgID", p.OrgID, "deleteAt", p.DeletedAt)
+			slog.WarnContext(ctx, "Skipping soft-deleted property", "propID", p.ID, "orgID", p.OrgID, "deletedAt", p.DeletedAt)
 			continue
 		}
 
@@ -277,7 +277,7 @@ func (s *Server) validateDomainName(ctx context.Context, domain string, ignoreRe
 	}
 
 	const timeout = 3 * time.Second
-	rctx, cancel := context.WithTimeout(context.TODO(), timeout)
+	rctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	var r net.Resolver
 	names, err := r.LookupIPAddr(rctx, domain)
@@ -360,7 +360,11 @@ func (s *Server) echoPuzzle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = s.PuzzleEngine.Write(ctx, p, nil /*extra salt*/, w)
+	if err := s.PuzzleEngine.Write(ctx, p, nil /*extra salt*/, w); err != nil {
+		slog.ErrorContext(ctx, "Failed to write echo puzzle", common.ErrAttr(err))
+		http.Error(w, "", http.StatusInternalServerError)
+		return
+	}
 }
 
 // This one cannot be "MVC" function because it redirects in case of success
