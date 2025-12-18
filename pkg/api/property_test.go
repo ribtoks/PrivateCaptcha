@@ -634,3 +634,109 @@ func TestApiGetProperties(t *testing.T) {
 		t.Fatalf("Unexpected number of properties: %v", actual)
 	}
 }
+
+func TestApiGetProperty(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	user, org, apiKey, err := setupAPISuite(ctx, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	property, _, err := s.BusinessDB.Impl().CreateNewProperty(ctx, db_test.CreateNewPropertyParams(user.ID, "example.com"), org)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	propertyID := s.IDHasher.Encrypt(int(property.ID))
+	output, meta, err := requestResponseAPISuite[*apiPropertyOutput](ctx, nil,
+		http.MethodGet,
+		fmt.Sprintf("/%s/%s/%s/%s", common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID)),
+			common.PropertyEndpoint, propertyID),
+		apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !meta.Code.Success() {
+		t.Fatalf("Unexpected status code: %v", meta.Description)
+	}
+
+	if output.ID != propertyID {
+		t.Errorf("Received property ID %v but %v expected", output.ID, property.ID)
+	}
+
+	if output.Name != property.Name {
+		t.Errorf("Received property Name %v, but %v expected", output.Name, property.Name)
+	}
+
+	if output.Sitekey != db.UUIDToSiteKey(property.ExternalID) {
+		t.Errorf("Unexpected property sitekey: %v", output.Sitekey)
+	}
+
+	if output.Level != int(property.Level.Int16) {
+		t.Errorf("Received property Level %v but %v expected", output.Level, property.Level.Int16)
+	}
+
+	if output.Growth != string(property.Growth) {
+		t.Errorf("Received property Growth %v but %v expected", output.Growth, property.Growth)
+	}
+
+	if output.ValiditySeconds != int(property.ValidityInterval.Seconds()) {
+		t.Errorf("Received property Validity Seconds %v but %v expected", output.ValiditySeconds, property.ValidityInterval.Seconds())
+	}
+
+	if output.AllowSubdomains != property.AllowSubdomains {
+		t.Errorf("Received property Subdomains %v but %v expected", output.AllowSubdomains, property.AllowSubdomains)
+	}
+
+	if output.AllowLocalhost != property.AllowLocalhost {
+		t.Errorf("Received property Localhost %v but %v expected", output.AllowLocalhost, property.AllowLocalhost)
+	}
+
+	if output.MaxReplayCount != int(property.MaxReplayCount) {
+		t.Errorf("Received property MaxReplayCount %v but %v expected", output.MaxReplayCount, property.MaxReplayCount)
+	}
+}
+
+func TestApiGetPropertyPermissions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	owner, org, _, err := setupAPISuite(ctx, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	property, _, err := s.BusinessDB.Impl().CreateNewProperty(ctx, db_test.CreateNewPropertyParams(owner.ID, "example.com"), org)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, apiKey, err := setupAPISuite(ctx, t.Name()+"_user2")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	propertyID := s.IDHasher.Encrypt(int(property.ID))
+
+	resp, err := apiRequestSuite(ctx, nil,
+		http.MethodGet,
+		fmt.Sprintf("/%s/%s/%s/%s", common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID)),
+			common.PropertyEndpoint, propertyID),
+		apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("Unexpected status code: %v", resp.StatusCode)
+	}
+}

@@ -742,3 +742,47 @@ func (s *Server) getOrgProperties(w http.ResponseWriter, r *http.Request) {
 	}
 	s.sendAPISuccessResponseEx(ctx, response, w, cacheHeaders)
 }
+
+func (s *Server) getOrgProperty(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	user, _, err := s.requestUser(ctx)
+	if err != nil {
+		s.sendHTTPErrorResponse(err, w)
+		return
+	}
+
+	org, err := s.requestOrg(user, r, false /*only owner*/)
+	if err != nil {
+		if err == db.ErrInvalidInput {
+			s.sendAPIErrorResponse(ctx, common.StatusOrgIDInvalidError, r, w)
+		} else {
+			s.sendHTTPErrorResponse(err, w)
+		}
+		return
+	}
+
+	property, err := s.requestProperty(org, r)
+	if err != nil {
+		if err == db.ErrSoftDeleted {
+			s.sendAPIErrorResponse(ctx, common.StatusPropertyIDInvalidError, r, w)
+		} else {
+			s.sendHTTPErrorResponse(err, w)
+		}
+		return
+	}
+
+	data := &apiPropertyOutput{
+		ID:              s.IDHasher.Encrypt(int(property.ID)),
+		Name:            property.Name,
+		Domain:          property.Domain,
+		Sitekey:         db.UUIDToSiteKey(property.ExternalID),
+		Level:           int(property.Level.Int16),
+		Growth:          string(property.Growth),
+		ValiditySeconds: int(property.ValidityInterval.Seconds()),
+		AllowSubdomains: property.AllowSubdomains,
+		AllowLocalhost:  property.AllowLocalhost,
+		MaxReplayCount:  int(property.MaxReplayCount),
+	}
+
+	s.sendAPISuccessResponse(ctx, data, w)
+}

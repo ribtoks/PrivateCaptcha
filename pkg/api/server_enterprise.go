@@ -42,6 +42,7 @@ func (s *Server) setupEnterprise(rg *common.RouteGenerator, publicChain alice.Ch
 	rg.Handle(rg.Post(common.OrgEndpoint, arg(common.ParamOrg), common.PropertiesEndpoint), portalAPIChain, http.MaxBytesHandler(http.HandlerFunc(s.postNewProperties), maxPostPropertiesBodySize))
 	rg.Handle(rg.Delete(common.PropertiesEndpoint), portalAPIChain, http.MaxBytesHandler(http.HandlerFunc(s.deleteProperties), maxDeletePropertiesBodySize))
 	rg.Handle(rg.Patch(common.PropertiesEndpoint), portalAPIChain, http.MaxBytesHandler(http.HandlerFunc(s.updateProperties), maxUpdatePropertiesBodySize))
+	rg.Handle(rg.Get(common.OrgEndpoint, arg(common.ParamOrg), common.PropertyEndpoint, arg(common.ParamProperty)), portalAPIChain, http.HandlerFunc(s.getOrgProperty))
 }
 
 func (s *Server) RegisterTaskHandlers(ctx context.Context) {
@@ -96,6 +97,23 @@ func (s *Server) requestOrg(user *dbgen.User, r *http.Request, onlyOwner bool) (
 	}
 
 	return org, nil
+}
+
+func (s *Server) requestProperty(org *dbgen.Organization, r *http.Request) (*dbgen.Property, error) {
+	ctx := r.Context()
+
+	propertyID, value, err := common.IntPathArg(r, common.ParamProperty, s.IDHasher)
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to parse property path parameter", "value", value, common.ErrAttr(err))
+		return nil, db.ErrInvalidInput
+	}
+
+	property, err := s.BusinessDB.Impl().RetrieveOrgProperty(ctx, org, propertyID)
+	if err != nil {
+		return nil, err
+	}
+
+	return property, nil
 }
 
 func (s *Server) sendHTTPErrorResponse(err error, w http.ResponseWriter) {

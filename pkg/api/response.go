@@ -69,3 +69,16 @@ type apiAsyncTaskResultOutput struct {
 	Finished bool        `json:"finished"`
 	Result   interface{} `json:"result"`
 }
+
+type apiPropertyOutput struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	Domain          string `json:"domain"`
+	Sitekey         string `json:"sitekey"`
+	Level           int    `json:"level,omitempty"`
+	Growth          string `json:"growth,omitempty"`
+	ValiditySeconds int    `json:"validity_seconds,omitempty"`
+	AllowSubdomains bool   `json:"allow_subdomains,omitempty"`
+	AllowLocalhost  bool   `json:"allow_localhost,omitempty"`
+	MaxReplayCount  int    `json:"max_replay_count,omitempty"`
+}
