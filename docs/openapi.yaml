@@ -29,6 +29,12 @@ tags:
     externalDocs:
       description: Find out more about Verify API
       url: https://docs.privatecaptcha.com/docs/reference/verify-api/
+  - name: org
+    description: Organization management
+  - name: properties
+    description: Property management
+  - name: task
+    description: Async task management
 paths:
   /puzzle:
     get:
@@ -205,6 +211,274 @@ paths:
           description: API key not found
         "429":
           description: API key rate limited
+  /asynctask/{id}:
+    get:
+      tags:
+        - task
+      summary: Get async task status
+      operationId: get-async-task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Task status
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AsyncTaskResultOutput"
+      security:
+        - ApiKeyAuth: []
+  /orgs:
+    get:
+      tags:
+        - org
+      summary: Get user organizations
+      operationId: get-user-orgs
+      responses:
+        "200":
+          description: List of organizations
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/OrgOutput"
+      security:
+        - ApiKeyAuth: []
+  /org:
+    post:
+      tags:
+        - org
+      summary: Create new organization
+      operationId: create-org
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrgInput"
+      responses:
+        "200":
+          description: Organization created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OrgOutput"
+      security:
+        - ApiKeyAuth: []
+    put:
+      tags:
+        - org
+      summary: Update organization
+      operationId: update-org
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrgInput"
+      responses:
+        "200":
+          description: Organization updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/OrgOutput"
+      security:
+        - ApiKeyAuth: []
+    delete:
+      tags:
+        - org
+      summary: Delete organization
+      operationId: delete-org
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrgInput"
+      responses:
+        "200":
+          description: Organization deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/APIResponse"
+      security:
+        - ApiKeyAuth: []
+  /org/{org_id}/properties:
+    get:
+      tags:
+        - properties
+      summary: Get organization properties
+      operationId: get-org-properties
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of properties
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/OrgPropertyOutput"
+      security:
+        - ApiKeyAuth: []
+    post:
+      tags:
+        - properties
+      summary: Create properties
+      operationId: create-properties
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/CreatePropertyInput"
+      responses:
+        "200":
+          description: Creation task started
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AsyncTaskOutput"
+      security:
+        - ApiKeyAuth: []
+  /properties:
+    delete:
+      tags:
+        - properties
+      summary: Delete properties
+      operationId: delete-properties
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      responses:
+        "200":
+          description: Deletion task started
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AsyncTaskOutput"
+      security:
+        - ApiKeyAuth: []
+    patch:
+      tags:
+        - properties
+      summary: Update properties
+      operationId: update-properties
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: "#/components/schemas/UpdatePropertyInput"
+      responses:
+        "200":
+          description: Update task started
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AsyncTaskOutput"
+      security:
+        - ApiKeyAuth: []
+  /org/{org_id}/property/{property_id}:
+    get:
+      tags:
+        - properties
+      summary: Get property details
+      operationId: get-property
+      parameters:
+        - name: org_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: property_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Property details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PropertyOutput"
+      security:
+        - ApiKeyAuth: []
 
 components:
   schemas:
@@ -267,6 +541,112 @@ components:
           type: string
           format: date-time
           example: "2009-11-10T23:00:00Z"
+    APIResponse:
+      type: object
+      properties:
+        meta:
+          $ref: "#/components/schemas/ResponseMetadata"
+        data:
+          type: object
+        pagination:
+          $ref: "#/components/schemas/Pagination"
+    ResponseMetadata:
+      type: object
+      properties:
+        code:
+          type: integer
+        request_id:
+          type: string
+        description:
+          type: string
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        per_page:
+          type: integer
+        has_more:
+          type: boolean
+    OrgInput:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    OrgOutput:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    PropertySettings:
+      type: object
+      properties:
+        name:
+          type: string
+        level:
+          type: integer
+        growth:
+          type: string
+        validity_seconds:
+          type: integer
+        allow_subdomains:
+          type: boolean
+        allow_localhost:
+          type: boolean
+        max_replay_count:
+          type: integer
+    CreatePropertyInput:
+      allOf:
+        - $ref: "#/components/schemas/PropertySettings"
+        - type: object
+          properties:
+            domain:
+              type: string
+    UpdatePropertyInput:
+      allOf:
+        - $ref: "#/components/schemas/PropertySettings"
+        - type: object
+          properties:
+            id:
+              type: string
+    PropertyOutput:
+      allOf:
+        - $ref: "#/components/schemas/PropertySettings"
+        - type: object
+          properties:
+            id:
+              type: string
+            domain:
+              type: string
+            sitekey:
+              type: string
+    OrgPropertyOutput:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        sitekey:
+          type: string
+    AsyncTaskOutput:
+      type: object
+      properties:
+        id:
+          type: string
+    AsyncTaskResultOutput:
+      type: object
+      properties:
+        id:
+          type: string
+        finished:
+          type: boolean
+        result:
+          type: object
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
