@@ -538,10 +538,6 @@ func (s *Server) getOrgProperties(w http.ResponseWriter, r *http.Request) {
 	slog.DebugContext(ctx, "Retrieved org properties", "count", len(properties), "more", hasMore, "page", page, "perPage", validatedPerPage)
 
 	response := &APIResponse{
-		Meta: ResponseMetadata{
-			Code:        common.StatusOK,
-			Description: common.StatusOK.String(),
-		},
 		Data: propertiesToApiOrgProperties(properties, s.IDHasher),
 		Pagination: &Pagination{
 			Page:    page,
@@ -549,14 +545,9 @@ func (s *Server) getOrgProperties(w http.ResponseWriter, r *http.Request) {
 			HasMore: hasMore,
 		},
 	}
-
-	if tid, ok := ctx.Value(common.TraceIDContextKey).(string); ok {
-		response.Meta.RequestID = tid
-	}
-
 	cacheHeaders := map[string][]string{
 		common.HeaderETag:         []string{etag},
 		common.HeaderCacheControl: common.PrivateCacheControl15s,
 	}
-	common.SendJSONResponse(ctx, w, response, cacheHeaders)
+	s.sendAPISuccessResponseEx(ctx, response, w, cacheHeaders)
 }

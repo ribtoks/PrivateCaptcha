@@ -80,7 +80,7 @@ func (s *Server) getUserOrgs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	orgsOutput := orgsToAPIOrgs(orgs, s.IDHasher, true /*only owned*/)
-	s.sendAPISuccessResponse(ctx, orgsOutput, w)
+	s.sendAPISuccessResponseEx(ctx, &APIResponse{Data: orgsOutput}, w, common.NoCacheHeaders)
 }
 
 func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {

@@ -113,19 +113,20 @@ func (s *Server) sendHTTPErrorResponse(err error, w http.ResponseWriter) {
 }
 
 func (s *Server) sendAPISuccessResponse(ctx context.Context, data interface{}, w http.ResponseWriter) {
-	response := &APIResponse{
-		Meta: ResponseMetadata{
-			Code:        common.StatusOK,
-			Description: common.StatusOK.String(),
-		},
-		Data: data,
+	s.sendAPISuccessResponseEx(ctx, &APIResponse{Data: data}, w, common.NoCacheHeaders)
+}
+
+func (s *Server) sendAPISuccessResponseEx(ctx context.Context, response *APIResponse, w http.ResponseWriter, headers ...map[string][]string) {
+	response.Meta = ResponseMetadata{
+		Code:        common.StatusOK,
+		Description: common.StatusOK.String(),
 	}
 
 	if tid, ok := ctx.Value(common.TraceIDContextKey).(string); ok {
 		response.Meta.RequestID = tid
 	}
 
-	common.SendJSONResponse(ctx, w, response, common.NoCacheHeaders)
+	common.SendJSONResponse(ctx, w, response, headers...)
 }
 
 func (s *Server) sendAPIErrorResponse(ctx context.Context, code common.StatusCode, r *http.Request, w http.ResponseWriter) {
