@@ -913,27 +913,66 @@ func (impl *BusinessStoreImpl) CreateNewProperty(ctx context.Context, params *db
 	return property, auditEvent, nil
 }
 
-func (impl *BusinessStoreImpl) UpdateProperty(ctx context.Context, oldProperty *dbgen.Property, org *dbgen.Organization, params *dbgen.UpdatePropertyParams) (*dbgen.Property, *common.AuditLogEvent, error) {
+func createPropertyFromUpdate(row *dbgen.UpdatePropertyRow) *dbgen.Property {
+	return &dbgen.Property{
+		ID:               row.ID,
+		Name:             row.Name,
+		ExternalID:       row.ExternalID,
+		OrgID:            row.OrgID,
+		CreatorID:        row.CreatorID,
+		OrgOwnerID:       row.OrgOwnerID,
+		Domain:           row.Domain,
+		Level:            row.Level,
+		Salt:             row.Salt,
+		Growth:           row.Growth,
+		CreatedAt:        row.CreatedAt,
+		UpdatedAt:        row.UpdatedAt,
+		DeletedAt:        row.DeletedAt,
+		ValidityInterval: row.ValidityInterval,
+		AllowSubdomains:  row.AllowSubdomains,
+		AllowLocalhost:   row.AllowLocalhost,
+		MaxReplayCount:   row.MaxReplayCount,
+	}
+}
+
+func (impl *BusinessStoreImpl) UpdateProperty(ctx context.Context, org *dbgen.Organization, user *dbgen.User, params *dbgen.UpdatePropertyParams) (*dbgen.Property, *common.AuditLogEvent, error) {
+	if (params == nil) || (user == nil) {
+		return nil, nil, ErrInvalidInput
+	}
+
 	if impl.querier == nil {
 		return nil, nil, ErrMaintenance
 	}
 
+	params.CreatorID = Int(user.ID)
+
 	updatedProperty, err := impl.querier.UpdateProperty(ctx, params)
 	if err != nil {
-		slog.ErrorContext(ctx, "Failed to update property in DB", "name", params.Name, "propID", params.ID, common.ErrAttr(err))
+		if err == pgx.ErrNoRows {
+			plog := slog.With("propID", params.ID, "userID", user.ID)
+			if property, err := FetchCachedOne[dbgen.Property](ctx, impl.cache, propertyByIDCacheKey(params.ID)); err == nil {
+				plog = plog.With("orgOwnerID", property.OrgOwnerID.Int32, "creatorID", property.CreatorID.Int32)
+			}
+			plog.WarnContext(ctx, "Cannot update property in DB")
+
+			return nil, nil, ErrPermissions
+		}
+
+		slog.ErrorContext(ctx, "Failed to update property in DB", "name", params.Name, "propID", params.ID, "userID", user.ID, common.ErrAttr(err))
 		return nil, nil, err
 	}
 
-	slog.InfoContext(ctx, "Updated property", "name", params.Name, "propID", params.ID)
+	slog.InfoContext(ctx, "Updated property", "name", updatedProperty.Name, "propID", updatedProperty.ID)
 
-	impl.cacheProperty(ctx, updatedProperty)
+	cacheProperty := createPropertyFromUpdate(updatedProperty)
+	impl.cacheProperty(ctx, cacheProperty)
 	// invalidate org properties in cache as we just created a new property
 	_ = impl.cache.Delete(ctx, orgPropertiesCacheKey(updatedProperty.OrgID.Int32, orgPropertiesCacheKeyStr))
 	_ = impl.cache.Delete(ctx, propertyAuditLogsCacheKey(updatedProperty.ID))
 
-	auditEvent := newUpdatePropertyAuditLogEvent(oldProperty, updatedProperty, org)
+	auditEvent := newUpdatePropertyAuditLogEvent(cacheProperty, updatedProperty, org, user)
 
-	return updatedProperty, auditEvent, nil
+	return cacheProperty, auditEvent, nil
 }
 
 func (impl *BusinessStoreImpl) SoftDeleteProperty(ctx context.Context, prop *dbgen.Property, org *dbgen.Organization, user *dbgen.User) (*common.AuditLogEvent, error) {

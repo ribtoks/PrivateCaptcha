@@ -13,95 +13,112 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	db_test "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	db_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 )
 
 func TestNormalizeApiPropertyInput(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    apiPropertyInput
-		expected apiPropertyInput
+		input    apiCreatePropertyInput
+		expected apiCreatePropertyInput
 	}{
 		{
 			name: "normalizes all fields with invalid/out-of-range values",
-			input: apiPropertyInput{
-				Name:            "  Test Property  ",
-				Domain:          "example.com",
-				Level:           999,
-				Growth:          "invalid",
-				ValiditySeconds: -100,
-				MaxReplayCount:  2_000_000,
+			input: apiCreatePropertyInput{
+				Domain: "example.com",
+				apiPropertySettings: apiPropertySettings{
+					Name:            "  Test Property  ",
+					Level:           999,
+					Growth:          "invalid",
+					ValiditySeconds: -100,
+					MaxReplayCount:  2_000_000,
+				},
 			},
-			expected: apiPropertyInput{
-				Name:            "Test Property",
-				Domain:          "example.com",
-				Level:           int(common.MaxDifficultyLevel),
-				Growth:          "medium",
-				ValiditySeconds: int((6 * time.Hour).Seconds()),
-				MaxReplayCount:  1_000_000,
+			expected: apiCreatePropertyInput{
+				Domain: "example.com",
+				apiPropertySettings: apiPropertySettings{
+					Name:            "Test Property",
+					Level:           int(common.MaxDifficultyLevel),
+					Growth:          "medium",
+					ValiditySeconds: int((6 * time.Hour).Seconds()),
+					MaxReplayCount:  1_000_000,
+				},
 			},
 		},
 		{
 			name: "clamps to minimum values",
-			input: apiPropertyInput{
-				Name:            "Test",
-				Domain:          "example.com",
-				Level:           0,
-				Growth:          "medium",
-				ValiditySeconds: 0,
-				MaxReplayCount:  0,
+			input: apiCreatePropertyInput{
+				Domain: "example.com",
+				apiPropertySettings: apiPropertySettings{
+					Name:            "Test",
+					Level:           0,
+					Growth:          "medium",
+					ValiditySeconds: 0,
+					MaxReplayCount:  0,
+				},
 			},
-			expected: apiPropertyInput{
-				Name:            "Test",
-				Domain:          "example.com",
-				Level:           1,
-				Growth:          "medium",
-				ValiditySeconds: int((6 * time.Hour).Seconds()),
-				MaxReplayCount:  1,
+			expected: apiCreatePropertyInput{
+				Domain: "example.com",
+				apiPropertySettings: apiPropertySettings{
+					Name:            "Test",
+					Level:           1,
+					Growth:          "medium",
+					ValiditySeconds: int((6 * time.Hour).Seconds()),
+					MaxReplayCount:  1,
+				},
 			},
 		},
 		{
 			name: "preserves valid values",
-			input: apiPropertyInput{
-				Name:            "Test Property",
-				Domain:          "example.com",
-				Level:           5,
-				Growth:          "fast",
-				ValiditySeconds: 3600,
-				MaxReplayCount:  100,
+			input: apiCreatePropertyInput{
+				Domain: "example.com",
+				apiPropertySettings: apiPropertySettings{
+					Name:            "Test Property",
+					Level:           5,
+					Growth:          "fast",
+					ValiditySeconds: 3600,
+					MaxReplayCount:  100,
+				},
 			},
-			expected: apiPropertyInput{
-				Name:            "Test Property",
-				Domain:          "example.com",
-				Level:           5,
-				Growth:          "fast",
-				ValiditySeconds: 3600,
-				MaxReplayCount:  100,
+			expected: apiCreatePropertyInput{
+				Domain: "example.com",
+				apiPropertySettings: apiPropertySettings{
+					Name:            "Test Property",
+					Level:           5,
+					Growth:          "fast",
+					ValiditySeconds: 3600,
+					MaxReplayCount:  100,
+				},
 			},
 		},
 		{
 			name: "accepts all valid growth values",
-			input: apiPropertyInput{
-				Name:            "Test",
-				Domain:          "example.com",
-				Level:           5,
-				Growth:          "constant",
-				ValiditySeconds: 3600,
-				MaxReplayCount:  100,
+			input: apiCreatePropertyInput{
+				Domain: "example.com",
+				apiPropertySettings: apiPropertySettings{
+					Name:            "Test",
+					Level:           5,
+					Growth:          "constant",
+					ValiditySeconds: 3600,
+					MaxReplayCount:  100,
+				},
 			},
-			expected: apiPropertyInput{
-				Name:            "Test",
-				Domain:          "example.com",
-				Level:           5,
-				Growth:          "constant",
-				ValiditySeconds: 3600,
-				MaxReplayCount:  100,
+			expected: apiCreatePropertyInput{
+				Domain: "example.com",
+				apiPropertySettings: apiPropertySettings{
+					Name:            "Test",
+					Level:           5,
+					Growth:          "constant",
+					ValiditySeconds: 3600,
+					MaxReplayCount:  100,
+				},
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			input := &apiPropertyInput{}
+			input := &apiCreatePropertyInput{}
 			*input = tt.input
 			input.Normalize()
 
@@ -124,6 +141,51 @@ func TestNormalizeApiPropertyInput(t *testing.T) {
 	}
 }
 
+func TestNormalizeApiUpdatePropertyInput(t *testing.T) {
+	input := apiUpdatePropertyInput{
+		ID: "test-id",
+		apiPropertySettings: apiPropertySettings{
+			Name:            "  Test Property  ",
+			Level:           999,
+			Growth:          "invalid",
+			ValiditySeconds: -100,
+			MaxReplayCount:  2_000_000,
+		},
+	}
+
+	expected := apiUpdatePropertyInput{
+		ID: "test-id",
+		apiPropertySettings: apiPropertySettings{
+			Name:            "Test Property",
+			Level:           int(common.MaxDifficultyLevel),
+			Growth:          "medium",
+			ValiditySeconds: int((6 * time.Hour).Seconds()),
+			MaxReplayCount:  1_000_000,
+		},
+	}
+
+	input.Normalize()
+
+	if input.ID != expected.ID {
+		t.Errorf("ID: got %q, want %q", input.ID, expected.ID)
+	}
+	if input.Name != expected.Name {
+		t.Errorf("Name: got %q, want %q", input.Name, expected.Name)
+	}
+	if input.Level != expected.Level {
+		t.Errorf("Level: got %d, want %d", input.Level, expected.Level)
+	}
+	if input.Growth != expected.Growth {
+		t.Errorf("Growth: got %q, want %q", input.Growth, expected.Growth)
+	}
+	if input.MaxReplayCount != expected.MaxReplayCount {
+		t.Errorf("MaxReplayCount: got %d, want %d", input.MaxReplayCount, expected.MaxReplayCount)
+	}
+	if input.ValiditySeconds != expected.ValiditySeconds {
+		t.Errorf("ValiditySeconds: got %d, want %d", input.ValiditySeconds, expected.ValiditySeconds)
+	}
+}
+
 func TestApiPostProperties(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -137,10 +199,12 @@ func TestApiPostProperties(t *testing.T) {
 	}
 
 	const count = 10
-	inputs := make([]*apiPropertyInput, 0, count)
+	inputs := make([]*apiCreatePropertyInput, 0, count)
 	for i := 0; i < count; i++ {
-		inputs = append(inputs, &apiPropertyInput{
-			Name:   fmt.Sprintf("%s %s %d", t.Name(), "Property", i),
+		inputs = append(inputs, &apiCreatePropertyInput{
+			apiPropertySettings: apiPropertySettings{
+				Name: fmt.Sprintf("%s %s %d", t.Name(), "Property", i),
+			},
 			Domain: fmt.Sprintf("example%d.com", i),
 		})
 	}
@@ -221,10 +285,12 @@ func TestApiPostPropertiesNoSubscription(t *testing.T) {
 	}
 
 	const count = 2
-	inputs := make([]*apiPropertyInput, 0, count)
+	inputs := make([]*apiCreatePropertyInput, 0, count)
 	for i := 0; i < count; i++ {
-		inputs = append(inputs, &apiPropertyInput{
-			Name:   fmt.Sprintf("%s %s %d", t.Name(), "Property", i),
+		inputs = append(inputs, &apiCreatePropertyInput{
+			apiPropertySettings: apiPropertySettings{
+				Name: fmt.Sprintf("%s %s %d", t.Name(), "Property", i),
+			},
 			Domain: fmt.Sprintf("example%d.com", i),
 		})
 	}
@@ -257,10 +323,12 @@ func TestApiPostPropertiesOtherOrg(t *testing.T) {
 	}
 
 	const count = 2
-	inputs := make([]*apiPropertyInput, 0, count)
+	inputs := make([]*apiCreatePropertyInput, 0, count)
 	for i := 0; i < count; i++ {
-		inputs = append(inputs, &apiPropertyInput{
-			Name:   fmt.Sprintf("%s %s %d", t.Name(), "Property", i),
+		inputs = append(inputs, &apiCreatePropertyInput{
+			apiPropertySettings: apiPropertySettings{
+				Name: fmt.Sprintf("%s %s %d", t.Name(), "Property", i),
+			},
 			Domain: fmt.Sprintf("example%d.com", i),
 		})
 	}
@@ -397,6 +465,141 @@ func TestApiDeleteProperties(t *testing.T) {
 	if foundP2 {
 		t.Error("Property P2 should be deleted")
 	}
+}
+
+func verifyPropertyUpdate(t *testing.T, property *dbgen.Property, expected *apiUpdatePropertyInput) {
+	t.Helper()
+
+	if property.Name != expected.Name {
+		t.Errorf("Name: got %q, want %q", property.Name, expected.Name)
+	}
+	if int(property.Level.Int16) != expected.Level {
+		t.Errorf("Level: got %d, want %d", property.Level.Int16, expected.Level)
+	}
+	if string(property.Growth) != expected.Growth {
+		t.Errorf("Growth: got %q, want %q", property.Growth, expected.Growth)
+	}
+	if int(property.ValidityInterval.Seconds()) != expected.ValiditySeconds {
+		t.Errorf("ValiditySeconds: got %d, want %d", int(property.ValidityInterval.Seconds()), expected.ValiditySeconds)
+	}
+	if property.AllowSubdomains != expected.AllowSubdomains {
+		t.Errorf("AllowSubdomains: got %v, want %v", property.AllowSubdomains, expected.AllowSubdomains)
+	}
+	if property.AllowLocalhost != expected.AllowLocalhost {
+		t.Errorf("AllowLocalhost: got %v, want %v", property.AllowLocalhost, expected.AllowLocalhost)
+	}
+	if int(property.MaxReplayCount) != expected.MaxReplayCount {
+		t.Errorf("MaxReplayCount: got %d, want %d", property.MaxReplayCount, expected.MaxReplayCount)
+	}
+}
+
+func TestApiUpdateProperties(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	user, org1, apiKey, err := setupAPISuite(ctx, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create another org for the same user
+	org2, _, err := s.BusinessDB.Impl().CreateNewOrganization(ctx, t.Name()+"_org2", user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create properties
+	// P1 in Org1
+	p1, _, err := s.BusinessDB.Impl().CreateNewProperty(ctx, db_test.CreateNewPropertyParams(user.ID, "p1.com"), org1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// P2 in Org2
+	p2, _, err := s.BusinessDB.Impl().CreateNewProperty(ctx, db_test.CreateNewPropertyParams(user.ID, "p2.com"), org2)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Prepare update request
+	updates := []*apiUpdatePropertyInput{
+		{
+			ID: s.IDHasher.Encrypt(int(p1.ID)),
+			apiPropertySettings: apiPropertySettings{
+				Name:            "Updated Property 1",
+				Level:           int(common.DifficultyLevelHigh),
+				Growth:          string(dbgen.DifficultyGrowthMedium),
+				ValiditySeconds: int(puzzle.ValidityDurations[7].Seconds()),
+				AllowSubdomains: true,
+				AllowLocalhost:  false,
+				MaxReplayCount:  500,
+			},
+		},
+		{
+			ID: s.IDHasher.Encrypt(int(p2.ID)),
+			apiPropertySettings: apiPropertySettings{
+				Name:            "Updated Property 2",
+				Level:           int(common.DifficultyLevelSmall),
+				Growth:          string(dbgen.DifficultyGrowthFast),
+				ValiditySeconds: int(puzzle.ValidityDurations[1].Seconds()),
+				AllowSubdomains: false,
+				AllowLocalhost:  true,
+				MaxReplayCount:  200,
+			},
+		},
+	}
+
+	output, meta, err := requestResponseAPISuite[*apiAsyncTaskOutput](ctx, updates,
+		http.MethodPatch,
+		"/"+common.PropertiesEndpoint,
+		apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !meta.Code.Success() {
+		t.Fatalf("Unexpected status code: %v", meta.Description)
+	}
+
+	finished := false
+	for i := 0; i < 20; i++ {
+		time.Sleep(500 * time.Millisecond)
+
+		result, meta, err := requestResponseAPISuite[*apiAsyncTaskResultOutput](ctx, nil, http.MethodGet, "/"+common.AsyncTaskEndpoint+"/"+output.ID, apiKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !meta.Code.Success() {
+			t.Fatalf("Unexpected status code: %v", meta.Description)
+		}
+
+		if result.Finished {
+			finished = true
+			slog.DebugContext(ctx, "Async task is finished", "attempt", i)
+			break
+		}
+	}
+
+	if !finished {
+		t.Fatal("Async task did not complete within timeout")
+	}
+
+	// Verify P1 updated
+	updatedP1, err := s.BusinessDB.Impl().RetrieveOrgProperty(ctx, org1, p1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifyPropertyUpdate(t, updatedP1, updates[0])
+
+	// Verify P2 updated
+	updatedP2, err := s.BusinessDB.Impl().RetrieveOrgProperty(ctx, org2, p2.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifyPropertyUpdate(t, updatedP2, updates[1])
 }
 
 func TestApiGetProperties(t *testing.T) {

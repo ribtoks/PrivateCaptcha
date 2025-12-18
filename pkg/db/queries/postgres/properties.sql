@@ -13,9 +13,35 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: UpdateProperty :one
-UPDATE backend.properties SET name = $2, level = $3, growth = $4, validity_interval = $5, allow_subdomains = $6, allow_localhost = $7, max_replay_count = $8, updated_at = NOW()
-WHERE id = $1
-RETURNING *;
+WITH old AS (
+    SELECT * FROM backend.properties p
+    WHERE p.id = $1 AND (p.creator_id = $9 OR p.org_owner_id = $9)
+    FOR UPDATE
+),
+upd AS (
+    UPDATE backend.properties p
+    SET name = $2,
+        level = $3,
+        growth = $4,
+        validity_interval = $5,
+        allow_subdomains = $6,
+        allow_localhost = $7,
+        max_replay_count = $8,
+        updated_at = NOW()
+    WHERE p.id = (SELECT id FROM old)
+    RETURNING * -- This ensures the final SELECT only returns data if the update actually happened
+)
+SELECT
+    upd.*,
+    old.name AS old_name,
+    old.level AS old_level,
+    old.growth AS old_growth,
+    old.validity_interval AS old_validity_interval,
+    old.allow_subdomains AS old_allow_subdomains,
+    old.allow_localhost AS old_allow_localhost,
+    old.max_replay_count AS old_max_replay_count
+FROM upd
+CROSS JOIN old;
 
 -- name: MoveProperty :one
 UPDATE backend.properties SET org_id = $2, org_owner_id = $3, updated_at = NOW()

@@ -755,7 +755,7 @@ func (s *Server) putProperty(w http.ResponseWriter, r *http.Request) (*ViewModel
 	if !renderCtx.CanEdit {
 		slog.WarnContext(ctx, "Insufficient permissions to edit property", "userID", user.ID, "orgUserID", org.UserID.Int32,
 			"propUserID", property.CreatorID.Int32)
-		renderCtx.ErrorMessage = "Insufficient permissions to update settings."
+		renderCtx.ErrorMessage = common.StatusPropertyPermissionsError.String()
 		return &ViewModel{Model: renderCtx, View: propertyDashboardSettingsTemplate}, nil
 	}
 
@@ -800,7 +800,7 @@ func (s *Server) putProperty(w http.ResponseWriter, r *http.Request) (*ViewModel
 		}
 
 		var updatedProperty *dbgen.Property
-		if updatedProperty, auditEvent, err = s.Store.Impl().UpdateProperty(ctx, property, org, params); err != nil {
+		if updatedProperty, auditEvent, err = s.Store.Impl().UpdateProperty(ctx, org, user, params); err != nil {
 			renderCtx.ErrorMessage = "Failed to update settings. Please try again."
 		} else {
 			slog.InfoContext(ctx, "Edited property", "propID", property.ID, "orgID", org.ID)
