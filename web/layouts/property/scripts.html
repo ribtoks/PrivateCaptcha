@@ -34,7 +34,7 @@
         const monthlyTicks = (date, i) => {
             const day = date.getDate();
             const month = date.getMonth();
-            if ((day == 1) && (month == 0)) {
+            if ((day === 1) && (month === 0)) {
                 return date.getFullYear();
             } else {
                 return monthlyFormat(date);
@@ -43,7 +43,7 @@
 
         const hourlyTicks = function(date, i) {
             const hour = date.getHours();
-            if (hour == 0) {
+            if (hour === 0) {
                 return weekdayFormat(date);
             } else {
                 return hour;
@@ -65,7 +65,7 @@
             '24h': 1,
             '7d': 7,
             '30d': 30,
-            '1y': 365 
+            '1y': 365
         }
 
         const oddTickFilter = function(d, i) { return !(i % 2); };
@@ -83,7 +83,7 @@
             '7d': hourlyTicks,
             '30d': function(date, i) {
                 const day = date.getDate();
-                if (day == 1) {
+                if (day === 1) {
                     return monthlyFormat(date);
                 } else {
                     return day;
@@ -288,10 +288,15 @@
                 this.updateChart('24h');
             },
             async fetchChartData(period, maxRetries = 3, baseDelay = 1000) {
+                const allowedPeriods = ['24h', '7d', '30d', '1y'];
+                const fallbackPeriod = '24h';
+                const normalizedPeriod = allowedPeriods.includes(period) ? period : fallbackPeriod;
+                const encodedPeriod = encodeURIComponent(normalizedPeriod);
+
                 this.isLoading = true;
                 try {
                     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-                        const response = await fetch('{{ partsURL $.Const.OrgEndpoint $.Params.Property.OrgID $.Const.PropertyEndpoint $.Params.Property.ID $.Const.Stats }}/' + period);
+                        const response = await fetch('{{ partsURL $.Const.OrgEndpoint $.Params.Property.OrgID $.Const.PropertyEndpoint $.Params.Property.ID $.Const.Stats }}/' + encodedPeriod);
                         if (response.ok) {
                             return await response.json();
                         }
