@@ -41,7 +41,7 @@ func (s *Server) setupEnterprise(rg *common.RouteGenerator, publicChain alice.Ch
 	rg.Handle(rg.Get(common.OrgEndpoint, arg(common.ParamOrg), common.PropertiesEndpoint), portalAPIChain, http.HandlerFunc(s.getOrgProperties))
 	rg.Handle(rg.Post(common.OrgEndpoint, arg(common.ParamOrg), common.PropertiesEndpoint), portalAPIChain, http.MaxBytesHandler(http.HandlerFunc(s.postNewProperties), maxPostPropertiesBodySize))
 	rg.Handle(rg.Delete(common.PropertiesEndpoint), portalAPIChain, http.MaxBytesHandler(http.HandlerFunc(s.deleteProperties), maxDeletePropertiesBodySize))
-	rg.Handle(rg.Patch(common.PropertiesEndpoint), portalAPIChain, http.MaxBytesHandler(http.HandlerFunc(s.updateProperties), maxUpdatePropertiesBodySize))
+	rg.Handle(rg.Put(common.PropertiesEndpoint), portalAPIChain, http.MaxBytesHandler(http.HandlerFunc(s.updateProperties), maxUpdatePropertiesBodySize))
 	rg.Handle(rg.Get(common.OrgEndpoint, arg(common.ParamOrg), common.PropertyEndpoint, arg(common.ParamProperty)), portalAPIChain, http.HandlerFunc(s.getOrgProperty))
 }
 

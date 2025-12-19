@@ -552,7 +552,7 @@ func TestApiUpdateProperties(t *testing.T) {
 	}
 
 	output, meta, err := requestResponseAPISuite[*apiAsyncTaskOutput](ctx, updates,
-		http.MethodPatch,
+		http.MethodPut,
 		"/"+common.PropertiesEndpoint,
 		apiKey)
 	if err != nil {

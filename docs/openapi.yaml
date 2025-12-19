@@ -468,7 +468,7 @@ paths:
           description: API key rate limited
       security:
         - ApiKeyAuth: []
-    patch:
+    put:
       tags:
         - properties
       summary: Update properties
