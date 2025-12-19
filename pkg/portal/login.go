@@ -139,7 +139,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	code := twoFactorCode()
+	code := twoFactorCode(ctx)
 	location := r.Header.Get(s.CountryCodeHeader.Value())
 
 	if err := s.Mailer.SendTwoFactor(ctx, user.Email, code, r.UserAgent(), location); err != nil {

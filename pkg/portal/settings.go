@@ -264,7 +264,7 @@ func (s *Server) editEmail(w http.ResponseWriter, r *http.Request) (*ViewModel, 
 	renderCtx.EditEmail = true
 	renderCtx.TwoFactorEmail = common.MaskEmail(user.Email, '*')
 
-	code := twoFactorCode()
+	code := twoFactorCode(ctx)
 	location := r.Header.Get(s.CountryCodeHeader.Value())
 
 	if err := s.Mailer.SendTwoFactor(ctx, user.Email, code, r.UserAgent(), location); err != nil {

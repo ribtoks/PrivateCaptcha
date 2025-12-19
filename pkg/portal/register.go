@@ -150,7 +150,7 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	code := twoFactorCode()
+	code := twoFactorCode(ctx)
 	location := r.Header.Get(s.CountryCodeHeader.Value())
 
 	if err := s.Mailer.SendTwoFactor(ctx, email, code, r.UserAgent(), location); err != nil {
