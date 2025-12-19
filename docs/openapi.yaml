@@ -235,6 +235,10 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/AsyncTaskResultOutput"
+        "403":
+          description: API key not valid or user does does not have right to access this async task
+        "429":
+          description: API key rate limited
       security:
         - ApiKeyAuth: []
   /orgs:
@@ -257,6 +261,12 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/OrgOutput"
+        "400":
+          description: Invalid API key format
+        "403":
+          description: API key not found
+        "429":
+          description: API key rate limited
       security:
         - ApiKeyAuth: []
   /org:
@@ -282,6 +292,12 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/OrgOutput"
+        "400":
+          description: Invalid API key format
+        "403":
+          description: API key not found
+        "429":
+          description: API key rate limited
       security:
         - ApiKeyAuth: []
     put:
@@ -306,6 +322,12 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/OrgOutput"
+        "400":
+          description: Invalid API key format or invalid organization ID
+        "403":
+          description: API key not found or user is not organization owner
+        "429":
+          description: API key rate limited
       security:
         - ApiKeyAuth: []
     delete:
@@ -325,6 +347,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/APIResponse"
+        "400":
+          description: Invalid API key format or invalid organization ID
+        "403":
+          description: API key not found or user is not organization owner
+        "429":
+          description: API key rate limited
       security:
         - ApiKeyAuth: []
   /org/{org_id}/properties:
@@ -361,6 +389,12 @@ paths:
                         type: array
                         items:
                           $ref: "#/components/schemas/OrgPropertyOutput"
+        "400":
+          description: Invalid API key format or invalid organization ID
+        "403":
+          description: API key not found or user is not a member or owner of organization
+        "429":
+          description: API key rate limited
       security:
         - ApiKeyAuth: []
     post:
@@ -393,6 +427,12 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/AsyncTaskOutput"
+        "400":
+          description: Invalid API key format or invalid organization ID
+        "403":
+          description: API key not found or user is not an owner of organization
+        "429":
+          description: API key rate limited
       security:
         - ApiKeyAuth: []
   /properties:
@@ -420,6 +460,12 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/AsyncTaskOutput"
+        "400":
+          description: Invalid API key format or invalid body payload
+        "403":
+          description: API key not found
+        "429":
+          description: API key rate limited
       security:
         - ApiKeyAuth: []
     patch:
@@ -446,6 +492,12 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/AsyncTaskOutput"
+        "400":
+          description: Invalid API key format or invalid body payload
+        "403":
+          description: API key not found
+        "429":
+          description: API key rate limited
       security:
         - ApiKeyAuth: []
   /org/{org_id}/property/{property_id}:
@@ -477,6 +529,12 @@ paths:
                     properties:
                       data:
                         $ref: "#/components/schemas/PropertyOutput"
+        "400":
+          description: Invalid API key format, organization or property IDs
+        "403":
+          description: API key not found or user does not have access to this property in this organization
+        "429":
+          description: API key rate limited
       security:
         - ApiKeyAuth: []
 
@@ -550,22 +608,30 @@ components:
           type: object
         pagination:
           $ref: "#/components/schemas/Pagination"
+      required:
+        - meta
+        - data
     ResponseMetadata:
       type: object
       properties:
         code:
           type: integer
+          example: 1000
         request_id:
           type: string
+          example: 9m4e2mr0ui3e8a215n4g
         description:
           type: string
+          example: OK
     Pagination:
       type: object
       properties:
         page:
           type: integer
+          example: 1
         per_page:
           type: integer
+          example: 50
         has_more:
           type: boolean
     OrgInput:
@@ -573,39 +639,57 @@ components:
       properties:
         id:
           type: string
+          example: ueRWrHqlki
         name:
           type: string
+          example: "My Organization"
     OrgOutput:
       type: object
       properties:
         id:
           type: string
+          example: XGfmWT7ZPI
         name:
           type: string
+          example: "My Organization"
+    PropertyGrowth:
+      type: string
+      enum:
+        - constant
+        - slow
+        - medium
+        - fast
     PropertySettings:
       type: object
       properties:
         name:
           type: string
+          example: "Company Website"
         level:
           type: integer
+          example: 95
         growth:
-          type: string
+          $ref: "#/components/schemas/PropertyGrowth"
         validity_seconds:
           type: integer
+          example: 21600
         allow_subdomains:
           type: boolean
         allow_localhost:
           type: boolean
         max_replay_count:
           type: integer
+          example: 1
     CreatePropertyInput:
       allOf:
-        - $ref: "#/components/schemas/PropertySettings"
         - type: object
           properties:
             domain:
               type: string
+              example: "example.com"
+            name:
+              type: string
+              example: "Company Website"
     UpdatePropertyInput:
       allOf:
         - $ref: "#/components/schemas/PropertySettings"
@@ -613,6 +697,7 @@ components:
           properties:
             id:
               type: string
+              example: t3hlMTu0XX
     PropertyOutput:
       allOf:
         - $ref: "#/components/schemas/PropertySettings"
@@ -620,29 +705,37 @@ components:
           properties:
             id:
               type: string
+              example: 0VgGggmbGa
             domain:
               type: string
+              example: example.com
             sitekey:
               type: string
+              example: 525e0ef5b9bc489f882274b3ca24b710
     OrgPropertyOutput:
       type: object
       properties:
         id:
           type: string
+          example: vDWtASYqrB
         name:
           type: string
+          example: "Company Website"
         sitekey:
           type: string
+          example: 288a919fa0424bc09ed0d935fdc93433
     AsyncTaskOutput:
       type: object
       properties:
         id:
           type: string
+          example: e3e6854e06944cf48f49f93abb5a527e
     AsyncTaskResultOutput:
       type: object
       properties:
         id:
           type: string
+          example: e3e6854e06944cf48f49f93abb5a527e
         finished:
           type: boolean
         result:
