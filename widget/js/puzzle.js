@@ -14,7 +14,7 @@ export async function getPuzzle(endpoint, sitekey) {
         );
 
         if (response.ok) {
-            const data = await response.text()
+            const data = await response.text();
             return data;
         } else {
             let json = await response.json();
@@ -129,13 +129,13 @@ export class Puzzle {
         this.userData = data.slice(offset, offset + userDataSize);
         offset += userDataSize;
 
-        let puzzleBuffer = data;
-        if (puzzleBuffer.length < PUZZLE_BUFFER_LENGTH) {
+        let sourceBuffer = data;
+        if (sourceBuffer.length < PUZZLE_BUFFER_LENGTH) {
             const enlargedBuffer = new Uint8Array(PUZZLE_BUFFER_LENGTH);
-            enlargedBuffer.set(puzzleBuffer);
+            enlargedBuffer.set(sourceBuffer);
             this.puzzleBuffer = enlargedBuffer;
         } else {
-            this.puzzleBuffer = puzzleBuffer;
+            this.puzzleBuffer = sourceBuffer;
         }
     }
 

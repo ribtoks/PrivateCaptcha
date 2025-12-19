@@ -6,7 +6,7 @@ import (
 
 var (
 	templates = []*common.EmailTemplate{
-		APIKeyExirationTemplate,
+		APIKeyExpirationTemplate,
 		APIKeyExpiredTemplate,
 		WelcomeEmailTemplate,
 		TwoFactorEmailTemplate,

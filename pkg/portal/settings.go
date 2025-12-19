@@ -159,6 +159,7 @@ func (s *Server) getSettingsTab(w http.ResponseWriter, r *http.Request) (*ViewMo
 	tabID, err := common.StrPathArg(r, common.ParamTab)
 	if err != nil {
 		slog.ErrorContext(ctx, "Cannot retrieve tab from path", common.ErrAttr(err))
+		// NOTE: we don't quit intentionally as this is a "soft" error
 	}
 
 	tab, err := s.findTab(ctx, tabID)
@@ -470,7 +471,7 @@ func createAPIKeyExpirationNotification(key *dbgen.APIKey, userKey *userAPIKey) 
 			ExpireDays: apiKeyExpirationNotificationDays,
 		},
 		DateTime:     key.ExpiresAt.Time.AddDate(0, 0, -apiKeyExpirationNotificationDays),
-		TemplateHash: email.APIKeyExirationTemplate.Hash(),
+		TemplateHash: email.APIKeyExpirationTemplate.Hash(),
 		Persistent:   false,
 		Condition:    common.NotificationWithSubscription,
 	}
@@ -623,19 +624,23 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (*Vi
 }
 
 func (s *Server) createAPIKeyExpiryNotifications(ctx context.Context, key *dbgen.APIKey, userKey *userAPIKey) error {
-	var anyError error
+	var errs []error
 	minNotificationDate := time.Now().UTC().AddDate(0, 0, apiKeyExpirationNotificationDays)
 	if key.ExpiresAt.Valid && key.ExpiresAt.Time.After(minNotificationDate) {
 		if _, err := s.Store.Impl().CreateUserNotification(ctx, createAPIKeyExpirationNotification(key, userKey)); err != nil {
-			anyError = err
+			errs = append(errs, err)
 		}
 	}
 
 	if _, err := s.Store.Impl().CreateUserNotification(ctx, createAPIKeyExpiredNotification(key, userKey)); err != nil {
-		anyError = err
+		errs = append(errs, err)
 	}
 
-	return anyError
+	if len(errs) == 0 {
+		return nil
+	}
+
+	return errors.Join(errs...)
 }
 
 func (s *Server) rotateAPIKey(w http.ResponseWriter, r *http.Request) (*ViewModel, error) {
@@ -706,14 +711,19 @@ func (s *Server) deleteAPIKey(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteAPIKeyExpiryNotifications(ctx context.Context, user *dbgen.User, keyID int32) error {
-	var anyError error
+	var errs []error
 	if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpirationReference(keyID)); err != nil {
-		anyError = err
+		errs = append(errs, err)
 	}
 	if err := s.Store.Impl().DeletePendingUserNotification(ctx, user, apiKeyExpiredReference(keyID)); err != nil {
-		anyError = err
+		errs = append(errs, err)
 	}
-	return anyError
+
+	if len(errs) == 0 {
+		return nil
+	}
+
+	return errors.Join(errs...)
 }
 
 func (s *Server) getAccountStats(w http.ResponseWriter, r *http.Request) {
