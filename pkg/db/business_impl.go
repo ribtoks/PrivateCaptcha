@@ -2796,3 +2796,16 @@ func (impl *BusinessStoreImpl) RetrieveOrgPropertiesCount(ctx context.Context, o
 
 	return count, nil
 }
+
+func (impl *BusinessStoreImpl) CleanupUserCache(ctx context.Context, userID int32) {
+	_ = impl.cache.Delete(ctx, userOrgsCacheKey(userID))
+	_ = impl.cache.Delete(ctx, UserAPIKeysCacheKey(userID))
+	_ = impl.cache.Delete(ctx, userPropertiesCountCacheKey(userID))
+
+	tnow := time.Now().UTC().Truncate(24 * time.Hour)
+	for _, cacheDays := range []int{ /*14,*/ 30, 90, 180, 365} {
+		cachedAfter := tnow.AddDate(0 /*years*/, 0 /*months*/, -cacheDays)
+		key := cachedAfter.Format(time.DateOnly)
+		_ = impl.cache.Delete(ctx, userAuditLogsCacheKey(userID, key))
+	}
+}
