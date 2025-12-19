@@ -82,3 +82,7 @@ type AuditLog interface {
 	RecordEvent(ctx context.Context, event *AuditLogEvent, source AuditLogSource)
 	RecordEvents(ctx context.Context, events []*AuditLogEvent, source AuditLogSource)
 }
+
+type EmailVerifier interface {
+	VerifyEmail(ctx context.Context, email string) error
+}

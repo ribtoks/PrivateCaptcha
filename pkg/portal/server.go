@@ -144,6 +144,7 @@ type Server struct {
 	UserLimiter        api.UserLimiter
 	AuditLogsFunc      AuditLogsConstructor
 	SubscriptionLimits db.SubscriptionLimits
+	EmailVerifier      common.EmailVerifier
 }
 
 func (s *Server) createSettingsTabs() []*SettingsTab {

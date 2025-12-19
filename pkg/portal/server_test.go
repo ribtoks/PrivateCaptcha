@@ -77,6 +77,7 @@ func TestMain(m *testing.M) {
 			DataCtx:            dataCtx,
 			PlatformCtx:        platformCtx,
 			SubscriptionLimits: &db.StubSubscriptionLimits{},
+			EmailVerifier:      &PortalEmailVerifier{},
 		}
 
 		ctx := context.TODO()
@@ -135,6 +136,7 @@ func TestMain(m *testing.M) {
 		CountryCodeHeader:  cfg.Get(common.CountryCodeHeaderKey),
 		UserLimiter:        api.NewUserLimiter(store),
 		SubscriptionLimits: db.NewSubscriptionLimits(common.StageTest, store, planService),
+		EmailVerifier:      &PortalEmailVerifier{},
 	}
 
 	ctx := context.TODO()

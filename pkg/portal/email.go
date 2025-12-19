@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/badoux/checkmail"
 	"github.com/medama-io/go-useragent"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
@@ -17,6 +18,14 @@ import (
 var (
 	errInvalidEmail = errors.New("email is not valid")
 )
+
+type PortalEmailVerifier struct{}
+
+var _ common.EmailVerifier = (*PortalEmailVerifier)(nil)
+
+func (ev *PortalEmailVerifier) VerifyEmail(ctx context.Context, email string) error {
+	return checkmail.ValidateFormat(email)
+}
 
 type PortalMailer struct {
 	Mailer             emailpkg.Sender

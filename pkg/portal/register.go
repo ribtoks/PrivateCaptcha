@@ -14,7 +14,6 @@ import (
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
-	"github.com/badoux/checkmail"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -137,7 +136,7 @@ func (s *Server) postRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	email := strings.TrimSpace(r.FormValue(common.ParamEmail))
-	if err := checkmail.ValidateFormat(email); err != nil {
+	if err := s.EmailVerifier.VerifyEmail(ctx, email); err != nil {
 		slog.WarnContext(ctx, "Failed to validate email format", common.ErrAttr(err))
 		data.EmailError = "Email address is not valid."
 		s.render(w, r, registerContentsTemplate, data)

@@ -219,6 +219,7 @@ func run(ctx context.Context, cfg common.ConfigStore, stderr io.Writer, listener
 		CountryCodeHeader:  cfg.Get(common.CountryCodeHeaderKey),
 		UserLimiter:        userLimiter,
 		SubscriptionLimits: subscriptionLimits,
+		EmailVerifier:      &portal.PortalEmailVerifier{},
 	}
 
 	templatesBuilder := portal.NewTemplatesBuilder()
