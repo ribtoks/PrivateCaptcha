@@ -10,7 +10,7 @@ export async function getPuzzle(endpoint, sitekey) {
     try {
         const response = await fetchWithBackoff(`${endpoint}?sitekey=${sitekey}`,
             { headers: [["x-pc-captcha-version", "1"]], mode: "cors" },
-            3 /*max attempts*/
+            5 /*max attempts*/
         );
 
         if (response.ok) {
