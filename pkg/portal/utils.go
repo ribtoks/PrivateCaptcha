@@ -2,7 +2,9 @@ package portal
 
 import (
 	"context"
+	"crypto/rand"
 	"log/slog"
+	"math/big"
 	randv2 "math/rand/v2"
 	"net/http"
 
@@ -13,8 +15,17 @@ import (
 )
 
 // NOTE: this will eventually be replaced by proper OTP
-func twoFactorCode() int {
-	return randv2.IntN(900000) + 100000
+func twoFactorCode(ctx context.Context) int {
+	const span = 900000
+	const start = 100000
+	n, err := rand.Int(rand.Reader, big.NewInt(span))
+	if err != nil {
+		slog.ErrorContext(ctx, "Failed to generate two-factor code using crypto/rand", common.ErrAttr(err))
+
+		return randv2.IntN(span) + start
+	}
+
+	return int(n.Int64()) + start
 }
 
 func (s *Server) Org(user *dbgen.User, r *http.Request) (*dbgen.Organization, error) {
