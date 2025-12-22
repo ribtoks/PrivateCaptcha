@@ -71,8 +71,9 @@ build-widget-library:
 	rm -v widget/lib/*.js widget/lib/*.js.map || echo 'Nothing to remove'
 	cd widget && env STAGE="$(STAGE)" BUILD_TARGET="library" npm run build
 
+publish-widget-library: EXTRA_PUBLISH_FLAGS = --access public
 publish-widget-library:
-	cd widget/lib && npm publish --access public
+	cd widget/lib && npm publish $(EXTRA_PUBLISH_FLAGS)
 
 build-view-emails:
 	env GOFLAGS="-mod=vendor" go build -o bin/viewemails cmd/viewemails/*.go
