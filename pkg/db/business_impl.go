@@ -1019,7 +1019,7 @@ func (impl *BusinessStoreImpl) SoftDeleteProperties(ctx context.Context, ids []i
 	slog.InfoContext(ctx, "Soft-deleted properties", "count", len(properties))
 
 	auditEvents := make([]*common.AuditLogEvent, 0, len(properties))
-	deletedIDs := make(map[int32]struct{})
+	deletedIDs := make(map[int32]struct{}, len(properties))
 
 	for _, property := range properties {
 		impl.deleteCachedProperty(ctx, property)

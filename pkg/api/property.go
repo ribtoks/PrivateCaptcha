@@ -79,7 +79,7 @@ func (s *Server) validateApiProperties(ctx context.Context, inputs []*apiCreateP
 		return common.StatusPropertiesTooManyError
 	}
 
-	namesMap := make(map[string]struct{})
+	namesMap := make(map[string]struct{}, len(inputs))
 
 	// NOTE: by design those are (potentially) limited set (max first page) of org properties
 	if properties, err := s.BusinessDB.Impl().GetCachedOrgProperties(ctx, orgID); err == nil {
@@ -141,8 +141,8 @@ func (s *Server) validateApiPropertyUpdates(ctx context.Context, inputs []*apiUp
 		return common.StatusPropertiesTooManyError
 	}
 
-	idsMap := make(map[string]struct{})
-	nameMap := make(map[string]struct{})
+	idsMap := make(map[string]struct{}, maxPropertiesBatchSize/2)
+	nameMap := make(map[string]struct{}, maxPropertiesBatchSize/2)
 
 	for i, input := range inputs {
 		ilog := slog.With("index", i, "id", input.ID, "name", input.Name)
@@ -400,7 +400,7 @@ func (s *Server) deleteProperties(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idsToDelete := make(map[int]struct{})
+	idsToDelete := make(map[int]struct{}, len(encryptedIDs))
 	propertyIDs := make([]int32, 0, len(encryptedIDs))
 	for _, encID := range encryptedIDs {
 		id, err := s.IDHasher.Decrypt(encID)

@@ -43,7 +43,7 @@ func (j *WarmupAPICacheJob) RunOnce(ctx context.Context, params any) error {
 	}
 
 	t := struct{}{}
-	users := make(map[int32]struct{})
+	users := make(map[int32]struct{}, len(properties))
 	for _, p := range properties {
 		if p.OrgOwnerID.Valid {
 			users[p.OrgOwnerID.Int32] = t

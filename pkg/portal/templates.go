@@ -175,7 +175,7 @@ func (b *TemplatesBuilder) Build(ctx context.Context) (*Templates, error) {
 		templates.finalFuncs[k] = v
 	}
 
-	allBundleNames := make(map[string]struct{})
+	allBundleNames := make(map[string]struct{}, len(b.layers))
 	t := struct{}{}
 	for _, layer := range b.layers {
 		for name := range layer.Bundles {

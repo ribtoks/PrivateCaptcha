@@ -463,7 +463,7 @@ func (br *StoreBulkReader[TArg, TKey, T]) Read(ctx context.Context, args map[TAr
 	}
 
 	queryKeys := make([]TKey, 0, len(args))
-	argsMap := make(map[TArg]struct{})
+	argsMap := make(map[TArg]struct{}, len(args))
 	cached := make([]*T, 0, len(args))
 	anyInputError := false
 

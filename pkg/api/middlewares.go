@@ -82,7 +82,7 @@ func (ul *baseUserLimiter) CheckUsers(ctx context.Context, batch map[int32]uint)
 	t := struct{}{}
 	users, err := ul.store.Impl().RetrieveUsersWithoutSubscription(ctx, unknownUsers)
 	if err == nil {
-		violatorsMap := make(map[int32]struct{})
+		violatorsMap := make(map[int32]struct{}, len(users))
 		for _, u := range users {
 			_ = ul.userLimits.Set(ctx, u.ID, true)
 			violatorsMap[u.ID] = t
@@ -187,7 +187,7 @@ func (am *AuthMiddleware) backfillSitekeyImpl(ctx context.Context, batch map[str
 	}
 
 	const maxOrgsToPull = 10
-	orgs := make(map[int32]struct{})
+	orgs := make(map[int32]struct{}, len(properties))
 
 	for _, p := range properties {
 		if p.OrgOwnerID.Valid {

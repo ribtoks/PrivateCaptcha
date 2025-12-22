@@ -175,7 +175,7 @@ func thresholdFromDifficulty(difficulty uint8) uint32 {
 }
 
 func (s *Solutions) CheckUnique() error {
-	uniqueSolutions := make(map[uint64]bool)
+	uniqueSolutions := make(map[uint64]bool, solutionsCount)
 
 	for start := 0; start < len(s.Buffer); start += SolutionLength {
 		solution := s.Buffer[start:(start + SolutionLength)]

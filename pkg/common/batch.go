@@ -79,13 +79,13 @@ func ProcessBatchMap[T comparable](ctx context.Context, channel <-chan T, delay 
 	}()
 
 	sp := &safeProcessor[T, map[T]uint]{processor: processor}
-	batch := make(map[T]uint)
+	batch := make(map[T]uint, triggerSize)
 	slog.DebugContext(ctx, "Processing batch", "interval", delay.String())
 
 	for running := true; running; {
 		if len(batch) > maxBatchSize {
 			slog.ErrorContext(ctx, "Dropping pending batch due to errors", "count", len(batch))
-			batch = make(map[T]uint)
+			batch = make(map[T]uint, triggerSize)
 		}
 
 		select {
@@ -103,14 +103,14 @@ func ProcessBatchMap[T comparable](ctx context.Context, channel <-chan T, delay 
 			if len(batch) >= triggerSize {
 				slog.Log(ctx, LevelTrace, "Processing batch", "count", len(batch), "reason", "batch")
 				if err := sp.Process(ctx, batch); err == nil {
-					batch = make(map[T]uint)
+					batch = make(map[T]uint, triggerSize)
 				}
 			}
 		case <-time.After(delay):
 			if len(batch) > 0 {
 				slog.Log(ctx, LevelTrace, "Processing batch", "count", len(batch), "reason", "timeout")
 				if err := sp.Process(ctx, batch); err == nil {
-					batch = make(map[T]uint)
+					batch = make(map[T]uint, triggerSize)
 				}
 			}
 		}

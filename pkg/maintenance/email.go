@@ -82,7 +82,7 @@ func (j *UserEmailNotificationsJob) Name() string {
 }
 
 func groupNotificationsByTemplate(ctx context.Context, notifications []*dbgen.GetPendingUserNotificationsRow) map[string][]*dbgen.GetPendingUserNotificationsRow {
-	result := make(map[string][]*dbgen.GetPendingUserNotificationsRow)
+	result := make(map[string][]*dbgen.GetPendingUserNotificationsRow, len(notifications)/2)
 
 	for _, n := range notifications {
 		un := &n.UserNotification
@@ -102,7 +102,7 @@ func groupNotificationsByTemplate(ctx context.Context, notifications []*dbgen.Ge
 }
 
 func indexTemplates(ctx context.Context, templates []*common.EmailTemplate) map[string]*common.EmailTemplate {
-	tplMap := make(map[string]*common.EmailTemplate)
+	tplMap := make(map[string]*common.EmailTemplate, len(templates))
 	for _, tpl := range templates {
 		hash := tpl.Hash()
 		if _, ok := tplMap[hash]; ok {
@@ -273,7 +273,7 @@ func (j *UserEmailNotificationsJob) updateNotifications(ctx context.Context,
 		slog.ErrorContext(ctx, "Failed to mark notifications processed", common.ErrAttr(err))
 	}
 
-	processedNotifications := make(map[int32]struct{})
+	processedNotifications := make(map[int32]struct{}, len(processedIDs))
 	t := struct{}{}
 	for _, id := range processedIDs {
 		processedNotifications[id] = t

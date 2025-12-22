@@ -203,8 +203,8 @@ func (l *Levels) retrievePropertyStatsSafe(ctx context.Context, r *common.Backfi
 func (l *Levels) backfillDifficulty(ctx context.Context, cacheDuration time.Duration) {
 	slog.DebugContext(ctx, "Backfilling difficulty", "cacheDuration", cacheDuration)
 
-	cache := make(map[string]time.Time)
 	const maxCacheSize = 250
+	cache := make(map[string]time.Time, maxCacheSize/3)
 	lastCleanupTime := time.Now()
 
 	for r := range l.backfillChan {

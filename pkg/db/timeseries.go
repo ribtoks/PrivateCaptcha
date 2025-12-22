@@ -406,7 +406,7 @@ LIMIT %d`
 
 	defer rows.Close()
 
-	properties := make(map[int32]uint)
+	properties := make(map[int32]uint, limit)
 
 	for rows.Next() {
 		var propertyID int32
