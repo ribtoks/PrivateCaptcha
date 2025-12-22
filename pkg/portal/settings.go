@@ -33,6 +33,10 @@ const (
 
 	// notifications
 	apiKeyExpirationNotificationDays = 14
+
+	// API key read flags
+	apiKeyReadWriteSuffix = "_read_write"
+	apiKeyReadOnlySuffix  = "_read_only"
 )
 
 var (
@@ -93,6 +97,7 @@ type userAPIKey struct {
 	Scope             string
 	RequestsPerMinute int
 	ExpiresSoon       bool
+	ReadOnly          bool
 }
 
 type settingsAPIKeysRenderContext struct {
@@ -119,6 +124,7 @@ func apiKeyToUserAPIKey(key *dbgen.APIKey, tnow time.Time, hasher common.Identif
 		ExpiresSoon:       key.ExpiresAt.Time.Sub(tnow) <= apiKeyExpirationNotificationDays*24*time.Hour,
 		RequestsPerMinute: int(requestsPerMinute),
 		Scope:             string(key.Scope),
+		ReadOnly:          key.Readonly,
 	}
 }
 
@@ -523,14 +529,16 @@ func checkAPIKeyNameValid(ctx context.Context, name string) bool {
 	return true
 }
 
-func parseAPIKeyScope(scope string) (dbgen.ApiKeyScope, error) {
+func parseAPIKeyScope(scope string) (dbgen.ApiKeyScope, bool, error) {
 	switch scope {
-	case string(dbgen.ApiKeyScopePortal):
-		return dbgen.ApiKeyScopePortal, nil
+	case string(dbgen.ApiKeyScopePortal) + apiKeyReadWriteSuffix:
+		return dbgen.ApiKeyScopePortal, false, nil
+	case string(dbgen.ApiKeyScopePortal) + apiKeyReadOnlySuffix:
+		return dbgen.ApiKeyScopePortal, true, nil
 	case string(dbgen.ApiKeyScopePuzzle):
-		return dbgen.ApiKeyScopePuzzle, nil
+		return dbgen.ApiKeyScopePuzzle, false, nil
 	default:
-		return dbgen.ApiKeyScopePuzzle, errInvalidAPIKeyScope
+		return dbgen.ApiKeyScopePuzzle, false, errInvalidAPIKeyScope
 	}
 }
 
@@ -569,7 +577,7 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (*Vi
 	}
 
 	scopeStr := strings.TrimSpace(r.FormValue(common.ParamScope))
-	scope, err := parseAPIKeyScope(scopeStr)
+	scope, readOnly, err := parseAPIKeyScope(scopeStr)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to parse API Key scope", "scope", scopeStr, common.ErrAttr(err))
 		renderCtx.WarningMessage = "Failed to create API key with invalid scope."
@@ -604,6 +612,7 @@ func (s *Server) postAPIKeySettings(w http.ResponseWriter, r *http.Request) (*Vi
 		RequestsBurst:     burst,
 		Period:            period,
 		Scope:             scope,
+		Readonly:          readOnly,
 	}
 	newKey, auditEvent, err := s.Store.Impl().CreateAPIKey(ctx, user, params)
 	if err == nil {

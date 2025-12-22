@@ -169,7 +169,7 @@ func (s *Server) readCreatePropertiesRequest(ctx context.Context, r *http.Reques
 
 func (s *Server) postNewProperties(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user, apiKey, err := s.requestUser(ctx)
+	user, apiKey, err := s.requestUser(ctx, false /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
 		return
@@ -423,7 +423,7 @@ func (s *Server) readDeletePropertiesRequest(ctx context.Context, r *http.Reques
 
 func (s *Server) deleteProperties(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user, apiKey, err := s.requestUser(ctx)
+	user, apiKey, err := s.requestUser(ctx, false /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
 		return
@@ -603,7 +603,7 @@ func (s *Server) readUpdatePropertiesRequest(ctx context.Context, r *http.Reques
 
 func (s *Server) updateProperties(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user, apiKey, err := s.requestUser(ctx)
+	user, apiKey, err := s.requestUser(ctx, false /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
 		return
@@ -755,7 +755,7 @@ func propertiesToApiOrgProperties(properties []*dbgen.Property, hasher common.Id
 
 func (s *Server) getOrgProperties(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user, _, err := s.requestUser(ctx)
+	user, _, err := s.requestUser(ctx, true /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
 		return
@@ -834,7 +834,7 @@ func (s *Server) getOrgProperties(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getOrgProperty(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user, _, err := s.requestUser(ctx)
+	user, _, err := s.requestUser(ctx, true /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
 		return

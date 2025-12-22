@@ -777,6 +777,40 @@ func TestApiPostPropertiesInvalidKey(t *testing.T) {
 	}
 }
 
+func TestApiPostPropertiesReadOnlyKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	inputs := []*apiCreatePropertyInput{
+		{
+			apiPropertySettings: apiPropertySettings{
+				Name: fmt.Sprintf("%s %s", t.Name(), "Property"),
+			},
+			Domain: "example.com",
+		},
+	}
+
+	_, org, apiKey, err := setupAPISuiteEx(ctx, t.Name(), dbgen.ApiKeyScopePortal, true /*read-only*/)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := apiRequestSuite(ctx, inputs,
+		http.MethodPost,
+		fmt.Sprintf("/%s/%s/%s", common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID)), common.PropertiesEndpoint),
+		apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("Unexpected status code: %v", resp.StatusCode)
+	}
+}
+
 func TestApiDeletePropertiesInvalidKey(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -786,6 +820,40 @@ func TestApiDeletePropertiesInvalidKey(t *testing.T) {
 
 	idsToDelete := []string{"some-id"}
 	apiKey := db.UUIDToSecret(*randomUUID())
+
+	resp, err := apiRequestSuite(ctx, idsToDelete,
+		http.MethodDelete,
+		"/"+common.PropertiesEndpoint,
+		apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("Unexpected status code: %v", resp.StatusCode)
+	}
+}
+
+func TestApiDeletePropertiesReadOnlyKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	user, org, apiKey, err := setupAPISuiteEx(ctx, t.Name(), dbgen.ApiKeyScopePortal, true /*read-only*/)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	property, _, err := s.BusinessDB.Impl().CreateNewProperty(ctx, db_test.CreateNewPropertyParams(user.ID, "example.com"), org)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	idsToDelete := []string{
+		s.IDHasher.Encrypt(int(property.ID)),
+	}
 
 	resp, err := apiRequestSuite(ctx, idsToDelete,
 		http.MethodDelete,
@@ -816,6 +884,51 @@ func TestApiUpdatePropertiesInvalidKey(t *testing.T) {
 		},
 	}
 	apiKey := db.UUIDToSecret(*randomUUID())
+
+	resp, err := apiRequestSuite(ctx, updates,
+		http.MethodPut,
+		"/"+common.PropertiesEndpoint,
+		apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("Unexpected status code: %v", resp.StatusCode)
+	}
+}
+
+func TestApiUpdatePropertiesReadOnlyKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	user, org, apiKey, err := setupAPISuiteEx(ctx, t.Name(), dbgen.ApiKeyScopePortal, true /*read-only*/)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	property, _, err := s.BusinessDB.Impl().CreateNewProperty(ctx, db_test.CreateNewPropertyParams(user.ID, "example.com"), org)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	updates := []*apiUpdatePropertyInput{
+		{
+			ID: s.IDHasher.Encrypt(int(property.ID)),
+			apiPropertySettings: apiPropertySettings{
+				Name:            "Updated Property 1",
+				Level:           int(common.DifficultyLevelHigh),
+				Growth:          string(dbgen.DifficultyGrowthMedium),
+				ValiditySeconds: int(puzzle.ValidityDurations[7].Seconds()),
+				AllowSubdomains: true,
+				AllowLocalhost:  false,
+				MaxReplayCount:  500,
+			},
+		},
+	}
 
 	resp, err := apiRequestSuite(ctx, updates,
 		http.MethodPut,

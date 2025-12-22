@@ -92,13 +92,18 @@ func requestResponseAPISuite[T any](ctx context.Context, request interface{}, me
 }
 
 func setupAPISuite(ctx context.Context, username string) (*dbgen.User, *dbgen.Organization, string, error) {
+	return setupAPISuiteEx(ctx, username, dbgen.ApiKeyScopePortal, false /*read-only*/)
+}
+
+func setupAPISuiteEx(ctx context.Context, username string, scope dbgen.ApiKeyScope, readOnly bool) (*dbgen.User, *dbgen.Organization, string, error) {
 	user, org, err := db_test.CreateNewAccountForTest(ctx, store, username, testPlan)
 	if err != nil {
 		return nil, nil, "", err
 	}
 
 	keyParams := tests.CreateNewPuzzleAPIKeyParams(username+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/)
-	keyParams.Scope = dbgen.ApiKeyScopePortal
+	keyParams.Scope = scope
+	keyParams.Readonly = readOnly
 	apikey, _, err := store.Impl().CreateAPIKey(ctx, user, keyParams)
 	if err != nil {
 		return nil, nil, "", err
@@ -267,6 +272,32 @@ func TestAPIOrgPermissions(t *testing.T) {
 	}
 }
 
+func TestAPICreateOrgReadOnlyKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	_, _, apiKey, err := setupAPISuiteEx(ctx, t.Name(), dbgen.ApiKeyScopePortal, true /*read-only*/)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := &apiOrgInput{
+		Name: t.Name(),
+	}
+
+	resp, err := apiRequestSuite(ctx, input, http.MethodPost, "/"+common.OrgEndpoint, apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("Unexpected status code: %v", resp.StatusCode)
+	}
+}
+
 func TestAPICreateOrgInvalidKey(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -313,6 +344,32 @@ func TestAPIDeleteOrgInvalidKey(t *testing.T) {
 	}
 }
 
+func TestAPIDeleteOrgReadOnlyKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	_, org, apiKey, err := setupAPISuiteEx(ctx, t.Name(), dbgen.ApiKeyScopePortal, true /*read-only*/)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := &apiOrgInput{
+		ID: s.IDHasher.Encrypt(int(org.ID)),
+	}
+
+	resp, err := apiRequestSuite(ctx, input, http.MethodDelete, "/"+common.OrgEndpoint, apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("Unexpected status code: %v", resp.StatusCode)
+	}
+}
+
 func TestAPIUpdateOrgInvalidKey(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -326,6 +383,33 @@ func TestAPIUpdateOrgInvalidKey(t *testing.T) {
 	}
 
 	apiKey := db.UUIDToSecret(*randomUUID())
+
+	resp, err := apiRequestSuite(ctx, input, http.MethodPut, "/"+common.OrgEndpoint, apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("Unexpected status code: %v", resp.StatusCode)
+	}
+}
+
+func TestAPIUpdateOrgReadOnlyKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	_, org, apiKey, err := setupAPISuiteEx(ctx, t.Name(), dbgen.ApiKeyScopePortal, true /*read-only*/)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := &apiOrgInput{
+		ID:   s.IDHasher.Encrypt(int(org.ID)),
+		Name: "Org Update " + xid.New().String(),
+	}
 
 	resp, err := apiRequestSuite(ctx, input, http.MethodPut, "/"+common.OrgEndpoint, apiKey)
 	if err != nil {

@@ -32,13 +32,14 @@ const (
 )
 
 var (
-	errAPIKeyNotSet  = errors.New("API key is not set in context")
-	errInvalidAPIKey = errors.New("API key is not valid")
-	errAPIKeyScope   = errors.New("API key scope is not valid")
-	errPuzzleOwner   = errors.New("error fetching puzzle owner")
-	errInvalidArg    = errors.New("invalid arguments")
-	errTestSolutions = errors.New("invalid test solutions")
-	headersAnyOrigin = map[string][]string{
+	errAPIKeyNotSet   = errors.New("API key is not set in context")
+	errInvalidAPIKey  = errors.New("API key is not valid")
+	errAPIKeyScope    = errors.New("API key scope is not valid")
+	errAPIKeyReadOnly = errors.New("API key read-write mode mismatch")
+	errPuzzleOwner    = errors.New("error fetching puzzle owner")
+	errInvalidArg     = errors.New("invalid arguments")
+	errTestSolutions  = errors.New("invalid test solutions")
+	headersAnyOrigin  = map[string][]string{
 		http.CanonicalHeaderKey(common.HeaderAccessControlOrigin): []string{"*"},
 		http.CanonicalHeaderKey(common.HeaderAccessControlAge):    []string{"86400"},
 	}

@@ -289,6 +289,7 @@ type APIKey struct {
 	UpdatedAt         pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	Period            time.Duration      `db:"period" json:"period"`
 	Scope             ApiKeyScope        `db:"scope" json:"scope"`
+	Readonly          bool               `db:"readonly" json:"readonly"`
 }
 
 type AsyncTask struct {

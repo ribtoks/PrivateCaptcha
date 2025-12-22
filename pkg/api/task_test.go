@@ -7,6 +7,7 @@ import (
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
+	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/rs/xid"
 )
 
@@ -71,5 +72,36 @@ func TestGetAsyncTaskInvalidKey(t *testing.T) {
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("Unexpected status code: %v", resp.StatusCode)
+	}
+}
+
+func TestGetAsyncTaskReadOnlyKey(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	user, _, apiKey, err := setupAPISuiteEx(ctx, t.Name(), dbgen.ApiKeyScopePortal, true /*read-only*/)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handlerID := xid.New().String()
+	request := struct{}{}
+	task, err := s.BusinessDB.Impl().CreateNewAsyncTask(ctx, request, handlerID, user, time.Now().UTC().Add(24*time.Hour), t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	taskID := db.UUIDToString(task.ID)
+
+	// with read-only api key it still should work
+	_, meta, err := requestResponseAPISuite[*apiAsyncTaskResultOutput](ctx, nil, http.MethodGet, "/"+common.AsyncTaskEndpoint+"/"+taskID, apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !meta.Code.Success() {
+		t.Fatalf("Unexpected status code: %v", meta.Description)
 	}
 }

@@ -40,6 +40,7 @@ func CreateNewPuzzleAPIKeyParams(name string, tnow time.Time, period time.Durati
 		RequestsBurst:     int32(requestsPerSecond) * 5,
 		Period:            period,
 		Scope:             dbgen.ApiKeyScopePuzzle,
+		Readonly:          false,
 	}
 }
 

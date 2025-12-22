@@ -67,7 +67,7 @@ func (s *Server) validateOrgsLimit(ctx context.Context, user *dbgen.User) (bool,
 
 func (s *Server) getUserOrgs(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user, _, err := s.requestUser(ctx)
+	user, _, err := s.requestUser(ctx, true /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
 		return
@@ -86,7 +86,7 @@ func (s *Server) getUserOrgs(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user, _, err := s.requestUser(ctx)
+	user, _, err := s.requestUser(ctx, false /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
 		return
@@ -137,7 +137,7 @@ func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) updateOrg(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user, _, err := s.requestUser(ctx)
+	user, _, err := s.requestUser(ctx, false /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
 		return
@@ -215,7 +215,7 @@ func (s *Server) updateOrg(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteOrg(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	user, _, err := s.requestUser(ctx)
+	user, _, err := s.requestUser(ctx, false /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
 		return
