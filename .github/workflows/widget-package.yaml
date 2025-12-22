@@ -54,6 +54,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write  # Required for OIDC
     steps:
       - uses: actions/checkout@v4
 
@@ -73,5 +74,3 @@ jobs:
 
       - name: Publish widget library
         run: make publish-widget-library
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
