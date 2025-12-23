@@ -580,6 +580,7 @@ components:
         - property-test
         - maintenance-mode
         - integrity-error
+        - org-scope-error
     VerifyResponse:
       type: object
       required:
