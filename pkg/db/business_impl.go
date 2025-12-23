@@ -1447,7 +1447,14 @@ func (impl *BusinessStoreImpl) CreateAPIKey(ctx context.Context, user *dbgen.Use
 		// invalidate keys cache
 		_ = impl.cache.Delete(ctx, UserAPIKeysCacheKey(user.ID))
 
-		auditEvent = newAPIKeyAuditLogEvent(user, key, common.AuditLogActionCreate)
+		var orgName string
+		if params.OrgID.Valid {
+			if org, err := FetchCachedOne[dbgen.Organization](ctx, impl.cache, orgCacheKey(params.OrgID.Int32)); err == nil {
+				orgName = org.Name
+			}
+		}
+
+		auditEvent = newAPIKeyAuditLogEvent(user, key, common.AuditLogActionCreate, orgName)
 	}
 
 	return key, auditEvent, nil
@@ -1536,7 +1543,7 @@ func (impl *BusinessStoreImpl) DeleteAPIKey(ctx context.Context, user *dbgen.Use
 
 	_ = impl.cache.Delete(ctx, UserAPIKeysCacheKey(user.ID))
 
-	auditEvent := newAPIKeyAuditLogEvent(user, key, common.AuditLogActionDelete)
+	auditEvent := newAPIKeyAuditLogEvent(user, key, common.AuditLogActionDelete, "")
 
 	return auditEvent, nil
 }

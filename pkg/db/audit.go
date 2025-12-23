@@ -485,9 +485,12 @@ type AuditLogAPIKey struct {
 	ExpiresAt         common.JSONTime `json:"expires_at,omitempty"`
 	Notes             string          `json:"notes,omitempty"`
 	Period            time.Duration   `json:"period,omitempty"`
+	Scope             string          `json:"scope,omitempty"`
+	OrgName           string          `json:"org_name,omitempty"`
+	ReadOnly          bool            `json:"readonly,omitempty"`
 }
 
-func newAuditLogAPIKey(key *dbgen.APIKey) *AuditLogAPIKey {
+func newAuditLogAPIKey(key *dbgen.APIKey, orgName string) *AuditLogAPIKey {
 	if key == nil {
 		return nil
 	}
@@ -501,10 +504,13 @@ func newAuditLogAPIKey(key *dbgen.APIKey) *AuditLogAPIKey {
 		ExpiresAt:         common.JSONTime(key.ExpiresAt.Time),
 		Notes:             key.Notes.String,
 		Period:            key.Period,
+		Scope:             string(key.Scope),
+		OrgName:           orgName,
+		ReadOnly:          key.Readonly,
 	}
 }
 
-func newAPIKeyAuditLogEvent(user *dbgen.User, apiKey *dbgen.APIKey, action common.AuditLogAction) *common.AuditLogEvent {
+func newAPIKeyAuditLogEvent(user *dbgen.User, apiKey *dbgen.APIKey, action common.AuditLogAction, orgName string) *common.AuditLogEvent {
 	event := &common.AuditLogEvent{
 		UserID:    user.ID,
 		Action:    action,
@@ -516,9 +522,9 @@ func newAPIKeyAuditLogEvent(user *dbgen.User, apiKey *dbgen.APIKey, action commo
 
 	switch action {
 	case common.AuditLogActionCreate, common.AuditLogActionRecover:
-		event.NewValue = newAuditLogAPIKey(apiKey)
+		event.NewValue = newAuditLogAPIKey(apiKey, orgName)
 	case common.AuditLogActionDelete, common.AuditLogActionSoftDelete:
-		event.OldValue = newAuditLogAPIKey(apiKey)
+		event.OldValue = newAuditLogAPIKey(apiKey, orgName)
 	}
 
 	return event
@@ -539,8 +545,8 @@ func newUpdateAPIKeyAuditLogEvent(user *dbgen.User, oldAPIKey, newAPIKey *dbgen.
 		Action:    common.AuditLogActionUpdate,
 		EntityID:  int64(entityKey.ID),
 		TableName: TableNameAPIKeys,
-		OldValue:  newAuditLogAPIKey(oldAPIKey),
-		NewValue:  newAuditLogAPIKey(newAPIKey),
+		OldValue:  newAuditLogAPIKey(oldAPIKey, ""),
+		NewValue:  newAuditLogAPIKey(newAPIKey, ""),
 	}
 }
 
