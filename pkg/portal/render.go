@@ -124,9 +124,9 @@ func NewRenderConstants() *RenderConstants {
 		Page:                       common.ParamPage,
 		ExportEndpoint:             common.ExportEndpoint,
 		Scope:                      common.ParamScope,
-		APIKeyScopePuzzle:          string(dbgen.ApiKeyScopePuzzle),
-		APIKeyScopePortalReadWrite: string(dbgen.ApiKeyScopePortal) + apiKeyReadWriteSuffix,
-		APIKeyScopePortalReadOnly:  string(dbgen.ApiKeyScopePortal) + apiKeyReadOnlySuffix,
+		APIKeyScopePuzzle:          apiKeyScopePuzzle,
+		APIKeyScopePortalReadWrite: apiKeyScopePortal + apiKeyReadWriteSuffix,
+		APIKeyScopePortalReadOnly:  apiKeyScopePortal + apiKeyReadOnlySuffix,
 		PropertiesEndpoint:         common.PropertiesEndpoint,
 		All:                        common.All,
 	}

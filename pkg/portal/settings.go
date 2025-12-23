@@ -37,6 +37,9 @@ const (
 	// API key read flags
 	apiKeyReadWriteSuffix = "_read_write"
 	apiKeyReadOnlySuffix  = "_read_only"
+
+	apiKeyScopePuzzle = "captcha"
+	apiKeyScopePortal = "portal"
 )
 
 var (
@@ -120,13 +123,21 @@ func apiKeyToUserAPIKey(key *dbgen.APIKey, tnow time.Time, hasher common.Identif
 	periodsPerMinute := float64(time.Minute) / period
 	requestsPerMinute := capacity * periodsPerMinute
 
+	var scope string
+	switch key.Scope {
+	case dbgen.ApiKeyScopePortal:
+		scope = apiKeyScopePortal
+	case dbgen.ApiKeyScopePuzzle:
+		scope = apiKeyScopePuzzle
+	}
+
 	return &userAPIKey{
 		ID:                hasher.Encrypt(int(key.ID)),
 		Name:              key.Name,
 		ExpiresAt:         key.ExpiresAt.Time.Format("02 Jan 2006"),
 		ExpiresSoon:       key.ExpiresAt.Time.Sub(tnow) <= apiKeyExpirationNotificationDays*24*time.Hour,
 		RequestsPerMinute: int(requestsPerMinute),
-		Scope:             string(key.Scope),
+		Scope:             scope,
 		ReadOnly:          key.Readonly,
 	}
 }
@@ -555,11 +566,11 @@ func checkAPIKeyNameValid(ctx context.Context, name string) bool {
 
 func parseAPIKeyScope(scope string) (dbgen.ApiKeyScope, bool, error) {
 	switch scope {
-	case string(dbgen.ApiKeyScopePortal) + apiKeyReadWriteSuffix:
+	case apiKeyScopePortal + apiKeyReadWriteSuffix:
 		return dbgen.ApiKeyScopePortal, false, nil
-	case string(dbgen.ApiKeyScopePortal) + apiKeyReadOnlySuffix:
+	case apiKeyScopePortal + apiKeyReadOnlySuffix:
 		return dbgen.ApiKeyScopePortal, true, nil
-	case string(dbgen.ApiKeyScopePuzzle):
+	case apiKeyScopePuzzle:
 		return dbgen.ApiKeyScopePuzzle, false, nil
 	default:
 		return dbgen.ApiKeyScopePuzzle, false, errInvalidAPIKeyScope
