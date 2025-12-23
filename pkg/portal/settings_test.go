@@ -12,7 +12,6 @@ import (
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
-	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	db_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
@@ -25,7 +24,7 @@ func createAPIKeySuite(srv *http.ServeMux, csrfToken string, cookie *http.Cookie
 	form.Set(common.ParamCSRFToken, csrfToken)
 	form.Set(common.ParamName, name)
 	form.Set(common.ParamDays, strconv.Itoa(days))
-	form.Set(common.ParamScope, string(dbgen.ApiKeyScopePuzzle))
+	form.Set(common.ParamScope, apiKeyScopePuzzle)
 
 	req := httptest.NewRequest("POST", "/settings/tab/apikeys/new", strings.NewReader(form.Encode()))
 	req.AddCookie(cookie)
