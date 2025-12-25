@@ -38,6 +38,10 @@ func (j *HealthCheckJob) Interval() time.Duration {
 	return time.Duration(max(1, config.AsInt(j.CheckInterval, 60))) * time.Second
 }
 
+func (j *HealthCheckJob) Timeout() time.Duration {
+	return 10 * time.Second
+}
+
 func (j *HealthCheckJob) Jitter() time.Duration {
 	return 1
 }

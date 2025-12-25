@@ -2,6 +2,8 @@ package common
 
 import (
 	"context"
+	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -20,6 +22,7 @@ func (m *mockPeriodicJob) Trigger() <-chan struct{} { return m.TriggerChan }
 
 // Set a long interval so we know for sure the run was caused by the Trigger,
 func (m *mockPeriodicJob) Interval() time.Duration { return 5 * time.Minute }
+func (m *mockPeriodicJob) Timeout() time.Duration  { return 0 }
 
 func (m *mockPeriodicJob) RunOnce(ctx context.Context, params any) error {
 	// Notify the test that we ran
@@ -54,5 +57,45 @@ func TestPeriodicJobWithManualTrigger(t *testing.T) {
 		case <-time.After(1 * time.Second):
 			t.Fatalf("Iteration %d: Job did not run after trigger", i)
 		}
+	}
+}
+
+type timeoutJobStub struct {
+	timedOut atomic.Bool
+}
+
+func (j *timeoutJobStub) NewParams() any { return nil }
+
+func (j *timeoutJobStub) RunOnce(ctx context.Context, _ any) error {
+	<-ctx.Done()
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		j.timedOut.Store(true)
+	}
+	return ctx.Err()
+}
+
+func (j *timeoutJobStub) Interval() time.Duration  { return time.Hour }
+func (j *timeoutJobStub) Jitter() time.Duration    { return 1 }
+func (j *timeoutJobStub) Timeout() time.Duration   { return 50 * time.Millisecond }
+func (j *timeoutJobStub) Name() string             { return "timeout-test-job" }
+func (j *timeoutJobStub) Trigger() <-chan struct{} { return nil }
+
+func TestRunPeriodicJobOnceRespectsTimeout(t *testing.T) {
+	t.Parallel()
+
+	job := &timeoutJobStub{}
+
+	ctx := context.Background()
+
+	start := time.Now()
+	RunPeriodicJobOnce(ctx, job, job.NewParams())
+	elapsed := time.Since(start)
+
+	if !job.timedOut.Load() {
+		t.Fatal("expected job to time out, but it did not")
+	}
+
+	if elapsed > 500*time.Millisecond {
+		t.Fatalf("job took too long to return: %v", elapsed)
 	}
 }

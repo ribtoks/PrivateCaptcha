@@ -19,6 +19,10 @@ type UniquePeriodicJob struct {
 
 var _ common.PeriodicJob = (*UniquePeriodicJob)(nil)
 
+func (j *UniquePeriodicJob) Timeout() time.Duration {
+	return j.Job.Timeout()
+}
+
 func (j *UniquePeriodicJob) Interval() time.Duration {
 	return j.Job.Interval()
 }

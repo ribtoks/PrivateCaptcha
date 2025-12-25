@@ -65,6 +65,10 @@ type UserEmailNotificationsJob struct {
 
 var _ common.PeriodicJob = (*UserEmailNotificationsJob)(nil)
 
+func (j *UserEmailNotificationsJob) Timeout() time.Duration {
+	return 5 * time.Minute
+}
+
 func (j *UserEmailNotificationsJob) Interval() time.Duration {
 	return 20 * time.Minute
 }
@@ -436,6 +440,10 @@ func (j *CleanupUserNotificationsJob) RunOnce(ctx context.Context, params any) e
 
 func (j *CleanupUserNotificationsJob) Trigger() <-chan struct{} {
 	return nil
+}
+
+func (j *CleanupUserNotificationsJob) Timeout() time.Duration {
+	return 1 * time.Minute
 }
 
 func (j *CleanupUserNotificationsJob) Interval() time.Duration {

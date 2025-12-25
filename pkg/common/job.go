@@ -22,6 +22,8 @@ type PeriodicJob interface {
 	// how many times the job will _attempt_ to run. In that case the "actual" interval for
 	// the most jobs will be determined by the duration of the lock they hold in DB.
 	Interval() time.Duration
+	// this is a soft non-enforced timeout for context
+	Timeout() time.Duration
 	// NOTE: if no jitter is needed, return 1, not 0
 	Jitter() time.Duration
 	Name() string
@@ -121,7 +123,17 @@ func RunPeriodicJob(ctx context.Context, j PeriodicJob) {
 		}
 
 		if runJob {
-			_ = j.RunOnce(ctx, j.NewParams())
+			func() {
+				runCtx := ctx
+				var cancel context.CancelFunc
+
+				if timeout := j.Timeout(); timeout > 0 {
+					runCtx, cancel = context.WithTimeout(ctx, timeout)
+					defer cancel()
+				}
+
+				_ = j.RunOnce(runCtx, j.NewParams())
+			}()
 		}
 	}
 }
@@ -136,7 +148,18 @@ func RunPeriodicJobOnce(ctx context.Context, j PeriodicJob, params any) error {
 	}()
 
 	slog.DebugContext(ctx, "Running periodic job once")
-	err := j.RunOnce(ctx, params)
+
+	err := func() error {
+		runCtx := ctx
+		var cancel context.CancelFunc
+
+		if timeout := j.Timeout(); timeout > 0 {
+			runCtx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+
+		return j.RunOnce(runCtx, j.NewParams())
+	}()
 	if err != nil {
 		slog.ErrorContext(ctx, "Periodic job failed", ErrAttr(err))
 	}

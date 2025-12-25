@@ -36,6 +36,7 @@ func (j *stubOneOffJob) wasExecuted() bool {
 
 type stubPeriodicJob struct {
 	interval time.Duration
+	timeout  time.Duration
 	jitter   time.Duration
 	executed int32
 }
@@ -52,6 +53,10 @@ func (j *stubPeriodicJob) Trigger() <-chan struct{} {
 
 func (j *stubPeriodicJob) Interval() time.Duration {
 	return j.interval
+}
+
+func (j *stubPeriodicJob) Timeout() time.Duration {
+	return j.timeout
 }
 
 func (j *stubPeriodicJob) Jitter() time.Duration {

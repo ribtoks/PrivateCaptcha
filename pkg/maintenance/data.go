@@ -24,6 +24,10 @@ type GarbageCollectDataJob struct {
 
 var _ common.PeriodicJob = (*GarbageCollectDataJob)(nil)
 
+func (j *GarbageCollectDataJob) Timeout() time.Duration {
+	return 5 * time.Minute
+}
+
 func (j *GarbageCollectDataJob) Interval() time.Duration {
 	return 1 * time.Hour
 }
@@ -131,6 +135,10 @@ type ExpireInternalTrialsJob struct {
 
 var _ common.PeriodicJob = (*ExpireInternalTrialsJob)(nil)
 
+func (j *ExpireInternalTrialsJob) Timeout() time.Duration {
+	return 5 * time.Minute
+}
+
 func (ExpireInternalTrialsJob) Interval() time.Duration {
 	return 1 * time.Hour
 }
@@ -201,6 +209,10 @@ func (j *CleanupAuditLogJob) Trigger() <-chan struct{} {
 	return nil
 }
 
+func (j *CleanupAuditLogJob) Timeout() time.Duration {
+	return 1 * time.Minute
+}
+
 func (j *CleanupAuditLogJob) Interval() time.Duration {
 	return 1 * time.Hour
 }
@@ -241,6 +253,10 @@ func (j *CleanupAsyncTasksJob) RunOnce(ctx context.Context, params any) error {
 
 func (j *CleanupAsyncTasksJob) Trigger() <-chan struct{} {
 	return nil
+}
+
+func (j *CleanupAsyncTasksJob) Timeout() time.Duration {
+	return 1 * time.Minute
 }
 
 func (j *CleanupAsyncTasksJob) Interval() time.Duration {

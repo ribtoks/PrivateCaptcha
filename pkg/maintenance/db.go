@@ -15,6 +15,10 @@ type CleanupDBCacheJob struct {
 
 var _ common.PeriodicJob = (*CleanupDBCacheJob)(nil)
 
+func (j *CleanupDBCacheJob) Timeout() time.Duration {
+	return 1 * time.Minute
+}
+
 func (j *CleanupDBCacheJob) Interval() time.Duration {
 	return 5 * time.Minute
 }
@@ -45,6 +49,10 @@ type CleanupDeletedRecordsJob struct {
 }
 
 var _ common.PeriodicJob = (*CleanupDeletedRecordsJob)(nil)
+
+func (j *CleanupDeletedRecordsJob) Timeout() time.Duration {
+	return 1 * time.Minute
+}
 
 func (j *CleanupDeletedRecordsJob) Interval() time.Duration {
 	return 24 * time.Hour

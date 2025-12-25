@@ -284,6 +284,10 @@ func (j *checkLicenseJob) checkLicense(ctx context.Context) error {
 	return nil
 }
 
+func (j *checkLicenseJob) Timeout() time.Duration {
+	return 1 * time.Minute
+}
+
 func (j *checkLicenseJob) RunOnce(ctx context.Context, params any) error {
 	if err := j.checkLicense(ctx); err != nil {
 		go j.quitFunc(ctx)

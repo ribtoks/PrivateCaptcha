@@ -25,6 +25,7 @@ func (j *TestJob) RunOnce(ctx context.Context, params any) error {
 }
 func (j *TestJob) Interval() time.Duration  { return 200 * time.Millisecond }
 func (j *TestJob) Jitter() time.Duration    { return 1 }
+func (j *TestJob) Timeout() time.Duration   { return 0 }
 func (j *TestJob) Name() string             { return "test_job" }
 func (j *TestJob) NewParams() any           { return struct{}{} }
 func (j *TestJob) Trigger() <-chan struct{} { return nil }

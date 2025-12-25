@@ -50,6 +50,10 @@ type AsyncTasksParams struct {
 var _ common.PeriodicJob = (*AsyncTasksJob)(nil)
 var _ db.AsyncTasks = (*AsyncTasksJob)(nil)
 
+func (j *AsyncTasksJob) Timeout() time.Duration {
+	return j.Interval()
+}
+
 func (j *AsyncTasksJob) Trigger() <-chan struct{} { return nil }
 
 func (j *AsyncTasksJob) Register(handler string, fn db.AsyncTaskHandler) bool {
