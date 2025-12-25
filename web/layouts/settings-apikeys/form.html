@@ -22,8 +22,10 @@
                         <div class="mt-2">
                             <select name="{{ .Const.Scope }}" class="w-full pc-internal-form-select">
                                 <option value="{{ .Const.APIKeyScopePuzzle }}" selected="selected">Captcha verification</option>
+                                {{ if $.Platform.Enterprise }}
                                 <option value="{{ .Const.APIKeyScopePortalReadWrite }}">Portal operations (read / write)</option>
                                 <option value="{{ .Const.APIKeyScopePortalReadOnly }}">Portal operations (read only)</option>
+                                {{ end }}
                             </select>
                         </div>
                     </div>
