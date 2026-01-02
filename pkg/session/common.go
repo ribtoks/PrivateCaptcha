@@ -16,6 +16,11 @@ var (
 	ErrSessionMissing = errors.New("session is missing")
 )
 
+func init() {
+	// for two factor timestamp
+	gob.Register(time.Time{})
+}
+
 type SessionKey int
 
 const (
