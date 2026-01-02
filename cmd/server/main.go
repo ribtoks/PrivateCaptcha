@@ -39,6 +39,7 @@ const (
 	modeMigrate             = "migrate"
 	modeRollback            = "rollback"
 	modeServer              = "server"
+	modeAuto                = "auto"
 	_readinessDrainDelay    = 1 * time.Second
 	_shutdownHardPeriod     = 3 * time.Second
 	_shutdownPeriod         = 10 * time.Second
@@ -63,7 +64,7 @@ const (
 
 var (
 	GitCommit       string
-	flagMode        = flag.String("mode", "", strings.Join([]string{modeMigrate, modeServer}, " | "))
+	flagMode        = flag.String("mode", "", strings.Join([]string{modeMigrate, modeServer, modeRollback, modeAuto}, " | "))
 	envFileFlag     = flag.String("env", "", "Path to .env file, 'stdin' or empty")
 	versionFlag     = flag.Bool("version", false, "Print version and exit")
 	migrateHashFlag = flag.String("migrate-hash", "", "Target migration version (git commit)")
@@ -484,6 +485,16 @@ func migrate(ctx context.Context, cfg common.ConfigStore, up bool) error {
 	return nil
 }
 
+func serve(cfg common.ConfigStore) (err error) {
+	ctx := common.TraceContext(context.Background(), "main")
+	if listener, lerr := createListener(ctx, cfg); lerr == nil {
+		err = run(ctx, cfg, os.Stderr, listener)
+	} else {
+		err = lerr
+	}
+	return
+}
+
 func main() {
 	flag.Parse()
 
@@ -502,18 +513,18 @@ func main() {
 
 	switch *flagMode {
 	case modeServer:
-		ctx := common.TraceContext(context.Background(), "main")
-		if listener, lerr := createListener(ctx, cfg); lerr == nil {
-			err = run(ctx, cfg, os.Stderr, listener)
-		} else {
-			err = lerr
-		}
+		err = serve(cfg)
 	case modeMigrate:
-		ctx := common.TraceContext(context.Background(), "migration")
-		err = migrate(ctx, cfg, true /*up*/)
+		mctx := common.TraceContext(context.Background(), "migration")
+		err = migrate(mctx, cfg, true /*up*/)
 	case modeRollback:
-		ctx := common.TraceContext(context.Background(), "migration")
-		err = migrate(ctx, cfg, false /*up*/)
+		rctx := common.TraceContext(context.Background(), "migration")
+		err = migrate(rctx, cfg, false /*up*/)
+	case modeAuto:
+		mctx := common.TraceContext(context.Background(), "migration")
+		if err = migrate(mctx, cfg, true /*up*/); err == nil {
+			err = serve(cfg)
+		}
 	default:
 		err = fmt.Errorf("unknown mode: '%s'", *flagMode)
 	}
