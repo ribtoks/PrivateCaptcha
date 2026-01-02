@@ -43,8 +43,12 @@ func (key SessionKey) String() string {
 		return "LoginStep"
 	case KeyUserID:
 		return "UserID"
+	case KeyUserEmail:
+		return "UserEmail"
 	case KeyTwoFactorCode:
 		return "TwoFactorCode"
+	case KeyTwoFactorCodeTimestamp:
+		return "TwoFactorCodeTimestamp"
 	case KeyUserName:
 		return "UserName"
 	case KeyPersistent:
@@ -94,7 +98,7 @@ func (sd *SessionData) MarshalBinary() ([]byte, error) {
 }
 
 func (sd *SessionData) UnmarshalBinary(data []byte) error {
-	values := make(map[SessionKey]SessionValue, 0)
+	values := make(map[SessionKey]SessionValue)
 
 	buf := bytes.NewBuffer(data)
 	decoder := gob.NewDecoder(buf)
