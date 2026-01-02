@@ -299,6 +299,7 @@ func (s *Server) editEmail(w http.ResponseWriter, r *http.Request) (*ViewModel, 
 }
 
 func (s *Server) putGeneralSettings(w http.ResponseWriter, r *http.Request) (*ViewModel, error) {
+	tnow := time.Now().UTC()
 	ctx := r.Context()
 
 	user, err := s.SessionUser(ctx, s.Session(w, r))
@@ -332,13 +333,18 @@ func (s *Server) putGeneralSettings(w http.ResponseWriter, r *http.Request) (*Vi
 		}
 
 		sentCode, hasSentCode := sess.Get(ctx, session.KeyTwoFactorCode).(int)
+		codeTimestamp, ok := sess.Get(ctx, session.KeyTwoFactorCodeTimestamp).(time.Time)
+		if !ok {
+			slog.ErrorContext(ctx, "Failed to get verification code timestamp")
+		}
 		formCode := r.FormValue(common.ParamVerificationCode)
 
 		// we "used" the code now
 		_ = sess.Delete(session.KeyTwoFactorCode)
+		_ = sess.Delete(session.KeyTwoFactorCodeTimestamp)
 
-		if enteredCode, err := strconv.Atoi(formCode); !hasSentCode || (err != nil) || (enteredCode != sentCode) {
-			slog.WarnContext(ctx, "Code verification failed", "actual", formCode, "expected", sentCode, common.ErrAttr(err))
+		if enteredCode, err := strconv.Atoi(formCode); !hasSentCode || (err != nil) || (enteredCode != sentCode) || (!codeTimestamp.IsZero() && tnow.After(codeTimestamp.Add(twoFactorCodeDuration))) {
+			slog.WarnContext(ctx, "Code verification failed", "actual", formCode, "expected", sentCode, "timestamp", codeTimestamp, common.ErrAttr(err))
 			renderCtx.TwoFactorError = "Code is not valid."
 			return &ViewModel{Model: renderCtx, View: settingsGeneralFormTemplate}, nil
 		}

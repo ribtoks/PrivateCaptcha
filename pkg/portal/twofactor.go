@@ -6,9 +6,14 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
+)
+
+const (
+	twoFactorCodeDuration = 10 * time.Minute
 )
 
 var (
@@ -16,6 +21,7 @@ var (
 )
 
 func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
+	tnow := time.Now().UTC()
 	ctx := r.Context()
 
 	err := r.ParseForm()
@@ -51,6 +57,11 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	codeTimestamp, ok := sess.Get(ctx, session.KeyTwoFactorCodeTimestamp).(time.Time)
+	if !ok {
+		slog.ErrorContext(ctx, "Failed to get verification code timestamp")
+	}
+
 	data := &loginRenderContext{
 		CsrfRenderContext: CsrfRenderContext{
 			Token: s.XSRF.Token(email),
@@ -59,9 +70,9 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 	}
 
 	formCode := strings.TrimSpace(r.FormValue(common.ParamVerificationCode))
-	if enteredCode, err := strconv.Atoi(formCode); (err != nil) || (enteredCode != sentCode) {
+	if enteredCode, err := strconv.Atoi(formCode); (err != nil) || (enteredCode != sentCode) || (!codeTimestamp.IsZero() && tnow.After(codeTimestamp.Add(twoFactorCodeDuration))) {
 		data.CodeError = "Code is not valid."
-		slog.WarnContext(ctx, "Code verification failed", "actual", formCode, "expected", sentCode, common.ErrAttr(err))
+		slog.WarnContext(ctx, "Code verification failed", "actual", formCode, "expected", sentCode, "timestamp", codeTimestamp, common.ErrAttr(err))
 		s.render(w, r, "login/twofactor-form.html", data)
 		return
 	}
@@ -84,6 +95,7 @@ func (s *Server) postTwoFactor(w http.ResponseWriter, r *http.Request) {
 
 	_ = sess.Set(session.KeyLoginStep, loginStepCompleted)
 	_ = sess.Delete(session.KeyTwoFactorCode)
+	_ = sess.Delete(session.KeyTwoFactorCodeTimestamp)
 	_ = sess.Delete(session.KeyUserEmail)
 	_ = sess.Set(session.KeyPersistent, true)
 
@@ -124,5 +136,6 @@ func (s *Server) resend2fa(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = sess.Set(session.KeyTwoFactorCode, code)
+	_ = sess.Set(session.KeyTwoFactorCodeTimestamp, time.Now().UTC())
 	s.render(w, r, "login/resend.html", renderContextNothing)
 }

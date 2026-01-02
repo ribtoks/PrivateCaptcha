@@ -155,6 +155,7 @@ func (s *Server) postLogin(w http.ResponseWriter, r *http.Request) {
 	_ = sess.Set(session.KeyUserEmail, user.Email)
 	_ = sess.Set(session.KeyUserName, user.Name)
 	_ = sess.Set(session.KeyTwoFactorCode, code)
+	_ = sess.Set(session.KeyTwoFactorCodeTimestamp, time.Now().UTC())
 	_ = sess.Set(session.KeyUserID, user.ID)
 	// this is needed in case we will be routed to another server that does not have our session in memory
 	// (previously we persisted ONLY logged in sessions, but if we're rerouted during login, it will break)

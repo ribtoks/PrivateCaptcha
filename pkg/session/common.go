@@ -27,6 +27,7 @@ const (
 	KeyPersistent
 	KeyNotificationID
 	KeyReturnURL
+	KeyTwoFactorCodeTimestamp
 	// Add new fields _above_
 	SESSION_KEYS_COUNT
 )
