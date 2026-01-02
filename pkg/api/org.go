@@ -91,15 +91,15 @@ func (s *Server) getUserOrgs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get(common.HeaderContentType) != common.ContentTypeJSON {
+		s.sendHTTPErrorResponse(db.ErrInvalidInput, w)
+		return
+	}
+
 	ctx := r.Context()
 	user, apiKey, err := s.requestUser(ctx, false /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
-		return
-	}
-
-	if r.Header.Get(common.HeaderContentType) != common.ContentTypeJSON {
-		s.sendHTTPErrorResponse(db.ErrInvalidInput, w)
 		return
 	}
 
@@ -148,15 +148,15 @@ func (s *Server) postNewOrg(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) updateOrg(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get(common.HeaderContentType) != common.ContentTypeJSON {
+		s.sendHTTPErrorResponse(db.ErrInvalidInput, w)
+		return
+	}
+
 	ctx := r.Context()
 	user, apiKey, err := s.requestUser(ctx, false /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
-		return
-	}
-
-	if r.Header.Get(common.HeaderContentType) != common.ContentTypeJSON {
-		s.sendHTTPErrorResponse(db.ErrInvalidInput, w)
 		return
 	}
 
@@ -232,15 +232,15 @@ func (s *Server) updateOrg(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteOrg(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get(common.HeaderContentType) != common.ContentTypeJSON {
+		s.sendHTTPErrorResponse(db.ErrInvalidInput, w)
+		return
+	}
+
 	ctx := r.Context()
 	user, apiKey, err := s.requestUser(ctx, false /*read-only*/)
 	if err != nil {
 		s.sendHTTPErrorResponse(err, w)
-		return
-	}
-
-	if r.Header.Get(common.HeaderContentType) != common.ContentTypeJSON {
-		s.sendHTTPErrorResponse(db.ErrInvalidInput, w)
 		return
 	}
 

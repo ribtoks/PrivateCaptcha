@@ -7,12 +7,15 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"golang.org/x/net/html"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	db_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
+	portal_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/portal/tests"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
 )
 
 func parseCsrfToken(body string) (string, error) {
@@ -149,5 +152,71 @@ func TestPostLogin(t *testing.T) {
 	}
 	if stubMailer.LastCode == 0 {
 		t.Error("two-factor code not set in StubMailer")
+	}
+}
+
+func TestLogout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	srv := http.NewServeMux()
+	server.Setup(portalDomain(), common.NoopMiddleware).Register(srv)
+
+	ctx := t.Context()
+
+	user, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	if err != nil {
+		t.Fatalf("failed to create new account: %v", err)
+	}
+
+	cookie, err := portal_tests.AuthenticateSuite(ctx, user.Email, srv, server.XSRF, server.Sessions.CookieName, server.Mailer.(*email.StubMailer))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify session exists before logout
+	sessionID, err := url.QueryUnescape(cookie.Value)
+	if err != nil {
+		t.Fatalf("failed to unescape session ID: %v", err)
+	}
+
+	// Wait until the session is persisted to cache (background job)
+	for attempt := 0; attempt < 6; attempt++ {
+		time.Sleep(250 * time.Millisecond)
+
+		_, err = server.Sessions.Store.Read(ctx, sessionID, true /*skip cache*/)
+		if err == nil {
+			break
+		}
+	}
+
+	if err != nil {
+		t.Fatalf("session should exist in cache before logout: %v", err)
+	}
+
+	// Perform logout
+	logoutReq := httptest.NewRequest("GET", "/"+common.LogoutEndpoint, nil)
+	logoutReq.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, logoutReq)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Errorf("Unexpected logout response code: got %v want %v", resp.StatusCode, http.StatusSeeOther)
+	}
+
+	location, err := resp.Location()
+	if err != nil {
+		t.Fatalf("failed to get redirect location: %v", err)
+	}
+
+	if location.Path != "/"+common.LoginEndpoint {
+		t.Errorf("Unexpected redirect location: got %v want %v", location.Path, "/"+common.LoginEndpoint)
+	}
+
+	_, err = server.Sessions.Store.Read(ctx, sessionID, true /*skip cache*/)
+	if err != session.ErrSessionMissing {
+		t.Errorf("session should be destroyed after logout: got error %v, want %v", err, session.ErrSessionMissing)
 	}
 }

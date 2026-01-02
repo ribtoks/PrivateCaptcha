@@ -112,7 +112,6 @@ func TestMain(m *testing.M) {
 	store = db.NewBusinessEx(pool, cache)
 
 	sessionStore := db.NewSessionStore(store, session.KeyPersistent)
-	sessionStore.Start(context.Background(), 1*time.Minute)
 
 	server = &Server{
 		Stage:      common.StageTest,

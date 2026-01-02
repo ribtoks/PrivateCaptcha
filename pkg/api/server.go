@@ -29,6 +29,7 @@ const (
 	updateLimitsBatchSize = 100
 	maxVerifyBatchSize    = 100_000
 	ApiService            = "api"
+	recaptchaCompatV3     = "rcV3"
 )
 
 var (
@@ -367,7 +368,7 @@ func (s *Server) recaptchaVerifyHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var response interface{} = vr2
-	if recaptchaCompatVersion := r.Header.Get(common.HeaderCaptchaCompat); recaptchaCompatVersion == "rcV3" {
+	if recaptchaCompatVersion := r.Header.Get(common.HeaderCaptchaCompat); recaptchaCompatVersion == recaptchaCompatV3 {
 		response = &VerifyResponseRecaptchaV3{
 			VerifyResponseRecaptchaV2: *vr2,
 			Action:                    "",

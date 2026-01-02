@@ -219,6 +219,42 @@ func TestAPIUpdateOrg(t *testing.T) {
 	}
 }
 
+func TestAPIUpdateOrgEmptyID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	user, org, apiKey, err := setupAPISuite(ctx, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	input := &apiOrgInput{
+		ID:   "",
+		Name: "Org Update " + xid.New().String(),
+	}
+
+	_, meta, err := requestResponseAPISuite[APIResponse](ctx, input, http.MethodPut, "/"+common.OrgEndpoint, apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if meta.Code != common.StatusOrgIDEmptyError {
+		t.Fatalf("Unexpected status code: %v", meta.Description)
+	}
+
+	org, err = s.BusinessDB.Impl().RetrieveUserOrganization(ctx, user, org.ID)
+	if err != nil {
+		t.Fatalf("Unexpected error when retrieving org: %v", err)
+	}
+
+	if org.Name == input.Name {
+		t.Error("Org name was updated but shouldn't be")
+	}
+}
+
 func TestAPIGetOrgs(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -560,5 +596,102 @@ func TestAPIUpdateOrgAPIKeyOrgScope(t *testing.T) {
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("Unexpected status code: %v", resp.StatusCode)
+	}
+}
+
+func TestAPIOrgInvalidRequests(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	_, _, apiKey, err := setupAPISuite(ctx, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name        string
+		method      string
+		endpoint    string
+		contentType string
+		body        []byte
+		wantStatus  int
+	}{
+		{
+			name:        "Create Org - Invalid Content Type",
+			method:      http.MethodPost,
+			endpoint:    "/" + common.OrgEndpoint,
+			contentType: "text/plain",
+			body:        []byte("{}"),
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "Create Org - Malformed JSON",
+			method:      http.MethodPost,
+			endpoint:    "/" + common.OrgEndpoint,
+			contentType: common.ContentTypeJSON,
+			body:        []byte("{invalid-json"),
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "Update Org - Invalid Content Type",
+			method:      http.MethodPut,
+			endpoint:    "/" + common.OrgEndpoint,
+			contentType: "text/plain",
+			body:        []byte("{}"),
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "Update Org - Malformed JSON",
+			method:      http.MethodPut,
+			endpoint:    "/" + common.OrgEndpoint,
+			contentType: common.ContentTypeJSON,
+			body:        []byte("{invalid-json"),
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "Delete Org - Invalid Content Type",
+			method:      http.MethodDelete,
+			endpoint:    "/" + common.OrgEndpoint,
+			contentType: "text/plain",
+			body:        []byte("{}"),
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "Delete Org - Malformed JSON",
+			method:      http.MethodDelete,
+			endpoint:    "/" + common.OrgEndpoint,
+			contentType: common.ContentTypeJSON,
+			body:        []byte("{invalid-json"),
+			wantStatus:  http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := http.NewServeMux()
+			s.Setup("", true /*verbose*/, common.NoopMiddleware).Register(srv)
+
+			req, err := http.NewRequestWithContext(ctx, tt.method, tt.endpoint, bytes.NewReader(tt.body))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			req.Header.Set(common.HeaderAPIKey, apiKey)
+			if tt.contentType != "" {
+				req.Header.Set(common.HeaderContentType, tt.contentType)
+			}
+			// Bypass rate limiter
+			req.Header.Set(cfg.Get(common.RateLimitHeaderKey).Value(), common_test.GenerateRandomIPv4())
+
+			w := httptest.NewRecorder()
+			srv.ServeHTTP(w, req)
+
+			if status := w.Result().StatusCode; status != tt.wantStatus {
+				t.Errorf("expected status %d, got %d", tt.wantStatus, status)
+			}
+		})
 	}
 }

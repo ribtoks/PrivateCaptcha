@@ -1,14 +1,17 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
+	common_test "github.com/PrivateCaptcha/PrivateCaptcha/pkg/common/tests"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
 	dbgen "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/generated"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
@@ -636,6 +639,69 @@ func TestApiGetProperties(t *testing.T) {
 	}
 }
 
+func TestApiGetPropertyInvalidOrgID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	user, org, apiKey, err := setupAPISuite(ctx, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	property, _, err := s.BusinessDB.Impl().CreateNewProperty(ctx, db_test.CreateNewPropertyParams(user.ID, "example.com"), org)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	propertyID := s.IDHasher.Encrypt(int(property.ID))
+	_, meta, err := requestResponseAPISuite[APIResponse](ctx, nil,
+		http.MethodGet,
+		fmt.Sprintf("/%s/%s/%s/%s", common.OrgEndpoint, "qwerty123",
+			common.PropertyEndpoint, propertyID),
+		apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if meta.Code != common.StatusOrgIDInvalidError {
+		t.Fatalf("Unexpected status code: %v", meta.Description)
+	}
+}
+
+func TestApiGetPropertyInvalidPropertyID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	user, org, apiKey, err := setupAPISuite(ctx, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := s.BusinessDB.Impl().CreateNewProperty(ctx, db_test.CreateNewPropertyParams(user.ID, "example.com"), org); err != nil {
+		t.Fatal(err)
+	}
+
+	propertyID := "qwerty123"
+	_, meta, err := requestResponseAPISuite[APIResponse](ctx, nil,
+		http.MethodGet,
+		fmt.Sprintf("/%s/%s/%s/%s", common.OrgEndpoint, s.IDHasher.Encrypt(int(org.ID)),
+			common.PropertyEndpoint, propertyID),
+		apiKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if meta.Code != common.StatusPropertyIDInvalidError {
+		t.Fatalf("Unexpected status code: %v", meta.Description)
+	}
+}
+
 func TestApiGetProperty(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test")
@@ -1242,5 +1308,105 @@ func TestApiUpdatePropertiesAPIKeyOrgScope(t *testing.T) {
 
 	if results[0].Code != common.StatusOrgPermissionsError {
 		t.Errorf("Expected StatusOrgPermissionsError, got %v", results[0].Code)
+	}
+}
+
+func TestAPIPropertyInvalidRequests(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := common.TraceContext(t.Context(), t.Name())
+
+	_, org, apiKey, err := setupAPISuite(ctx, t.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	orgID := s.IDHasher.Encrypt(int(org.ID))
+	createEndpoint := fmt.Sprintf("/%s/%s/%s", common.OrgEndpoint, orgID, common.PropertiesEndpoint)
+
+	tests := []struct {
+		name        string
+		method      string
+		endpoint    string
+		contentType string
+		body        []byte
+		wantStatus  int
+	}{
+		{
+			name:        "Create Properties - Invalid Content Type",
+			method:      http.MethodPost,
+			endpoint:    createEndpoint,
+			contentType: "text/plain",
+			body:        []byte("[]"),
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "Create Properties - Malformed JSON",
+			method:      http.MethodPost,
+			endpoint:    createEndpoint,
+			contentType: common.ContentTypeJSON,
+			body:        []byte("[invalid-json"),
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "Update Properties - Invalid Content Type",
+			method:      http.MethodPut,
+			endpoint:    "/" + common.PropertiesEndpoint,
+			contentType: "text/plain",
+			body:        []byte("[]"),
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "Update Properties - Malformed JSON",
+			method:      http.MethodPut,
+			endpoint:    "/" + common.PropertiesEndpoint,
+			contentType: common.ContentTypeJSON,
+			body:        []byte("[invalid-json"),
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "Delete Properties - Invalid Content Type",
+			method:      http.MethodDelete,
+			endpoint:    "/" + common.PropertiesEndpoint,
+			contentType: "text/plain",
+			body:        []byte("[]"),
+			wantStatus:  http.StatusBadRequest,
+		},
+		{
+			name:        "Delete Properties - Malformed JSON",
+			method:      http.MethodDelete,
+			endpoint:    "/" + common.PropertiesEndpoint,
+			contentType: common.ContentTypeJSON,
+			body:        []byte("[invalid-json"),
+			wantStatus:  http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := http.NewServeMux()
+			s.Setup("", true /*verbose*/, common.NoopMiddleware).Register(srv)
+
+			req, err := http.NewRequestWithContext(ctx, tt.method, tt.endpoint, bytes.NewReader(tt.body))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			req.Header.Set(common.HeaderAPIKey, apiKey)
+			if tt.contentType != "" {
+				req.Header.Set(common.HeaderContentType, tt.contentType)
+			}
+			// Bypass rate limiter
+			req.Header.Set(cfg.Get(common.RateLimitHeaderKey).Value(), common_test.GenerateRandomIPv4())
+
+			w := httptest.NewRecorder()
+			srv.ServeHTTP(w, req)
+
+			if status := w.Result().StatusCode; status != tt.wantStatus {
+				t.Errorf("expected status %d, got %d", tt.wantStatus, status)
+			}
+		})
 	}
 }

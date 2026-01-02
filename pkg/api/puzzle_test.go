@@ -25,13 +25,17 @@ const (
 )
 
 func puzzleSuite(ctx context.Context, sitekey, domain string) (*http.Response, error) {
+	return puzzleSuiteEx(ctx, http.MethodGet, sitekey, domain)
+}
+
+func puzzleSuiteEx(ctx context.Context, method, sitekey, domain string) (*http.Response, error) {
 	slog.Log(ctx, common.LevelTrace, "Running puzzle suite", "domain", domain, "sitekey", sitekey)
 	srv := http.NewServeMux()
 	s.Setup("", true /*verbose*/, common.NoopMiddleware).Register(srv)
 
 	//srv.HandleFunc("/", catchAll)
 
-	req, err := http.NewRequest(http.MethodGet, "/"+common.PuzzleEndpoint, nil)
+	req, err := http.NewRequest(method, "/"+common.PuzzleEndpoint, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -156,6 +160,33 @@ func parsePuzzle(resp *http.Response) (*puzzle.ComputePuzzle, string, error) {
 	}
 
 	return p, responseStr, nil
+}
+
+func TestOptionsPuzzle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := t.Context()
+
+	user, org, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	property, _, err := store.Impl().CreateNewProperty(ctx, db_tests.CreateNewPropertyParams(user.ID, testPropertyDomain), org)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := puzzleSuiteEx(ctx, http.MethodOptions, db.UUIDToSiteKey(property.ExternalID), property.Domain)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusNoContent {
+		t.Errorf("Unexpected status code %d", resp.StatusCode)
+	}
 }
 
 func TestGetPuzzle(t *testing.T) {

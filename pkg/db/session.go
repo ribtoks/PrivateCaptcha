@@ -7,6 +7,7 @@ import (
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/session"
+	"github.com/maypok86/otter/v2"
 )
 
 const (
@@ -54,7 +55,7 @@ func (ss *SessionStore) Init(ctx context.Context, session *session.Session) erro
 func (ss *SessionStore) Read(ctx context.Context, sid string, skipCache bool) (*session.Session, error) {
 	sd, err := ss.store.Impl().RetrieveUserSession(ctx, sid, skipCache)
 	if err != nil {
-		if (err == ErrNegativeCacheHit) || (err == ErrCacheMiss) {
+		if (err == ErrNegativeCacheHit) || (err == ErrCacheMiss) || (err == otter.ErrNotFound) {
 			return nil, session.ErrSessionMissing
 		}
 

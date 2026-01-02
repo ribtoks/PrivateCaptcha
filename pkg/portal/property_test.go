@@ -1,6 +1,7 @@
 package portal
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -8,13 +9,79 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/common"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/db"
+	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/puzzle"
 	db_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/db/tests"
 	"github.com/PrivateCaptcha/PrivateCaptcha/pkg/email"
 	portal_tests "github.com/PrivateCaptcha/PrivateCaptcha/pkg/portal/tests"
 )
+
+func TestGetNewOrgProperty(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := t.Context()
+	user, org, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	if err != nil {
+		t.Fatalf("Failed to create account: %v", err)
+	}
+
+	srv := http.NewServeMux()
+	server.Setup(portalDomain(), common.NoopMiddleware).Register(srv)
+
+	cookie, err := portal_tests.AuthenticateSuite(ctx, user.Email, srv, server.XSRF, server.Sessions.CookieName, server.Mailer.(*email.StubMailer))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/org/%s/property/new", server.IDHasher.Encrypt(int(org.ID))), nil)
+	req.AddCookie(cookie)
+	req.SetPathValue(common.ParamOrg, server.IDHasher.Encrypt(int(org.ID)))
+
+	w := httptest.NewRecorder()
+
+	viewModel, err := server.getNewOrgProperty(w, req)
+	if err != nil {
+		t.Fatalf("Expected no error, got: %v", err)
+	}
+
+	if viewModel == nil {
+		t.Fatal("Expected ViewModel to be populated, got nil")
+	}
+
+	if viewModel.View != propertyWizardTemplate {
+		t.Errorf("Expected view to be %s, got %s", propertyWizardTemplate, viewModel.View)
+	}
+
+	if viewModel.Model == nil {
+		t.Fatal("Expected Model to be populated, got nil")
+	}
+
+	renderCtx, ok := viewModel.Model.(*propertyWizardRenderContext)
+	if !ok {
+		t.Fatalf("Expected Model to be *propertyWizardRenderContext, got %T", viewModel.Model)
+	}
+
+	if renderCtx.CurrentOrg == nil {
+		t.Fatal("Expected CurrentOrg to be populated, got nil")
+	}
+
+	if renderCtx.CurrentOrg.Name != org.Name {
+		t.Errorf("Expected org name to be %s, got %s", org.Name, renderCtx.CurrentOrg.Name)
+	}
+
+	if renderCtx.CurrentOrg.ID != server.IDHasher.Encrypt(int(org.ID)) {
+		t.Errorf("Expected org ID to be %s, got %s", server.IDHasher.Encrypt(int(org.ID)), renderCtx.CurrentOrg.ID)
+	}
+
+	if len(renderCtx.Token) == 0 {
+		t.Error("Expected CSRF token to be populated")
+	}
+}
 
 func TestPutPropertyInsufficientPermissions(t *testing.T) {
 	if testing.Short() {
@@ -27,13 +94,11 @@ func TestPutPropertyInsufficientPermissions(t *testing.T) {
 		t.Fatalf("Failed to create owner account: %v", err)
 	}
 
-	// Create a new property
 	property, _, err := server.Store.Impl().CreateNewProperty(ctx, db_tests.CreateNewPropertyParams(org1.UserID.Int32, "example.com"), org1)
 	if err != nil {
 		t.Fatalf("Failed to create new property: %v", err)
 	}
 
-	// Create another user account
 	user2, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name()+"_2", testPlan)
 	if err != nil {
 		t.Fatalf("Failed to create intruder account: %v", err)
@@ -47,7 +112,6 @@ func TestPutPropertyInsufficientPermissions(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Send PUT request as the second user to update the property
 	form := url.Values{}
 	form.Set(common.ParamCSRFToken, server.XSRF.Token(strconv.Itoa(int(user2.ID))))
 	form.Set(common.ParamName, "Updated Property Name")
@@ -94,7 +158,6 @@ func TestPostNewOrgProperty(t *testing.T) {
 
 	propertyName := t.Name() + "Property"
 
-	// Send POST request to create a new property
 	form := url.Values{}
 	form.Set(common.ParamCSRFToken, server.XSRF.Token(strconv.Itoa(int(user.ID))))
 	form.Set(common.ParamName, propertyName)
@@ -148,7 +211,6 @@ func TestMoveProperty(t *testing.T) {
 		t.Fatalf("Failed to create account: %v", err)
 	}
 
-	// Create a new property
 	property, _, err := server.Store.Impl().CreateNewProperty(ctx, db_tests.CreateNewPropertyParams(org1.UserID.Int32, "example.com"), org1)
 	if err != nil {
 		t.Fatalf("Failed to create new property: %v", err)
@@ -234,5 +296,120 @@ func TestRetrieveProperties(t *testing.T) {
 				t.Errorf("Received %v more, but expected %v", hasMore, tc.hasMore)
 			}
 		})
+	}
+}
+
+func TestGetPropertyStats(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := t.Context()
+	user, org, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	if err != nil {
+		t.Fatalf("Failed to create account: %v", err)
+	}
+
+	property, _, err := server.Store.Impl().CreateNewProperty(ctx, db_tests.CreateNewPropertyParams(user.ID, "example.com"), org)
+	if err != nil {
+		t.Fatalf("Failed to create new property: %v", err)
+	}
+
+	srv := http.NewServeMux()
+	server.Setup(portalDomain(), common.NoopMiddleware).Register(srv)
+
+	cookie, err := portal_tests.AuthenticateSuite(ctx, user.Email, srv, server.XSRF, server.Sessions.CookieName, server.Mailer.(*email.StubMailer))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now()
+	accessRecords := []*common.AccessRecord{
+		{
+			UserID:     user.ID,
+			OrgID:      org.ID,
+			PropertyID: property.ID,
+			Timestamp:  now.Add(-1 * time.Hour),
+		},
+		{
+			UserID:     user.ID,
+			OrgID:      org.ID,
+			PropertyID: property.ID,
+			Timestamp:  now.Add(-2 * time.Hour),
+		},
+	}
+
+	if err := timeSeries.WriteAccessLogBatch(ctx, accessRecords); err != nil {
+		t.Fatalf("Failed to write access log batch: %v", err)
+	}
+
+	verifyRecords := []*common.VerifyRecord{
+		{
+			UserID:     user.ID,
+			OrgID:      org.ID,
+			PropertyID: property.ID,
+			PuzzleID:   1,
+			Timestamp:  now.Add(-1 * time.Hour),
+			Status:     int8(puzzle.VerifyNoError),
+		},
+		{
+			UserID:     user.ID,
+			OrgID:      org.ID,
+			PropertyID: property.ID,
+			PuzzleID:   2,
+			Timestamp:  now.Add(-2 * time.Hour),
+			Status:     int8(puzzle.VerifyNoError),
+		},
+	}
+
+	if err := timeSeries.WriteVerifyLogBatch(ctx, verifyRecords); err != nil {
+		t.Fatalf("Failed to write verify log batch: %v", err)
+	}
+
+	// Give the time series database a moment to process the writes
+	time.Sleep(100 * time.Millisecond)
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/org/%s/property/%s/stats/24h",
+		server.IDHasher.Encrypt(int(org.ID)),
+		server.IDHasher.Encrypt(int(property.ID))), nil)
+	req.AddCookie(cookie)
+
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, req)
+
+	resp := w.Result()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("Unexpected status code %v", resp.StatusCode)
+	}
+
+	var stats propertyStatsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if len(stats.Requested) == 0 {
+		t.Error("Expected requested data but got none")
+	}
+
+	if len(stats.Verified) == 0 {
+		t.Error("Expected verified data but got none")
+	}
+
+	totalRequested := 0
+	for _, p := range stats.Requested {
+		totalRequested += p.Value
+	}
+
+	totalVerified := 0
+	for _, p := range stats.Verified {
+		totalVerified += p.Value
+	}
+
+	if totalRequested != 2 {
+		t.Errorf("Expected 2 total requested, got %d", totalRequested)
+	}
+
+	if totalVerified != 2 {
+		t.Errorf("Expected 2 total verified, got %d", totalVerified)
 	}
 }

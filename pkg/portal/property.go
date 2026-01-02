@@ -113,6 +113,16 @@ type propertyAuditLogsRenderContext struct {
 	CanView bool
 }
 
+type propertyStatsPoint struct {
+	Date  int64 `json:"x"`
+	Value int   `json:"y"`
+}
+
+type propertyStatsResponse struct {
+	Requested []*propertyStatsPoint `json:"requested"`
+	Verified  []*propertyStatsPoint `json:"verified"`
+}
+
 func createDifficultyLevelsRenderContext() difficultyLevelsRenderContext {
 	return difficultyLevelsRenderContext{
 		EasyLevel:   int(common.DifficultyLevelSmall),
@@ -493,13 +503,8 @@ func (s *Server) getPropertyStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	type point struct {
-		Date  int64 `json:"x"`
-		Value int   `json:"y"`
-	}
-
-	requested := []*point{}
-	verified := []*point{}
+	requested := []*propertyStatsPoint{}
+	verified := []*propertyStatsPoint{}
 
 	if stats, err := s.TimeSeries.RetrievePropertyStatsByPeriod(ctx, org.ID, property.ID, period); err == nil {
 		anyNonZero := false
@@ -507,23 +512,20 @@ func (s *Server) getPropertyStats(w http.ResponseWriter, r *http.Request) {
 			if (st.RequestsCount > 0) || (st.VerifiesCount > 0) {
 				anyNonZero = true
 			}
-			requested = append(requested, &point{Date: st.Timestamp.Unix(), Value: st.RequestsCount})
-			verified = append(verified, &point{Date: st.Timestamp.Unix(), Value: st.VerifiesCount})
+			requested = append(requested, &propertyStatsPoint{Date: st.Timestamp.Unix(), Value: st.RequestsCount})
+			verified = append(verified, &propertyStatsPoint{Date: st.Timestamp.Unix(), Value: st.VerifiesCount})
 		}
 
 		// we want to show "No data available" on the client
 		if !anyNonZero {
-			requested = []*point{}
-			verified = []*point{}
+			requested = []*propertyStatsPoint{}
+			verified = []*propertyStatsPoint{}
 		}
 	} else {
 		slog.ErrorContext(ctx, "Failed to retrieve property stats", common.ErrAttr(err))
 	}
 
-	response := struct {
-		Requested []*point `json:"requested"`
-		Verified  []*point `json:"verified"`
-	}{
+	response := propertyStatsResponse{
 		Requested: requested,
 		Verified:  verified,
 	}

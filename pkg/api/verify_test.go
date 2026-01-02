@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -65,7 +66,7 @@ func verifySuite(response, secret, sitekey string) (*http.Response, error) {
 	return resp, nil
 }
 
-func siteVerifySuite(response, secret, sitekey string) (*http.Response, error) {
+func siteVerifySuite(response, secret, sitekey string, headers ...map[string][]string) (*http.Response, error) {
 	srv := http.NewServeMux()
 	s.Setup("", true /*verbose*/, common.NoopMiddleware).Register(srv)
 
@@ -87,6 +88,9 @@ func siteVerifySuite(response, secret, sitekey string) (*http.Response, error) {
 
 	req.Header.Set(common.HeaderContentType, common.ContentTypeURLEncoded)
 	req.Header.Set(cfg.Get(common.RateLimitHeaderKey).Value(), common_test.GenerateRandomIPv4())
+	for _, hh := range headers {
+		maps.Copy(req.Header, hh)
+	}
 
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, req)
@@ -270,6 +274,26 @@ func TestSiteVerifyPuzzle(t *testing.T) {
 	}
 
 	resp, err := siteVerifySuite(payload, apiKey, sitekey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
+	}
+}
+
+func TestSiteVerifyPuzzleV3Compat(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	payload, apiKey, sitekey, err := setupVerifySuite(t.Context(), t.Name(), dbgen.ApiKeyScopePuzzle)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	resp, err := siteVerifySuite(payload, apiKey, sitekey, map[string][]string{common.HeaderCaptchaCompat: []string{recaptchaCompatV3}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -511,6 +535,58 @@ func TestVerifyCachePriority(t *testing.T) {
 
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Unexpected submit status code %d", resp.StatusCode)
+	}
+}
+
+func TestVerifyInvalidSolutions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+
+	ctx := t.Context()
+
+	user, org, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	property, _, err := store.Impl().CreateNewProperty(ctx, db_tests.CreateNewPropertyParams(user.ID, testPropertyDomain), org)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	puzzleStr, _, err := solutionsSuite(ctx, db.UUIDToSiteKey(property.ExternalID), property.Domain)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	solution := make([]byte, 16*puzzle.SolutionLength)
+	for i := 0; i < 16*puzzle.SolutionLength; i++ {
+		solution[i] = byte(i)
+	}
+	solutionsStr := (&puzzle.Solutions{Buffer: solution, Metadata: &puzzle.Metadata{}}).String()
+
+	payload := fmt.Sprintf("%s.%s", solutionsStr, puzzleStr)
+
+	params := tests.CreateNewPuzzleAPIKeyParams(t.Name()+"-apikey", time.Now(), 1*time.Hour, 10.0 /*rps*/)
+	apikey, _, err := store.Impl().CreateAPIKey(ctx, user, params)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	secret := db.UUIDToSecret(apikey.ExternalID)
+	sitekey := db.UUIDToSiteKey(property.ExternalID)
+	resp, err := verifySuite(payload, secret, sitekey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Unexpected verify status code %d", resp.StatusCode)
+	}
+
+	if err := checkVerifyError(resp, puzzle.InvalidSolutionError); err != nil {
+		t.Fatal(err)
 	}
 }
 
