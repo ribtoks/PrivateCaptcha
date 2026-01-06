@@ -100,6 +100,8 @@ copy-static-js:
 	cp -v web/js/alpine.persist.min.js web/static/js/
 	cp -v web/js/d3.v7.min.js web/static/js/
 
+init: init-widget init-web build-js build-widget-script copy-static-js
+
 serve: build-js build-widget-script copy-static-js build-server
 	bin/server
 
