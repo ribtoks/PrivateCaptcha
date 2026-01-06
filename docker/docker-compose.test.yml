@@ -39,8 +39,6 @@ services:
         EXTRA_BUILD_FLAGS: '-tags enterprise'
     command:
       /app/bin/server -mode migrate -migrate-hash $GIT_COMMIT
-    env_file:
-      - pc.env
     environment:
       PC_POSTGRES: postgres://postgres:postgres@postgres:5432/privatecaptcha?sslmode=require&search_path=public
       PC_CLICKHOUSE_HOST: clickhouse
