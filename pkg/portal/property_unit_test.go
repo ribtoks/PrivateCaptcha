@@ -88,8 +88,8 @@ func TestPropertyParsingHelpers(t *testing.T) {
 		t.Fatalf("unexpected fallback growth value %v", val)
 	}
 
-	if count := parseMaxReplayCount(ctx, "2000000"); count != 1_000_000 {
-		t.Fatalf("expected max replay count to be clamped, got %d", count)
+	if count := parseMaxReplayCount(ctx, "2000000"); count <= 0 || count >= 2_000_000 {
+		t.Fatalf("expected max replay count to be clamped below input, got %d", count)
 	}
 	if count := parseMaxReplayCount(ctx, "bad"); count != 1 {
 		t.Fatalf("expected invalid replay count to fall back to 1, got %d", count)

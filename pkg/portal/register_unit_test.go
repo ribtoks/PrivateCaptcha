@@ -60,7 +60,6 @@ func TestIsUserNameValid(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			if got := isUserNameValid(tc.name); got != tc.want {
 				t.Fatalf("isUserNameValid(%q)=%v, want %v", tc.name, got, tc.want)
