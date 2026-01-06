@@ -4,17 +4,17 @@
 - Instead of using `go`, `npm` or any other standard tooling, only use targets defined in the `Makefile` with appropriate names (e.g. `init-` for setup, `build-` for building and `test-` for testing)
 - Add only the most important comments, prefer adding logs where necessary instead of comments
 - If you're not sure how to run something, look for examples in `Makefile` and CI workflow `.github/workflows/ci.yaml`
+- If you change any external Go packages, run `make vendors`
 
 ## Environment setup
 
-- Use `make init-widget` and `make init-web` for one-time setup of the environment
-- If you change any external Go packages, run `make vendors`
+- Use `make init` to initialize everything for development
 
 ## Building instructions
 
-- To build main server executable, run `make build-server` (or `make build-server-ee` if Enterprise Edition changes were made)
 - To build widget script for testing, run `make build-widget-script`
 - To build portal/web JS code, run `make build-js` followed by `make copy-static-js`
+- To build main server executable, run `make build-server` (or `make build-server-ee` if Enterprise Edition changes were made)
 
 ## Testing instructions
 
