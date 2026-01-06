@@ -471,15 +471,20 @@ func migrate(ctx context.Context, cfg common.ConfigStore, up bool) error {
 		return dberr
 	}
 
-	defer pool.Close()
-	defer clickhouse.Close()
+	if pool != nil {
+		defer pool.Close()
 
-	if err := db.MigratePostgres(ctx, pool, cfg, planService, up); err != nil {
-		return err
+		if err := db.MigratePostgres(ctx, pool, cfg, planService, up); err != nil {
+			return err
+		}
 	}
 
-	if err := db.MigrateClickHouse(ctx, clickhouse, cfg, up); err != nil {
-		return err
+	if clickhouse != nil {
+		defer clickhouse.Close()
+
+		if err := db.MigrateClickHouse(ctx, clickhouse, cfg, up); err != nil {
+			return err
+		}
 	}
 
 	return nil

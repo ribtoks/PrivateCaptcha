@@ -7,6 +7,7 @@ DOCKER ?= docker
 SQLC_MIGRATION_FIX = pkg/db/migrations/postgres/000000_sqlc_fix.sql
 EXTRA_BUILD_FLAGS ?=
 TEST_NAME ?=
+TEST_DOCKER_COMPOSE_FILES ?= -f docker/docker-compose.test.yml -f docker/docker-compose.test.clickhouse.yml
 
 test-unit:
 	@env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -tags enterprise -short ./...
@@ -21,10 +22,13 @@ bench-unit:
 	env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -bench=. -benchtime=20s -short ./...
 
 test-docker:
-	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose -f docker/docker-compose.test.yml down -v --remove-orphans
-	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose -f docker/docker-compose.test.yml run --build --remove-orphans --rm migration
-	@env GIT_COMMIT="$(GIT_COMMIT)" TEST_NAME="$(TEST_NAME)" $(DOCKER) compose -f docker/docker-compose.test.yml up --build --abort-on-container-exit --remove-orphans --force-recreate testserver
-	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose -f docker/docker-compose.test.yml down -v --remove-orphans
+	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose $(TEST_DOCKER_COMPOSE_FILES) down -v --remove-orphans
+	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose $(TEST_DOCKER_COMPOSE_FILES) run --build --remove-orphans --rm migration
+	@env GIT_COMMIT="$(GIT_COMMIT)" TEST_NAME="$(TEST_NAME)" $(DOCKER) compose $(TEST_DOCKER_COMPOSE_FILES) up --build --abort-on-container-exit --remove-orphans --force-recreate testserver
+	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose $(TEST_DOCKER_COMPOSE_FILES) down -v --remove-orphans
+
+test-docker-light: TEST_DOCKER_COMPOSE_FILES = -f docker/docker-compose.test.yml
+test-docker-light: test-docker
 
 vendors:
 	go mod tidy

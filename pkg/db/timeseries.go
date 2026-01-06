@@ -6,8 +6,10 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"text/template"
 	"time"
@@ -492,4 +494,277 @@ func (ts *TimeSeriesDB) DeleteUsersData(ctx context.Context, userIDs []int32) er
 	}
 
 	return ts.lightDelete(ctx, tables, "user_id", ids)
+}
+
+type MemoryTimeSeries struct {
+	mu         sync.RWMutex
+	accessLogs []*common.AccessRecord
+	verifyLogs []*common.VerifyRecord
+}
+
+var _ common.TimeSeriesStore = (*MemoryTimeSeries)(nil)
+
+func NewMemoryTimeSeries() *MemoryTimeSeries {
+	return &MemoryTimeSeries{
+		accessLogs: make([]*common.AccessRecord, 0),
+		verifyLogs: make([]*common.VerifyRecord, 0),
+	}
+}
+
+func (m *MemoryTimeSeries) Ping(ctx context.Context) error {
+	return nil
+}
+
+func (m *MemoryTimeSeries) WriteAccessLogBatch(ctx context.Context, records []*common.AccessRecord) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.accessLogs = append(m.accessLogs, records...)
+	return nil
+}
+
+func (m *MemoryTimeSeries) WriteVerifyLogBatch(ctx context.Context, records []*common.VerifyRecord) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.verifyLogs = append(m.verifyLogs, records...)
+	return nil
+}
+
+func (m *MemoryTimeSeries) RetrievePropertyStatsSince(ctx context.Context, r *common.BackfillRequest, from time.Time) ([]*common.TimeCount, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	counts := make(map[time.Time]uint32)
+	for _, log := range m.accessLogs {
+		if log.OrgID == r.OrgID && log.UserID == r.UserID && log.PropertyID == r.PropertyID && !log.Timestamp.Before(from) {
+			// Real DB uses request_logs_5m which is aggregated by 5 minutes
+			ts := log.Timestamp.Truncate(5 * time.Minute)
+			counts[ts]++
+		}
+	}
+
+	return mapToTimeCount(counts), nil
+}
+
+func (m *MemoryTimeSeries) RetrieveAccountStats(ctx context.Context, userID int32, from time.Time) ([]*common.TimeCount, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	counts := make(map[time.Time]uint32)
+	for _, log := range m.accessLogs {
+		if log.UserID == userID && !log.Timestamp.Before(from) {
+			// Real DB uses request_logs_1mo which is aggregated by month
+			y, month, _ := log.Timestamp.Date()
+			ts := time.Date(y, month, 1, 0, 0, 0, 0, log.Timestamp.Location())
+			counts[ts]++
+		}
+	}
+
+	return mapToTimeCount(counts), nil
+}
+
+func (m *MemoryTimeSeries) RetrievePropertyStatsByPeriod(ctx context.Context, orgID, propertyID int32, period common.TimePeriod) ([]*common.TimePeriodStat, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	from := getStartTime(period)
+	statsMap := make(map[time.Time]*common.TimePeriodStat)
+
+	// Define truncation function based on period
+	var truncate func(time.Time) time.Time
+	switch period {
+	case common.TimePeriodToday:
+		// 1h
+		truncate = func(t time.Time) time.Time { return t.Truncate(time.Hour) }
+	case common.TimePeriodWeek:
+		// Real DB uses request_logs_1d, so effectively daily resolution
+		truncate = func(t time.Time) time.Time {
+			y, m, d := t.Date()
+			return time.Date(y, m, d, 0, 0, 0, 0, t.Location())
+		}
+	case common.TimePeriodMonth:
+		// 1d
+		truncate = func(t time.Time) time.Time {
+			y, m, d := t.Date()
+			return time.Date(y, m, d, 0, 0, 0, 0, t.Location())
+		}
+	case common.TimePeriodYear:
+		// 1mo
+		truncate = func(t time.Time) time.Time {
+			y, m, _ := t.Date()
+			return time.Date(y, m, 1, 0, 0, 0, 0, t.Location())
+		}
+	default:
+		truncate = func(t time.Time) time.Time { return t.Truncate(time.Hour) }
+	}
+
+	getStat := func(t time.Time) *common.TimePeriodStat {
+		ts := truncate(t)
+		if _, ok := statsMap[ts]; !ok {
+			statsMap[ts] = &common.TimePeriodStat{Timestamp: ts}
+		}
+		return statsMap[ts]
+	}
+
+	for _, log := range m.accessLogs {
+		if log.OrgID == orgID && log.PropertyID == propertyID && !log.Timestamp.Before(from) {
+			getStat(log.Timestamp).RequestsCount++
+		}
+	}
+
+	for _, log := range m.verifyLogs {
+		if log.OrgID == orgID && log.PropertyID == propertyID && !log.Timestamp.Before(from) {
+			getStat(log.Timestamp).VerifiesCount++
+		}
+	}
+
+	// Convert map to sorted slice
+	result := make([]*common.TimePeriodStat, 0, len(statsMap))
+	for _, v := range statsMap {
+		result = append(result, v)
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Timestamp.Before(result[j].Timestamp) })
+
+	return result, nil
+}
+
+func (m *MemoryTimeSeries) RetrieveRecentTopProperties(ctx context.Context, limit int) (map[int32]uint, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	since := time.Now().Add(-24 * time.Hour)
+	counts := make(map[int32]uint)
+
+	// Real DB uses verify_logs_1d (Verifications), not access logs
+	for _, log := range m.verifyLogs {
+		if !log.Timestamp.Before(since) {
+			counts[log.PropertyID]++
+		}
+	}
+
+	// For a stub, we just return the map
+	if len(counts) <= limit {
+		return counts, nil
+	}
+
+	// Minimal truncation logic for the limit (optional for a simple stub)
+	limitedCounts := make(map[int32]uint)
+	count := 0
+	for k, v := range counts {
+		if count >= limit {
+			break
+		}
+		limitedCounts[k] = v
+		count++
+	}
+
+	return limitedCounts, nil
+}
+
+func (m *MemoryTimeSeries) DeletePropertiesData(ctx context.Context, propertyIDs []int32) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	ids := make(map[int32]struct{})
+	for _, id := range propertyIDs {
+		ids[id] = struct{}{}
+	}
+
+	newAccess := m.accessLogs[:0]
+	for _, log := range m.accessLogs {
+		if _, ok := ids[log.PropertyID]; !ok {
+			newAccess = append(newAccess, log)
+		}
+	}
+	m.accessLogs = newAccess
+
+	newVerify := m.verifyLogs[:0]
+	for _, log := range m.verifyLogs {
+		if _, ok := ids[log.PropertyID]; !ok {
+			newVerify = append(newVerify, log)
+		}
+	}
+	m.verifyLogs = newVerify
+
+	return nil
+}
+
+func (m *MemoryTimeSeries) DeleteOrganizationsData(ctx context.Context, orgIDs []int32) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	ids := make(map[int32]struct{})
+	for _, id := range orgIDs {
+		ids[id] = struct{}{}
+	}
+
+	newAccess := m.accessLogs[:0]
+	for _, log := range m.accessLogs {
+		if _, ok := ids[log.OrgID]; !ok {
+			newAccess = append(newAccess, log)
+		}
+	}
+	m.accessLogs = newAccess
+
+	newVerify := m.verifyLogs[:0]
+	for _, log := range m.verifyLogs {
+		if _, ok := ids[log.OrgID]; !ok {
+			newVerify = append(newVerify, log)
+		}
+	}
+	m.verifyLogs = newVerify
+
+	return nil
+}
+
+func (m *MemoryTimeSeries) DeleteUsersData(ctx context.Context, userIDs []int32) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	ids := make(map[int32]struct{})
+	for _, id := range userIDs {
+		ids[id] = struct{}{}
+	}
+
+	newAccess := m.accessLogs[:0]
+	for _, log := range m.accessLogs {
+		if _, ok := ids[log.UserID]; !ok {
+			newAccess = append(newAccess, log)
+		}
+	}
+	m.accessLogs = newAccess
+
+	newVerify := m.verifyLogs[:0]
+	for _, log := range m.verifyLogs {
+		if _, ok := ids[log.UserID]; !ok {
+			newVerify = append(newVerify, log)
+		}
+	}
+	m.verifyLogs = newVerify
+
+	return nil
+}
+
+func mapToTimeCount(m map[time.Time]uint32) []*common.TimeCount {
+	res := make([]*common.TimeCount, 0, len(m))
+	for ts, count := range m {
+		res = append(res, &common.TimeCount{Timestamp: ts, Count: count})
+	}
+	sort.Slice(res, func(i, j int) bool { return res[i].Timestamp.Before(res[j].Timestamp) })
+	return res
+}
+
+func getStartTime(p common.TimePeriod) time.Time {
+	now := time.Now()
+	switch p {
+	case common.TimePeriodToday:
+		return now.AddDate(0, 0, -1)
+	case common.TimePeriodWeek:
+		return now.AddDate(0, 0, -7)
+	case common.TimePeriodMonth:
+		return now.AddDate(0, -1, 0)
+	case common.TimePeriodYear:
+		return now.AddDate(-1, 0, 0)
+	default:
+		return now
+	}
 }

@@ -28,6 +28,13 @@ type ClickHouseConnectOpts struct {
 	Verbose  bool
 }
 
+func (opts *ClickHouseConnectOpts) Empty() bool {
+	return (len(opts.Host) == 0) &&
+		(len(opts.Database) == 0) &&
+		(len(opts.User) == 0) &&
+		(len(opts.Password) == 0)
+}
+
 func connectClickhouse(ctx context.Context, opts ClickHouseConnectOpts) *sql.DB {
 	slog.DebugContext(ctx, "Connecting to ClickHouse", "host", opts.Host, "db", opts.Database, "user", opts.User)
 	options := &clickhouse.Options{

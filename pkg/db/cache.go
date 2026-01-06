@@ -259,7 +259,7 @@ func init() {
 
 	for i, v := range cachePrefixToStrings {
 		if len(v) == 0 {
-			panic(fmt.Sprintf("found unconfigured value for key: %v", i))
+			panic(fmt.Sprintf("found unconfigured cache prefix value for key: %v", i))
 		}
 	}
 }

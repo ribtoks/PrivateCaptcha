@@ -24,7 +24,7 @@ var (
 	s          *Server
 	cfg        common.ConfigStore
 	cache      common.Cache[db.CacheKey, any]
-	timeSeries *db.TimeSeriesDB
+	timeSeries common.TimeSeriesStore
 	store      *db.BusinessStore
 	testPlan   billing.Plan
 )
@@ -38,6 +38,7 @@ func testsConfigStore() common.ConfigStore {
 	baseCfg := config.NewBaseConfig(config.NewEnvConfig(os.Getenv))
 	baseCfg.Add(config.NewStaticValue(common.RateLimitBurstKey, "20"))
 	baseCfg.Add(config.NewStaticValue(common.RateLimitRateKey, "10"))
+	baseCfg.Add(config.NewStaticValue(common.ClickHouseOptionalKey, "true"))
 	return baseCfg
 }
 
@@ -60,7 +61,11 @@ func TestMain(m *testing.M) {
 		panic(dberr)
 	}
 
-	timeSeries = db.NewTimeSeries(clickhouse, cache)
+	if clickhouse != nil {
+		timeSeries = db.NewTimeSeries(clickhouse, cache)
+	} else {
+		timeSeries = db.NewMemoryTimeSeries()
+	}
 
 	var err error
 	cache, err = db.NewMemoryCache[db.CacheKey, any]("default", 1000, &struct{}{}, 1*time.Minute, 3*time.Minute, 30*time.Second)

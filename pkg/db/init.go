@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -30,6 +31,10 @@ func Connect(ctx context.Context, cfg common.ConfigStore, timeout time.Duration,
 }
 
 func MigrateClickHouse(ctx context.Context, db *sql.DB, cfg common.ConfigStore, up bool) error {
+	if db == nil {
+		return nil
+	}
+
 	dbCfg := cfg.Get(common.ClickHouseDBKey)
 	const migrationsTable = "private_captcha_migrations"
 
@@ -77,6 +82,12 @@ func connectEx(ctx context.Context, cfg common.ConfigStore, timeout time.Duratio
 			Port:     9000,
 			Verbose:  config_pkg.AsBool(cfg.Get(common.VerboseKey)),
 		}
+
+		if opts.Empty() && config_pkg.AsBool(cfg.Get(common.ClickHouseOptionalKey)) {
+			slog.WarnContext(ctx, "Clickhouse connection variables are empty")
+			return nil
+		}
+
 		clickhouse = connectClickhouse(ctx, opts)
 		if perr := clickhouse.Ping(); perr != nil {
 			return perr

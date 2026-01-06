@@ -76,10 +76,11 @@ func init() {
 	configKeyToEnvName[common.IDHasherSaltKey] = "PC_ID_HASH_SALT"
 	configKeyToEnvName[common.CountryCodeHeaderKey] = "PC_COUNTRY_CODE_HEADER"
 	configKeyToEnvName[common.EnterpriseAuditLogDaysKey] = "EE_AUDIT_LOGS_DAYS"
+	configKeyToEnvName[common.ClickHouseOptionalKey] = "PC_CLICKHOUSE_OPTIONAL"
 
 	for i, v := range configKeyToEnvName {
 		if len(v) == 0 {
-			panic(fmt.Sprintf("found unconfigured value for key: %v", i))
+			panic(fmt.Sprintf("found unconfigured env value for key: %v", i))
 		}
 	}
 }

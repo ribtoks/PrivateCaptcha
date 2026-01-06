@@ -28,7 +28,7 @@ import (
 var (
 	server     *Server
 	cfg        common.ConfigStore
-	timeSeries *db.TimeSeriesDB
+	timeSeries common.TimeSeriesStore
 	store      *db.BusinessStore
 	testPlan   billing.Plan
 	cache      common.Cache[db.CacheKey, any]
@@ -93,7 +93,9 @@ func TestMain(m *testing.M) {
 
 	common.SetupLogs(common.StageTest, true)
 
-	cfg = config.NewEnvConfig(os.Getenv)
+	baseCfg := config.NewBaseConfig(config.NewEnvConfig(os.Getenv))
+	baseCfg.Add(config.NewStaticValue(common.ClickHouseOptionalKey, "true"))
+	cfg = baseCfg
 
 	var pool *pgxpool.Pool
 	var clickhouse *sql.DB
@@ -103,7 +105,11 @@ func TestMain(m *testing.M) {
 		panic(dberr)
 	}
 
-	timeSeries = db.NewTimeSeries(clickhouse, cache)
+	if clickhouse != nil {
+		timeSeries = db.NewTimeSeries(clickhouse, cache)
+	} else {
+		timeSeries = db.NewMemoryTimeSeries()
+	}
 
 	levels := difficulty.NewLevels(timeSeries, 100, 5*time.Minute)
 	levels.Init(2*time.Second, 5*time.Minute)
