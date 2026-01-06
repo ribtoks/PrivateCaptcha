@@ -495,7 +495,7 @@ func TestGetAuditLogs(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	user, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
 	if err != nil {
 		t.Fatalf("Failed to create account: %v", err)
@@ -537,7 +537,7 @@ func TestCreateAuditLogsContext(t *testing.T) {
 		t.Skip("skipping integration test")
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	user, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
 	if err != nil {
 		t.Fatalf("Failed to create account: %v", err)
