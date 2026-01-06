@@ -60,12 +60,14 @@ jobs:
         node-version: '22.x'
 
     - name: Install portal NPM dependencies
-      run: npm ci
-      working-directory: ./web
+      env:
+        STAGE: prod
+      run: make init-web
 
     - name: Install widget NPM dependencies
-      run: npm ci
-      working-directory: ./widget
+      env:
+        STAGE: prod
+      run: make init-widget
 
     - name: Build web
       env:

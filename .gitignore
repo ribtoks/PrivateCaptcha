@@ -39,5 +39,6 @@ fullcode.txt
 .DS_Store
 
 coverage_*.out
+coverage_integration/
 
 *.keys

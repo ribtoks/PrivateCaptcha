@@ -9,6 +9,12 @@ EXTRA_BUILD_FLAGS ?=
 TEST_NAME ?=
 TEST_DOCKER_COMPOSE_FILES ?= -f docker/docker-compose.test.yml -f docker/docker-compose.test.clickhouse.yml
 
+init-widget:
+	cd widget && env STAGE="$(STAGE)" npm install
+
+init-web:
+	cd web && env STAGE="$(STAGE)" npm install
+
 test-unit:
 	@env GOFLAGS="-mod=vendor" CGO_ENABLED=0 go test -tags enterprise -short ./...
 
@@ -25,6 +31,8 @@ test-docker:
 	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose $(TEST_DOCKER_COMPOSE_FILES) down -v --remove-orphans
 	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose $(TEST_DOCKER_COMPOSE_FILES) run --build --remove-orphans --rm migration
 	@env GIT_COMMIT="$(GIT_COMMIT)" TEST_NAME="$(TEST_NAME)" $(DOCKER) compose $(TEST_DOCKER_COMPOSE_FILES) up --build --abort-on-container-exit --remove-orphans --force-recreate testserver
+	@mkdir -p coverage_integration
+	@$(DOCKER) compose $(TEST_DOCKER_COMPOSE_FILES) cp testserver:/app/coverage_reports/. coverage_integration/
 	@env GIT_COMMIT="$(GIT_COMMIT)" $(DOCKER) compose $(TEST_DOCKER_COMPOSE_FILES) down -v --remove-orphans
 
 test-docker-light: TEST_DOCKER_COMPOSE_FILES = -f docker/docker-compose.test.yml
