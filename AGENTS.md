@@ -1,5 +1,6 @@
 ## General
 
+- This project is a Golang monolith with internal parts in `pkg/` directory, main executable in `cmd/server`, JS widget code in `widget/` and Portal frontend code in `web/`. All dependencies get embedded into the final Golang binary.
 - Instead of using `go`, `npm` or any other standard tooling, only use targets defined in the `Makefile` with appropriate names (e.g. `init-` for setup, `build-` for building and `test-` for testing)
 - Add only the most important comments, prefer adding logs where necessary instead of comments
 - If you're not sure how to run something, look for examples in `Makefile` and CI workflow `.github/workflows/ci.yaml`
