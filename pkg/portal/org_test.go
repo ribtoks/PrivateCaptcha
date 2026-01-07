@@ -551,7 +551,9 @@ func TestPostNewOrg(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	user, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	// Use admin plan with higher org limits to allow creating additional orgs
+	adminPlan := server.PlanService.GetInternalAdminPlan()
+	user, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), adminPlan)
 	if err != nil {
 		t.Fatalf("Failed to create account: %v", err)
 	}
@@ -619,7 +621,7 @@ func TestJoinOrg(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%s/join", server.IDHasher.Encrypt(int(org.ID))), nil)
+	req := httptest.NewRequest("PUT", fmt.Sprintf("/org/%s/members", server.IDHasher.Encrypt(int(org.ID))), nil)
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderCSRFToken, server.XSRF.Token(strconv.Itoa(int(user.ID))))
 
@@ -681,7 +683,7 @@ func TestLeaveOrg(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest("POST", fmt.Sprintf("/org/%s/leave", server.IDHasher.Encrypt(int(org.ID))), nil)
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/org/%s/members", server.IDHasher.Encrypt(int(org.ID))), nil)
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderCSRFToken, server.XSRF.Token(strconv.Itoa(int(user.ID))))
 
@@ -699,8 +701,8 @@ func TestLeaveOrg(t *testing.T) {
 	}
 
 	for _, m := range members {
-		if m.User.ID == user.ID {
-			t.Error("User should have left the org")
+		if m.User.ID == user.ID && m.Level == dbgen.AccessLevelMember {
+			t.Error("User should have left the org (level should change from member to invited)")
 		}
 	}
 }
@@ -711,7 +713,9 @@ func TestDeleteOrg(t *testing.T) {
 	}
 
 	ctx := t.Context()
-	user, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), testPlan)
+	// Use admin plan to allow creating extra org
+	adminPlan := server.PlanService.GetInternalAdminPlan()
+	user, _, err := db_tests.CreateNewAccountForTest(ctx, store, t.Name(), adminPlan)
 	if err != nil {
 		t.Fatalf("Failed to create account: %v", err)
 	}
@@ -729,7 +733,7 @@ func TestDeleteOrg(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest("DELETE", fmt.Sprintf("/org/%s", server.IDHasher.Encrypt(int(org.ID))), nil)
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/org/%s/delete", server.IDHasher.Encrypt(int(org.ID))), nil)
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderCSRFToken, server.XSRF.Token(strconv.Itoa(int(user.ID))))
 

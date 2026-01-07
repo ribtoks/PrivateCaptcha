@@ -773,7 +773,7 @@ func TestDeleteProperty(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req := httptest.NewRequest("DELETE", fmt.Sprintf("/org/%s/property/%s", server.IDHasher.Encrypt(int(org.ID)), server.IDHasher.Encrypt(int(property.ID))), nil)
+	req := httptest.NewRequest("DELETE", fmt.Sprintf("/org/%s/property/%s/delete", server.IDHasher.Encrypt(int(org.ID)), server.IDHasher.Encrypt(int(property.ID))), nil)
 	req.AddCookie(cookie)
 	req.Header.Set(common.HeaderCSRFToken, server.XSRF.Token(strconv.Itoa(int(user.ID))))
 
