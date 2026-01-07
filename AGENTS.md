@@ -3,8 +3,34 @@
 - This project is a Golang monolith with internal parts in `pkg/` directory, main executable in `cmd/server`, JS widget code in `widget/` and Portal frontend code in `web/`. All dependencies get embedded into the final Golang binary.
 - Instead of using `go`, `npm` or any other standard tooling, only use targets defined in the `Makefile` with appropriate names (e.g. `init-` for setup, `build-` for building and `test-` for testing)
 - Add only the most important comments, prefer adding logs where necessary instead of comments
-- If you're not sure how to run something, look for examples in `Makefile` and CI workflow `.github/workflows/ci.yaml`
+- If you're not sure how to run something, look for examples in `Makefile`, CI workflow `.github/workflows/ci.yaml` or dockerfiles in `docker/`
 - If you change any external Go packages, run `make vendors`
+
+### Databases
+
+- we use Postgres and ClickHouse as databases
+- we are using golang-migrate as a library for migrations and we run them ourselves via `pkg/db/init.go`
+- base DB initialization scripts are in `pkg/db/migrations/init/`
+
+#### Postgres
+
+- Postgres migrations are in `pkg/db/migrations/postgres/` and queries are in `pkg/db/queries/postgres/`
+- We use sqlc (config in `pkg/db/sqlc.yaml`) to codegen plain SQL into golang source code. After changing queries or migrations, run `make sqlc` in the root to regenerate the Go source code.
+- you can verify the sqlc queries/migrations using `make vet-docker`
+- we use generated Go code for Postgres via `pkg/db/business_impl.go`
+
+#### ClickHouse
+
+- ClickHouse migrations are in `pkg/db/migrations/clickhouse/` and queries are written in Go code in `pkg/db/timeseries.go`
+- we verify ClickHouse queries by writing integration tests for functionality that requires them
+- we use ClickHouse database functionality through our own interface `TimeSeriesStore` (with in-memory stub implementation `MemoryTimeSeries`)
+
+### Server
+
+- Server (entrypoint in `cmd/server/main.go`) has logical parts of API, Portal and background worker (running maintenance jobs)
+- handlers and routes for API part of the server are setup in `pkg/api/server.go` and `pkg/api/server_enterprise.go`
+- handlers and routes for Portal part of the server are setup in `pkg/portal/server.go` and `pkg/portal/server_enterprise.go`
+- maintenance jobs are defined in `pkg/maintenance/` package and scheduled in `cmd/server/main.go`
 
 ## Environment setup
 
@@ -25,3 +51,5 @@
 - Do not use underscores in Golang test names
 - To get unit tests code coverage, run `make test-unit-cover`
 - To get integration tests code coverage, after running integration tests, open `coverage_integration/` directory in repository root
+- For exact HTTP routes to endpoints always check how they are setup in `server.go` and `server_enterprise.go`
+- Always make sure all unit and integration tests pass before sending a PR
